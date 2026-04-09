@@ -284,11 +284,10 @@ jobs:
 
   # ================================================================
   # audit — dependency provenance:
-  #   - Export requirements.txt (prod only) + requirements-dev.txt
-  #     (prod + dev) — both hash-pinned against uv.lock
-  #   - Verify uv.lock is consistent with pyproject.toml
-  #   - pip-audit (CVE scan, JSON + text)
-  #   - CycloneDX SBOM (JSON)
+  #   - Verify uv.lock in sync with pyproject.toml
+  #   - Verify committed requirements.txt & requirements-dev.txt
+  #     match uv.lock (fail if stale — developer must regen + commit)
+  #   - Run scripts/audit.py for pip-audit + SBOMs on both variants
   # ================================================================
   audit:
     name: Dependency audit
@@ -312,71 +311,17 @@ jobs:
 
       - run: uv sync --frozen --dev
 
-      - name: Prepare reports directory
-        run: mkdir -p "${REPORTS_DIR}/audit"
-
-      - name: Verify uv.lock is in sync with pyproject.toml
-        run: uv lock --check
-
-      - name: Export hash-pinned requirements (prod only)
-        run: |
-          uv export \
-            --format requirements-txt \
-            --no-emit-project \
-            --no-dev \
-            --output-file "${REPORTS_DIR}/audit/requirements.txt"
-          echo "prod lines: $(wc -l < "${REPORTS_DIR}/audit/requirements.txt")"
-
-      - name: Export hash-pinned requirements (prod + dev)
-        run: |
-          uv export \
-            --format requirements-txt \
-            --no-emit-project \
-            --output-file "${REPORTS_DIR}/audit/requirements-dev.txt"
-          echo "dev lines: $(wc -l < "${REPORTS_DIR}/audit/requirements-dev.txt")"
-
-      - name: pip-audit (prod, text)
-        run: |
-          uv run pip-audit --strict --desc \
-            --requirement "${REPORTS_DIR}/audit/requirements.txt" \
-            2>&1 | tee "${REPORTS_DIR}/audit/pip-audit.log"
+      - name: Run supply-chain audit script
+        id: audit_script
+        run: uv run python scripts/audit.py
         continue-on-error: true
 
-      - name: pip-audit (prod, JSON)
-        id: pip_audit_json
+      - name: Copy committed requirements into reports dir
+        if: always()
         run: |
-          set +e
-          uv run pip-audit \
-            --format=json \
-            --output="${REPORTS_DIR}/audit/pip-audit.json" \
-            --requirement "${REPORTS_DIR}/audit/requirements.txt"
-          echo "exit=$?" >> "$GITHUB_OUTPUT"
-
-      - name: pip-audit (dev, JSON)
-        run: |
-          uv run pip-audit \
-            --format=json \
-            --output="${REPORTS_DIR}/audit/pip-audit-dev.json" \
-            --requirement "${REPORTS_DIR}/audit/requirements-dev.txt" \
-            || true
-
-      - name: Generate CycloneDX SBOM (prod)
-        run: |
-          uv run cyclonedx-py requirements \
-            "${REPORTS_DIR}/audit/requirements.txt" \
-            --output-format json \
-            --output-file "${REPORTS_DIR}/audit/sbom.cdx.json"
-          components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom.cdx.json")
-          echo "SBOM (prod) contains $components components"
-
-      - name: Generate CycloneDX SBOM (prod + dev)
-        run: |
-          uv run cyclonedx-py requirements \
-            "${REPORTS_DIR}/audit/requirements-dev.txt" \
-            --output-format json \
-            --output-file "${REPORTS_DIR}/audit/sbom-dev.cdx.json"
-          components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom-dev.cdx.json")
-          echo "SBOM (dev) contains $components components"
+          mkdir -p "${REPORTS_DIR}/audit"
+          cp requirements.txt "${REPORTS_DIR}/audit/requirements.txt"
+          cp requirements-dev.txt "${REPORTS_DIR}/audit/requirements-dev.txt"
 
       - name: Write audit summary
         if: always()
@@ -386,12 +331,10 @@ jobs:
             echo ""
             echo "| Check | Result |"
             echo "|---|---|"
-            echo "| uv.lock in sync | ✅ |"
-            if [ -s "${REPORTS_DIR}/audit/pip-audit.json" ]; then
-              vulns=$(jq '[.dependencies[] | select(.vulns | length > 0)] | length' "${REPORTS_DIR}/audit/pip-audit.json")
-              echo "| pip-audit (prod CVE) | $vulns vulnerable package(s) |"
+            if [ "${{ steps.audit_script.outcome }}" = "success" ]; then
+              echo "| Supply-chain audit | ✅ passed |"
             else
-              echo "| pip-audit (prod CVE) | ✅ clean |"
+              echo "| Supply-chain audit | ❌ failed — see logs |"
             fi
             if [ -f "${REPORTS_DIR}/audit/sbom.cdx.json" ]; then
               components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom.cdx.json")
@@ -410,6 +353,15 @@ jobs:
               echo '```'
               echo "</details>"
             fi
+            if [ -s "${REPORTS_DIR}/audit/pip-audit-dev.log" ]; then
+              echo ""
+              echo "<details><summary>pip-audit (prod + dev) output</summary>"
+              echo ""
+              echo '```'
+              cat "${REPORTS_DIR}/audit/pip-audit-dev.log"
+              echo '```'
+              echo "</details>"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload audit artifacts
@@ -417,13 +369,16 @@ jobs:
         uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
         with:
           name: dependency-audit
-          path: .reports/audit/
+          path: |
+            .reports/audit/
+            requirements.txt
+            requirements-dev.txt
           retention-days: 90  # SBOM retained for compliance window
 
-      - name: Fail if vulnerabilities were found in prod
-        if: steps.pip_audit_json.outputs.exit != '0'
+      - name: Fail if audit script reported errors
+        if: steps.audit_script.outcome != 'success'
         run: |
-          echo "pip-audit reported vulnerabilities — see artifacts."
+          echo "Supply-chain audit failed — see logs above and artifacts."
           exit 1
 
   # ================================================================

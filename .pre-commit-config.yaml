@@ -65,12 +65,23 @@ repos:
         types: [python]
 
   # --------------------------------------------------------------
-  # uv lockfile is always in sync with pyproject.toml
+  # uv lockfile is always in sync with pyproject.toml; requirements
+  # files are auto-regenerated when pyproject.toml or uv.lock changes.
   # --------------------------------------------------------------
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.5.11
     hooks:
       - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: regen-requirements
+        name: regenerate requirements.txt and requirements-dev.txt
+        entry: uv run python scripts/regen_requirements.py
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+        require_serial: true
 
   # --------------------------------------------------------------
   # Ruff + ty via uv — identical binaries to CI.
@@ -145,9 +156,9 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
-      - id: pip-audit
-        name: pip-audit (CVE scan)
-        entry: bash -c 'uv export --format requirements-txt --no-emit-project > /tmp/geek42-req.txt && uv run pip-audit --strict --requirement /tmp/geek42-req.txt'
+      - id: audit
+        name: supply-chain audit (pip-audit + SBOM)
+        entry: uv run python scripts/audit.py
         language: system
         pass_filenames: false
         stages: [pre-push]

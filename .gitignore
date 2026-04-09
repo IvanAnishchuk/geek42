@@ -14,6 +14,11 @@ build/
 .pytest_cache/
 .coverage
 .coverage.*
+coverage.xml
+test-results.xml
+htmlcov/
+pytest.log
+*.sarif
 
 # All CI / build reports go here
 .reports/

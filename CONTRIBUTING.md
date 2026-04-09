@@ -14,13 +14,20 @@ geek42 uses [uv](https://docs.astral.sh/uv/) for environment management.
 ```sh
 git clone https://github.com/OWNER/geek42.git
 cd geek42
-uv sync --dev
+uv sync --frozen --dev
 
 # Install pre-commit hooks (one-time, required)
 uv run pre-commit install --install-hooks
 uv run pre-commit install --hook-type commit-msg
 uv run pre-commit install --hook-type pre-push
 ```
+
+### Helper scripts
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| Regenerate requirements | `uv run python scripts/regen_requirements.py` | Rewrites `requirements.txt` + `requirements-dev.txt` from `uv.lock` (hash-pinned, committed) |
+| Supply-chain audit | `uv run python scripts/audit.py` | Runs the same checks as the CI `audit` job locally |
 
 ### Pre-commit hooks
 
@@ -32,6 +39,8 @@ Once installed, the hooks run automatically on `git commit` and
   - `ruff format`
   - `ty check` (type checking)
   - `uv lock` (sync lockfile with pyproject.toml)
+  - `regen-requirements` (auto-regenerates `requirements*.txt` when
+    `pyproject.toml` or `uv.lock` changes)
   - `gitleaks` (secret detection)
   - Whitespace, EOF, mixed line endings
   - YAML/TOML/JSON validity
@@ -44,7 +53,7 @@ Once installed, the hooks run automatically on `git commit` and
   - Conventional Commits format (`feat`, `fix`, etc.)
 - **On push:**
   - Full `pytest` suite
-  - `pip-audit` CVE scan
+  - `scripts/audit.py` — pip-audit (prod + dev) + CycloneDX SBOMs
 
 Because the hooks use `uv run`, they are **byte-identical** to what
 CI runs — if pre-commit passes locally, CI will pass.

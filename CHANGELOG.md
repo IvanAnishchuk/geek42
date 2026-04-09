@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/regen_requirements.py` — regenerate hash-pinned
+  `requirements.txt` (prod) and `requirements-dev.txt` (prod + dev)
+  from `uv.lock`. Both files are now **committed to the repo**.
+- `scripts/audit.py` — full supply-chain audit matching CI:
+  `uv lock --check`, requirements freshness, `pip-audit` on both
+  prod and dev, CycloneDX SBOMs for both variants
+- pre-commit `regen-requirements` hook: auto-regenerates
+  `requirements*.txt` whenever `pyproject.toml` or `uv.lock` changes
+- pre-commit `audit` hook (pre-push stage): runs full audit locally
+- `.reports/` directory as the single home for all generated reports,
+  caches, and CI artifacts (gitignored). Subdirectories: `lint/`,
+  `security-lint/`, `typecheck/`, `audit/`, `test/`, `osv/`
+- CI artifacts with structured categories, SARIF uploads for PR
+  annotations via GitHub code scanning (ruff, ruff-security, OSV),
+  JUnit XML test results, Cobertura coverage XML
+- Self-hosted coverage badge via
+  `py-cov-action/python-coverage-comment-action` (orphan branch,
+  no third-party telemetry)
+- Additional README badges: Coverage, Tests, Downloads, uv, ruff,
+  Conventional Commits, pre-commit, StepSecurity
+- `security-lint` CI job — runs only the `S`, `BLE`, `TRY` rule
+  groups and uploads a separate SARIF category so security trends
+  can be tracked independently of style
+- `osv-scan` CI job — Google's OSV-Scanner as a second-opinion
+  vulnerability scanner alongside `pip-audit`
+- `pytest --junitxml` and `--cov-report=xml` emitted by default via
+  `pyproject.toml` config
+
+### Changed
+
+- Pytest, coverage, and all CI reports now write to `.reports/`
+  subdirectories (no more stray `coverage.xml`, `test-results.xml`,
+  `htmlcov/` at repo root)
+- CI `audit` job now runs `scripts/audit.py` instead of inline bash
+- CI uses committed `requirements.txt` / `requirements-dev.txt`
+  directly; the audit script verifies they are in sync with `uv.lock`
+- Removed bash helper scripts and Makefile in favor of pure Python
+  scripts invoked via `uv run`
+
 ## [0.2.0] - 2026-04-09
 
 ### Added

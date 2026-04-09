@@ -85,9 +85,7 @@ def main() -> int:  # noqa: C901
     prod_before = file_sha256(PROD_REQ)
     dev_before = file_sha256(DEV_REQ)
 
-    code, out = run_capture(
-        [sys.executable, str(REPO_ROOT / "scripts" / "regen_requirements.py")]
-    )
+    code, out = run_capture([sys.executable, str(REPO_ROOT / "scripts" / "regen_requirements.py")])
     if code != 0:
         console.print(out)
         fail("Failed to regenerate requirements files")

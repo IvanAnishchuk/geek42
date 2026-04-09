@@ -37,7 +37,7 @@ managed by `uv.lock` that CI uses. There is zero drift between
 ```sh
 git clone https://github.com/OWNER/geek42.git
 cd geek42
-uv sync --dev
+uv sync --frozen --dev
 
 # Install git hooks (required)
 uv run pre-commit install --install-hooks
@@ -45,9 +45,21 @@ uv run pre-commit install --hook-type commit-msg
 uv run pre-commit install --hook-type pre-push
 ```
 
-This creates `.venv/`, resolves all dependencies (production + dev),
-verifies hashes against `uv.lock`, installs geek42 in editable mode,
-and wires up git hooks.
+This creates `.venv/`, resolves all dependencies (production + dev)
+from `uv.lock` with hash verification, installs geek42 in editable
+mode, and wires up git hooks.
+
+### Helper scripts
+
+geek42 ships two Python helper scripts under `scripts/` for tasks
+that need to stay consistent with CI. They depend only on the project
+environment (`uv`, `rich`, `pip-audit`, `cyclonedx-bom`) — no bash,
+no Make, no extra task runner.
+
+| Script | Command | What it does |
+|--------|---------|--------------|
+| Regenerate requirements | `uv run python scripts/regen_requirements.py` | Runs `uv lock`, exports `requirements.txt` (prod) and `requirements-dev.txt` (prod + dev). Both are hash-pinned and **committed to the repo**. |
+| Supply-chain audit | `uv run python scripts/audit.py` | Runs the full audit locally in the same order as CI: uv lock check, requirements freshness, `pip-audit` on both variants, CycloneDX SBOM on both variants. |
 
 ### The inner loop
 
@@ -86,12 +98,20 @@ uv run pip-audit --strict --desc --requirement /tmp/req.txt
 To run them manually at any time:
 
 ```sh
-uv run pre-commit run --all-files    # all pre-commit hooks
-uv run pre-commit run --all-files --hook-stage pre-push  # full suite
+# Fast CI parity (lint + typecheck + test)
+uv run ruff check src/ tests/
+uv run ruff format --check src/ tests/
+uv run ty check
+uv run pytest
+
+# Full CI parity (includes supply-chain audit)
+uv run pre-commit run --all-files
+uv run pre-commit run --all-files --hook-stage pre-push
+uv run python scripts/audit.py
 ```
 
-If any of these fail locally, CI will also fail — the pre-commit CI
-job runs the exact same hooks.
+If these pass locally, CI will pass — pre-commit uses the same
+uv-managed binaries as CI.
 
 ### Bypassing pre-commit (emergency only)
 
@@ -113,22 +133,62 @@ uv add pydantic-settings
 # Development only
 uv add --dev mypy-extensions
 
-# Then commit both pyproject.toml and uv.lock
-git add pyproject.toml uv.lock
+# Regenerate the exported requirements files
+uv run python scripts/regen_requirements.py
+
+# Commit everything together
+git add pyproject.toml uv.lock requirements.txt requirements-dev.txt
 git commit -S -s -m "chore(deps): add pydantic-settings"
 ```
 
-`uv.lock` **must be committed** with every dependency change.
+`uv.lock`, `requirements.txt`, and `requirements-dev.txt` **must all
+be committed** with every dependency change. The pre-commit
+`regen-requirements` hook does this automatically when `pyproject.toml`
+or `uv.lock` changes — but if pre-commit isn't installed, run the
+regen script manually.
+
+### Why commit requirements.txt AND uv.lock?
+
+Different tools expect different formats:
+
+- `uv.lock` is the source of truth — uv reads it for `uv sync`
+- `requirements.txt` (hash-pinned, prod only) — consumable by any
+  pip-based toolchain, reviewable in PR diffs, used by `pip-audit`,
+  `cyclonedx-py`, and downstream security scanners
+- `requirements-dev.txt` (hash-pinned, prod + dev) — same, with
+  dev tools included so dev-env vulns are tracked too
+
+Committing all three means:
+
+1. PRs show dependency changes in a reviewable diff format
+2. Security scanners can read either `requirements*.txt` or `uv.lock`
+3. CI verifies they stay in sync (any drift fails the audit job)
 
 ### Updating dependencies
 
 ```sh
-uv lock --upgrade            # update all
-uv lock --upgrade-package X  # update one
+uv lock --upgrade                        # update all
+uv lock --upgrade-package pydantic       # update one
+
+# Always regen after upgrading
+uv run python scripts/regen_requirements.py
 ```
 
-Dependabot runs weekly and will open grouped PRs for routine updates
-— you rarely need to do this by hand.
+Dependabot runs weekly and will open grouped PRs for routine updates.
+The pre-commit hook runs `regen_requirements.py` automatically when
+its PRs touch `pyproject.toml` or `uv.lock`, so dependabot branches
+stay consistent.
+
+### Running the full audit locally
+
+```sh
+uv run python scripts/audit.py
+```
+
+This runs all six checks (uv lock consistency, requirements freshness,
+pip-audit on prod, pip-audit on prod+dev, SBOM prod, SBOM prod+dev)
+and writes reports to `.reports/audit/`. The exact same logic runs
+in CI via the `audit` job — if this passes locally, CI will pass.
 
 ---
 
