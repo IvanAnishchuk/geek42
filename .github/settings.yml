@@ -1,0 +1,143 @@
+# Repository settings managed by the repository-settings/app GitHub App.
+# https://probot.github.io/apps/settings/
+#
+# Install the app once on the repository; after that, any change to
+# this file merged to main is applied to the repository settings
+# automatically. This replaces most of the manual UI clicks in
+# docs/security-setup.md.
+#
+# Some settings still can only be changed from the GitHub UI (e.g.
+# 2FA enforcement at the org level, PyPI trusted publisher registration).
+# Those are documented in docs/security-setup.md.
+
+repository:
+  name: geek42
+  description: >-
+    Convert GLEP 42 Gentoo news repositories into static blogs with
+    RSS/Atom feeds, SLSA L3 provenance, and sigstore-signed releases.
+  homepage: https://github.com/OWNER/geek42
+  topics:
+    - gentoo
+    - glep42
+    - news
+    - static-site-generator
+    - rss
+    - atom
+    - supply-chain-security
+    - slsa
+    - sigstore
+    - python
+  private: false
+  has_issues: true
+  has_projects: false
+  has_wiki: false
+  has_downloads: true
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: true
+  allow_auto_merge: true
+  delete_branch_on_merge: true
+  allow_update_branch: true
+  squash_merge_commit_title: PR_TITLE
+  squash_merge_commit_message: PR_BODY
+
+  # Security features (most of these also need to be enabled via the
+  # security-and-analysis REST API — the app handles that where possible).
+  security_and_analysis:
+    secret_scanning:
+      status: enabled
+    secret_scanning_push_protection:
+      status: enabled
+    dependabot_security_updates:
+      status: enabled
+
+# Labels for triaging issues and PRs
+labels:
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+  - name: enhancement
+    color: a2eeef
+    description: New feature or request
+  - name: documentation
+    color: 0075ca
+    description: Improvements or additions to documentation
+  - name: security
+    color: b60205
+    description: Security-relevant issue or fix
+  - name: dependencies
+    color: 0366d6
+    description: Pull requests that update a dependency file
+  - name: python
+    color: 3572a5
+    description: Python dependency updates
+  - name: github-actions
+    color: 000000
+    description: GitHub Actions dependency updates
+  - name: pre-commit
+    color: fab387
+    description: pre-commit hook updates
+  - name: good first issue
+    color: 7057ff
+    description: Good for newcomers
+  - name: help wanted
+    color: 008672
+    description: Extra attention is needed
+  - name: wontfix
+    color: ffffff
+    description: This will not be worked on
+  - name: duplicate
+    color: cfd3d7
+    description: This issue or pull request already exists
+
+# Branch protection rules — this is the critical piece.
+branches:
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+        require_last_push_approval: true
+      required_status_checks:
+        strict: true
+        contexts:
+          - pre-commit
+          - Lint & format
+          - Security lint (S rules)
+          - Type check
+          - Dependency audit
+          - OSV scan
+          - Test (Python 3.13)
+          - CodeQL (python)
+          - Secret scan
+          - Review dependency changes
+      enforce_admins: true
+      required_linear_history: true
+      allow_force_pushes: false
+      allow_deletions: false
+      required_conversation_resolution: true
+      required_signatures: true
+      block_creations: false
+      lock_branch: false
+      allow_fork_syncing: true
+
+# Deploy environments — these match the release workflow's
+# `environment:` declarations.
+environments:
+  - name: pypi
+    wait_timer: 0
+    deployment_branch_policy:
+      protected_branches: false
+      custom_branch_policies: true
+      custom_branches:
+        - main
+        - "v*.*.*"
+  - name: testpypi
+    wait_timer: 0
+    deployment_branch_policy:
+      protected_branches: false
+      custom_branch_policies: true
+      custom_branches:
+        - main

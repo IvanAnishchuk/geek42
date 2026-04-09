@@ -1,0 +1,47 @@
+Source: geek42
+Section: python
+Priority: optional
+Maintainer: geek42 contributors <noreply@example.org>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-sequence-python3,
+ pybuild-plugin-pyproject,
+ python3-all (>= 3.13),
+ python3-hatchling,
+ python3-pydantic,
+ python3-jinja2,
+ python3-typer,
+ python3-rich,
+ python3-markdown,
+ python3-pytest <!nocheck>,
+ python3-pytest-cov <!nocheck>,
+Standards-Version: 4.7.0
+Homepage: https://github.com/OWNER/geek42
+Vcs-Browser: https://github.com/OWNER/geek42
+Vcs-Git: https://github.com/OWNER/geek42.git
+Rules-Requires-Root: no
+
+Package: geek42
+Architecture: all
+Depends:
+ ${python3:Depends},
+ ${misc:Depends},
+ git,
+ python3-pydantic (>= 2.0),
+ python3-jinja2 (>= 3.1),
+ python3-typer (>= 0.15),
+ python3-rich (>= 13.0),
+ python3-markdown (>= 3.5),
+Description: GLEP 42 Gentoo news to static blog converter
+ geek42 converts GLEP 42 news item repositories into a static blog with
+ RSS/Atom feeds, Markdown exports, and a terminal reader — without
+ requiring eselect news.
+ .
+ Features:
+  * Parser for GLEP 42 format 1.0 and 2.0
+  * Static site generator with semantic HTML and dark mode
+  * RSS 2.0 and Atom 1.0 feed generation
+  * Read/unread tracking (equivalent to eselect news read new)
+  * News file linter with 15 diagnostic rules
+  * Compose/revise commands that open $EDITOR with templates
+  * Supports aggregating news from multiple git repositories

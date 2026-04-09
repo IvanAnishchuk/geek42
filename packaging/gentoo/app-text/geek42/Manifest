@@ -1,0 +1,7 @@
+# This Manifest is generated at release time by repoman / pkgdev.
+# Run:
+#     pkgdev manifest
+# inside the ebuild directory after updating the ebuild for a new
+# version. The committed ebuild lives under packaging/gentoo/ — to
+# install locally, copy it into an ::overlay repository and run
+# `pkgdev manifest` there.

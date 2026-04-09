@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Custom exception hierarchy (`src/geek42/errors.py`):
+  `Geek42Error` base with subclasses `ParseError`,
+  `MissingHeaderError`, `InvalidHeaderValueError`, `ComposeError`,
+  `EmptyTitleError`, `SlugDerivationError`, `ItemNotFoundError`,
+  `ConfigError`, `SourceNotFoundError`, `NoSourcesConfiguredError`,
+  `SourceNotPulledError`, `SystemDependencyError`, `GitNotFoundError`,
+  `EditorFailedError`. Central `main()` now catches `Geek42Error`
+  at the CLI boundary.
+- Multi-stage `Dockerfile` using `ghcr.io/astral-sh/uv` as builder,
+  non-root user, OCI labels, healthcheck. `.dockerignore` provided.
+- Debian packaging (`packaging/debian/`): control, rules, changelog,
+  copyright, source/format, watch, geek42.manpages. Uses
+  `pybuild-plugin-pyproject` with the hatchling backend.
+- RPM spec file (`packaging/rpm/geek42.spec`) following Fedora
+  Python packaging guidelines with `pyproject-rpm-macros`.
+- Gentoo ebuild (`packaging/gentoo/app-text/geek42/*`) with
+  `EAPI=8`, `distutils-r1`, hatchling backend, metadata.xml,
+  post-install message, Python 3.13 and 3.14 support.
+- `packaging/README.md` documenting every downstream format.
+- `.github/settings.yml` — managed by the repository-settings GitHub
+  App. Declares branch protection, status checks, labels,
+  environments, security features — all from a committed file.
+- `.github/FUNDING.yml` (placeholder, all commented).
+- `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.yml`
+- `.github/PULL_REQUEST_TEMPLATE.md` with Conventional Commits and
+  DCO checklist.
 - `scripts/regen_requirements.py` — regenerate hash-pinned
   `requirements.txt` (prod) and `requirements-dev.txt` (prod + dev)
   from `uv.lock`. Both files are now **committed to the repo**.
@@ -47,6 +73,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directly; the audit script verifies they are in sync with `uv.lock`
 - Removed bash helper scripts and Makefile in favor of pure Python
   scripts invoked via `uv run`
+- **Parser refactor**: `parser.py` now raises `MissingHeaderError`
+  and `InvalidHeaderValueError` (subclasses of `ParseError`) with
+  full context. `scan_repo` catches `ParseError` and `OSError`
+  specifically instead of `Exception`. Required-headers list is
+  exported as `REQUIRED_HEADERS`. Dead defaults removed.
+- **Compose refactor**: `place_news_item` raises `EmptyTitleError`
+  and `SlugDerivationError` instead of raw `ValueError`.
+- **Site refactor**: `_require_git` raises `GitNotFoundError` instead
+  of `RuntimeError`. Incorrect `collect_items` return-value docstring
+  corrected.
+- **Renderer fix**: `news_to_markdown` now uses `json.dumps` for
+  YAML string escaping, preventing broken frontmatter when titles
+  or authors contain double-quotes.
+- Removed `TRY003` from ruff ignore list — no longer needed since
+  exceptions carry their own messages in `__init__`.
 
 ## [0.2.0] - 2026-04-09
 

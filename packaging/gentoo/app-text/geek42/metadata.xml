@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>noreply@example.org</email>
+		<name>geek42 contributors</name>
+	</maintainer>
+	<longdescription lang="en">
+		geek42 converts GLEP 42 news item repositories into a static
+		blog with RSS/Atom feeds, Markdown exports, and a terminal
+		reader — without requiring eselect news. It supports
+		aggregating news from multiple git repositories, read/unread
+		tracking, compose and revise workflows that open $EDITOR with
+		templates, and a built-in news file linter with 15 diagnostic
+		rules.
+	</longdescription>
+	<upstream>
+		<remote-id type="github">OWNER/geek42</remote-id>
+		<remote-id type="pypi">geek42</remote-id>
+		<bugs-to>https://github.com/OWNER/geek42/issues</bugs-to>
+		<doc>https://github.com/OWNER/geek42/blob/main/README.md</doc>
+		<changelog>https://github.com/OWNER/geek42/blob/main/CHANGELOG.md</changelog>
+	</upstream>
+</pkgmetadata>

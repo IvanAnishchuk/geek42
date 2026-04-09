@@ -1,10 +1,56 @@
 # Security Setup
 
-This document describes the **manual GitHub and PyPI settings** the repository
-owner must configure to complete the supply-chain security posture. These
-cannot be set from files in the repository.
+This document describes how to complete the repository's supply-chain
+security posture. Some settings **can be managed from files** in this
+repo (committed and version-controlled); others **must be configured
+manually** via the GitHub UI or API because no file-based mechanism
+exists yet.
 
 Complete all sections before the first public release.
+
+---
+
+## What is settable from repo files
+
+| Setting | File | Automation |
+|---------|------|------------|
+| Dependabot version updates | `.github/dependabot.yml` | Native GitHub |
+| Workflow permissions (per-job) | `.github/workflows/*.yml` | Native GitHub |
+| Code owners | `.github/CODEOWNERS` | Native GitHub |
+| Branch protection rules | `.github/settings.yml` | [repository-settings/app](https://probot.github.io/apps/settings/) |
+| Repository metadata (description, topics) | `.github/settings.yml` | repository-settings/app |
+| Labels | `.github/settings.yml` | repository-settings/app |
+| Deploy environments | `.github/settings.yml` | repository-settings/app |
+| Secret scanning | `.github/settings.yml` | repository-settings/app |
+| Security policy | `SECURITY.md` | Native GitHub |
+| Issue/PR templates | `.github/ISSUE_TEMPLATE/*`, `.github/PULL_REQUEST_TEMPLATE.md` | Native GitHub |
+| Funding | `.github/FUNDING.yml` | Native GitHub |
+| Gitleaks config | `.gitleaks.toml` | Native (via workflow) |
+| Pre-commit hooks | `.pre-commit-config.yaml` | Native (via workflow) |
+
+**Setup**: install the [Settings GitHub App](https://github.com/apps/settings)
+on this repository once. After that, `.github/settings.yml` becomes
+the source of truth for everything listed above — any change merged
+to `main` is applied automatically. This replaces most of the manual
+UI clicks below.
+
+## What still requires manual setup
+
+Even with the Settings app installed, a few things must be done by
+hand (or via the REST API with a PAT):
+
+- **PyPI trusted publisher registration** — must be done on pypi.org
+- **2FA enforcement at the org level** — org settings only
+- **GHAS license activation** (for private repos) — billing settings
+- **First-time enablement of secret scanning / push protection** on
+  free public repos — may need a one-time UI click
+- **OpenSSF Best Practices badge enrollment** — self-assessment on
+  bestpractices.dev
+- **GitHub Personal Access Token rotation for Dependabot** — if used
+
+The sections below describe the manual steps in detail. If you
+install the Settings app, steps 1 through 4 are handled automatically
+by `.github/settings.yml` and you can skip directly to step 5.
 
 ---
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -12,27 +13,34 @@ from .models import NewsItem
 _URL_RE = re.compile(r"(https?://[^\s<>)\]]+)")
 
 
+def _yaml_str(value: str) -> str:
+    """Return a YAML-safe double-quoted string.
+
+    JSON double-quoted strings are a strict subset of YAML double-quoted
+    strings, so ``json.dumps`` gives us safe quoting and escaping for
+    any Unicode input without pulling in a YAML dependency.
+    """
+    return json.dumps(value, ensure_ascii=False)
+
+
 def news_to_markdown(item: NewsItem) -> str:
-    """Convert a NewsItem to a Markdown string with YAML frontmatter."""
+    """Convert a :class:`NewsItem` to a Markdown string with YAML frontmatter."""
     lines = [
         "---",
-        f'title: "{item.title}"',
+        f"title: {_yaml_str(item.title)}",
         f"date: {item.posted.isoformat()}",
         f"revision: {item.revision}",
     ]
     if item.authors:
-        authors = ", ".join(item.authors)
-        lines.append(f'authors: "{authors}"')
+        lines.append(f"authors: {_yaml_str(', '.join(item.authors))}")
     if item.source:
-        lines.append(f'source: "{item.source}"')
+        lines.append(f"source: {_yaml_str(item.source)}")
     if item.display_if_installed:
         lines.append("packages:")
-        for pkg in item.display_if_installed:
-            lines.append(f'  - "{pkg}"')
+        lines.extend(f"  - {_yaml_str(pkg)}" for pkg in item.display_if_installed)
     if item.display_if_keyword:
         lines.append("keywords:")
-        for kw in item.display_if_keyword:
-            lines.append(f'  - "{kw}"')
+        lines.extend(f"  - {_yaml_str(kw)}" for kw in item.display_if_keyword)
     lines += ["---", "", item.body, ""]
     return "\n".join(lines)
 
