@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Public API surface**: `src/geek42/__init__.py` now re-exports the
+  full public API (`NewsItem`, `NewsSource`, `SiteConfig`, all
+  exception classes, `parse_news_file`, `scan_repo`, `lint_news_file`,
+  `lint_repo`, `generate_rss`, `generate_atom`, `body_to_html`,
+  `news_to_markdown`, `write_markdown`, `ReadTracker`, `Diagnostic`,
+  `Severity`, `__version__`) with `__all__` declared. Importing from
+  `geek42` is now the supported entry point.
+- **Pydantic field descriptions**: every field on `NewsItem`,
+  `NewsSource`, and `SiteConfig` now has `Field(..., description=...)`
+  so `model_json_schema()` produces useful schemas.
+- **`feeds.MAX_FEED_SUMMARY_LEN` constant** replacing the magic
+  number `500` previously hard-coded in two places.
+- **Tests** for previously uncovered exception paths:
+  `MissingHeaderError`, `InvalidHeaderValueError` (Posted, Revision),
+  `GitNotFoundError` (via `monkeypatch.setattr(site, "_GIT", None)`).
+  Test count: 119 → 125; coverage 94.3% → 95.4%.
+
+### Changed
+
+- **`cli._run_editor_loop`**: extracted the duplicated edit-and-lint
+  loop from `cli.new` and `cli.revise` into a single helper. The
+  helper raises `EditorFailedError` (previously inline `typer.Exit`)
+  on editor failure, so it now flows through the central
+  `Geek42Error` boundary in `cli.main()`.
+- **`compose.find_item_file`**: type annotation tightened from
+  `sources: list` to `sources: list[NewsSource]`, fixing a silent
+  type-checker hole.
+- **Public-API docstrings** filled in for `ReadTracker` (class +
+  every method), `feeds.generate_rss`, `feeds.generate_atom`,
+  `feeds._to_datetime`, `feeds._xml_to_str`, `compose.find_item_file`,
+  `compose.get_editor`, `compose.infer_author`, `compose.title_to_slug`,
+  `compose.generate_template`, `compose.make_temp_copy`,
+  `compose.prepare_revision`, and `renderer.write_markdown`.
+- **`feeds._to_datetime`** now uses `datetime.combine(date, time.min,
+  tzinfo=UTC)` instead of `datetime(year, month, day, tzinfo=UTC)`.
+- **`parser.py`**: `Content-Type` lookup uses an explicit
+  `if "Content-Type" in headers else None` instead of the awkward
+  `headers.get("Content-Type", [None])[0]` pattern.
+- **`compose.generate_template`**: removed pointless `f` prefix on
+  string literals that had no interpolation.
+- **`cli.py`**: `import shutil` moved from inside `revise()` to the
+  module top, matching the rest of the imports.
+
 - Custom exception hierarchy (`src/geek42/errors.py`):
   `Geek42Error` base with subclasses `ParseError`,
   `MissingHeaderError`, `InvalidHeaderValueError`, `ComposeError`,

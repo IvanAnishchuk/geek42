@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pytest
+
+from geek42.errors import InvalidHeaderValueError, MissingHeaderError
 from geek42.parser import parse_news_file, scan_repo
 
 from .conftest import SAMPLE_NEWS_FORMAT1, SAMPLE_NEWS_FORMAT2
@@ -89,3 +92,69 @@ def test_scan_repo_skips_malformed(news_repo: Path) -> None:
     items = scan_repo(news_repo)
     # Should still get the 2 valid items, broken one skipped
     assert len(items) == 2
+
+
+# -- exception paths --
+
+
+def test_parse_missing_title_raises(tmp_path: Path) -> None:
+    item_dir = tmp_path / "2025-01-01-no-title"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-no-title.en.txt"
+    f.write_text(
+        "Author: D <d@g>\nPosted: 2025-01-01\nRevision: 1\nNews-Item-Format: 2.0\n\nBody."
+    )
+    with pytest.raises(MissingHeaderError) as exc_info:
+        parse_news_file(f)
+    assert exc_info.value.header == "Title"
+    assert exc_info.value.path == f
+
+
+def test_parse_missing_posted_raises(tmp_path: Path) -> None:
+    item_dir = tmp_path / "2025-01-01-no-posted"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-no-posted.en.txt"
+    f.write_text("Title: T\nAuthor: D <d@g>\nRevision: 1\nNews-Item-Format: 2.0\n\nBody.")
+    with pytest.raises(MissingHeaderError) as exc_info:
+        parse_news_file(f)
+    assert exc_info.value.header == "Posted"
+
+
+def test_parse_invalid_posted_date(tmp_path: Path) -> None:
+    item_dir = tmp_path / "2025-01-01-bad-date"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-bad-date.en.txt"
+    f.write_text(
+        "Title: T\nAuthor: D <d@g>\nPosted: not-a-date\nRevision: 1\n"
+        "News-Item-Format: 2.0\n\nBody."
+    )
+    with pytest.raises(InvalidHeaderValueError) as exc_info:
+        parse_news_file(f)
+    assert exc_info.value.header == "Posted"
+    assert exc_info.value.value == "not-a-date"
+
+
+def test_parse_invalid_revision(tmp_path: Path) -> None:
+    item_dir = tmp_path / "2025-01-01-bad-rev"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-bad-rev.en.txt"
+    f.write_text(
+        "Title: T\nAuthor: D <d@g>\nPosted: 2025-01-01\nRevision: abc\n"
+        "News-Item-Format: 2.0\n\nBody."
+    )
+    with pytest.raises(InvalidHeaderValueError) as exc_info:
+        parse_news_file(f)
+    assert exc_info.value.header == "Revision"
+    assert exc_info.value.value == "abc"
+
+
+def test_parse_news_file_str_message(tmp_path: Path) -> None:
+    """ParseError __str__ includes the file path for context."""
+    item_dir = tmp_path / "2025-01-01-no-title"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-no-title.en.txt"
+    f.write_text("Author: D <d@g>\nPosted: 2025-01-01\n\nBody.")
+    with pytest.raises(MissingHeaderError) as exc_info:
+        parse_news_file(f)
+    assert "no-title.en.txt" in str(exc_info.value)
+    assert "Title" in str(exc_info.value)

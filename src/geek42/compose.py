@@ -13,12 +13,19 @@ from pathlib import Path
 
 from .errors import EmptyTitleError, SlugDerivationError
 from .linter import Diagnostic, Severity, lint_news_file
+from .models import NewsSource
 
 _GIT = shutil.which("git")
 
 
 def get_editor(override: str | None = None) -> str:
-    """Resolve editor: --editor flag > $VISUAL > $EDITOR > vi."""
+    """Resolve which editor command to invoke.
+
+    Resolution order: ``override`` argument → ``$VISUAL`` → ``$EDITOR``
+    → fallback ``vi``. The result may contain arguments
+    (e.g. ``"code --wait"``) which the caller will split with
+    :func:`shlex.split`.
+    """
     if override:
         return override
     return os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
@@ -40,14 +47,28 @@ def _git_config(key: str) -> str | None:
 
 
 def infer_author() -> str:
-    """Infer author from git config user.name / user.email."""
+    """Build an author string from local git config.
+
+    Reads ``user.name`` and ``user.email`` from the user's git config
+    and formats them as ``"Name <email>"``. Returns sensible
+    placeholder values when git is unavailable or unconfigured so the
+    template still parses.
+    """
     name = _git_config("user.name") or "Your Name"
     email = _git_config("user.email") or "your@email.org"
     return f"{name} <{email}>"
 
 
 def title_to_slug(title: str, max_len: int = 20) -> str:
-    """Convert a title to a GLEP 42 short-name slug."""
+    """Convert a free-form title to a GLEP 42 short-name slug.
+
+    Lowercases, replaces every run of non-alphanumeric characters with
+    a single hyphen, strips leading/trailing hyphens, and truncates at
+    a word boundary if longer than ``max_len`` (default 20, the GLEP 42
+    recommended maximum).
+
+    Returns an empty string when no slug-worthy characters are present.
+    """
     slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
     if len(slug) > max_len:
         slug = slug[:max_len].rsplit("-", 1)[0]
@@ -55,21 +76,26 @@ def title_to_slug(title: str, max_len: int = 20) -> str:
 
 
 def generate_template(author: str | None = None) -> str:
-    """Generate a new GLEP 42 news item template."""
-    today = date.today().isoformat()
+    """Return a fresh GLEP 42 news item template ready for the editor.
+
+    The template has today's date and either the supplied or
+    git-inferred author already filled in. The user only needs to set
+    a Title and write the body.
+    """
     if author is None:
         author = infer_author()
+    today = date.today().isoformat()
     return (
-        f"Title: \n"
+        "Title: \n"
         f"Author: {author}\n"
         f"Posted: {today}\n"
-        f"Revision: 1\n"
-        f"News-Item-Format: 2.0\n"
-        f"\n"
-        f"Write your news item body here.\n"
-        f"\n"
-        f"Wrap lines at 72 characters. Separate paragraphs with\n"
-        f"blank lines.\n"
+        "Revision: 1\n"
+        "News-Item-Format: 2.0\n"
+        "\n"
+        "Write your news item body here.\n"
+        "\n"
+        "Wrap lines at 72 characters. Separate paragraphs with\n"
+        "blank lines.\n"
     )
 
 
@@ -98,7 +124,11 @@ def edit_and_lint(path: Path, editor: str) -> tuple[bool, list[Diagnostic]]:
 
 
 def make_temp_copy(content: str, prefix: str = "geek42-") -> Path:
-    """Write content to a named temp file. Caller must clean up."""
+    """Write ``content`` to a fresh ``.txt`` temp file and return its path.
+
+    The caller is responsible for unlinking the file. Use a ``try/finally``
+    block to guarantee cleanup even if the editor or linter raises.
+    """
     fd, tmp = tempfile.mkstemp(suffix=".txt", prefix=prefix)
     os.close(fd)
     p = Path(tmp)
@@ -132,9 +162,14 @@ def place_news_item(src: Path, repo_dir: Path, language: str = "en") -> Path:
 
 
 def prepare_revision(item_path: Path) -> Path:
-    """Copy a news file to a temp file with bumped revision and today's date.
+    """Stage an existing news item for revision in a temp file.
 
-    Returns the temp file path. Caller must clean up.
+    Reads the item, bumps the ``Revision:`` header by one, replaces
+    the ``Posted:`` date with today, and writes the result to a fresh
+    temp file. The original file is left untouched until the caller
+    copies the edited temp file back over it.
+
+    :returns: Path to the temp file. Caller must unlink it.
     """
     from .parser import parse_news_file
 
@@ -157,9 +192,23 @@ def prepare_revision(item_path: Path) -> Path:
 
 
 def find_item_file(
-    item_id: str, data_dir: Path, sources: list, language: str = "en"
+    item_id: str,
+    data_dir: Path,
+    sources: list[NewsSource],
+    language: str = "en",
 ) -> Path | None:
-    """Find the file path for a news item across all sources."""
+    """Locate the file backing a news item by ID across all configured sources.
+
+    The lookup is exact-match first, then falls back to substring match
+    on directory names — letting users invoke ``geek42 read flexiblas``
+    instead of typing the full ``2025-11-30-flexiblas-migration``.
+
+    :param item_id: Either a full GLEP 42 identifier or a substring.
+    :param data_dir: The geek42 data dir containing ``repos/<name>/``.
+    :param sources: Configured news sources (only the ``name`` is used).
+    :param language: ``en`` etc. — picks the right ``{id}.{lang}.txt``.
+    :returns: The path to the news file, or ``None`` if no match.
+    """
     for source in sources:
         repo_dir = data_dir / "repos" / source.name
         if not repo_dir.is_dir():

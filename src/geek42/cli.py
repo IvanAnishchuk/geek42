@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -13,9 +14,10 @@ from rich.panel import Panel
 from rich.table import Table
 
 from .errors import (
+    EditorFailedError,
     Geek42Error,
     ItemNotFoundError,
-    NoSourcesConfiguredError,
+    NoSourcesConfiguredError,  # noqa: F401  # re-exported for typing
     SourceNotFoundError,
     SourceNotPulledError,
 )
@@ -225,6 +227,34 @@ def read_new(
         tracker.mark_read(item.id)
 
 
+def _run_editor_loop(tmp: Path, editor: str) -> None:
+    """Open ``tmp`` in ``editor`` until it lints clean or the user aborts.
+
+    Lint diagnostics are printed after each edit. If errors remain,
+    the user is prompted to re-edit (default yes). On abort, raises
+    :class:`typer.Exit`. On editor failure (non-zero exit and no
+    diagnostics produced), raises :class:`EditorFailedError`.
+    """
+    from .compose import edit_and_lint
+    from .linter import Severity
+
+    while True:
+        ok, diags = edit_and_lint(tmp, editor)
+        if not diags and not ok:
+            raise EditorFailedError(editor, returncode=1)
+
+        for d in diags:
+            style = "red" if d.severity == Severity.error else "yellow"
+            console.print(f"[{style}]{d}[/]")
+
+        if ok:
+            return
+
+        if not typer.confirm("Errors found. Re-edit?", default=True):
+            err_console.print("[yellow]Aborted.[/]")
+            raise typer.Exit(1)
+
+
 @app.command()
 def new(
     source: Annotated[
@@ -234,14 +264,7 @@ def new(
     config: ConfigOption = Path("geek42.toml"),
 ) -> None:
     """Create a new GLEP 42 news item (opens $EDITOR)."""
-    from .compose import (
-        edit_and_lint,
-        generate_template,
-        get_editor,
-        make_temp_copy,
-        place_news_item,
-    )
-    from .linter import Severity
+    from .compose import generate_template, get_editor, make_temp_copy, place_news_item
 
     cfg = _load_config(config)
     ed = get_editor(editor)
@@ -256,23 +279,7 @@ def new(
     tmp = make_temp_copy(template, prefix="geek42-new-")
 
     try:
-        while True:
-            ok, diags = edit_and_lint(tmp, ed)
-            if not diags and not ok:
-                err_console.print("[red]Editor exited with error.[/]")
-                raise typer.Exit(1)
-
-            for d in diags:
-                style = "red" if d.severity == Severity.error else "yellow"
-                console.print(f"[{style}]{d}[/]")
-
-            if ok:
-                break
-
-            if not typer.confirm("Errors found. Re-edit?", default=True):
-                err_console.print("[yellow]Aborted.[/]")
-                raise typer.Exit(1)
-
+        _run_editor_loop(tmp, ed)
         final = place_news_item(tmp, repo_dir, language=cfg.language)
         console.print(f"[green]Created[/] {final}")
     finally:
@@ -287,10 +294,7 @@ def revise(
     config: ConfigOption = Path("geek42.toml"),
 ) -> None:
     """Revise an existing news item (bump revision, open $EDITOR)."""
-    import shutil
-
-    from .compose import edit_and_lint, find_item_file, get_editor, prepare_revision
-    from .linter import Severity
+    from .compose import find_item_file, get_editor, prepare_revision
 
     cfg = _load_config(config)
     ed = get_editor(editor)
@@ -303,23 +307,7 @@ def revise(
     tmp = prepare_revision(item_path)
 
     try:
-        while True:
-            ok, diags = edit_and_lint(tmp, ed)
-            if not diags and not ok:
-                err_console.print("[red]Editor exited with error.[/]")
-                raise typer.Exit(1)
-
-            for d in diags:
-                style = "red" if d.severity == Severity.error else "yellow"
-                console.print(f"[{style}]{d}[/]")
-
-            if ok:
-                break
-
-            if not typer.confirm("Errors found. Re-edit?", default=True):
-                err_console.print("[yellow]Aborted.[/]")
-                raise typer.Exit(1)
-
+        _run_editor_loop(tmp, ed)
         shutil.copy2(tmp, item_path)
         console.print(f"[green]Updated[/] {item_path}")
     finally:

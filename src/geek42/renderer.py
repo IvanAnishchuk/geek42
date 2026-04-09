@@ -52,7 +52,13 @@ def body_to_html(body: str) -> str:
 
 
 def write_markdown(item: NewsItem, output_dir: Path) -> Path:
-    """Write a news item as a .md file with YAML frontmatter."""
+    """Write a news item to ``{output_dir}/{item.id}.md``.
+
+    Creates ``output_dir`` if it does not exist. The file is written
+    in UTF-8 with YAML frontmatter followed by the body.
+
+    :returns: The full path of the file just written.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{item.id}.md"
     path.write_text(news_to_markdown(item), encoding="utf-8")

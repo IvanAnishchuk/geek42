@@ -1,27 +1,44 @@
-"""Generate RSS 2.0 and Atom 1.0 feeds."""
+"""Generate RSS 2.0 and Atom 1.0 feeds.
+
+Both feed formats share the same news item input but produce different
+XML structures. The implementations use stdlib :mod:`xml.etree.ElementTree`
+to avoid pulling in a feed-generation dependency.
+"""
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 from email.utils import format_datetime
 
 from .models import NewsItem, SiteConfig
 
 _ATOM_NS = "http://www.w3.org/2005/Atom"
 
+#: Maximum length of the description/summary excerpts in feed entries.
+#: Most aggregators truncate further; this just keeps payloads small.
+MAX_FEED_SUMMARY_LEN = 500
+
 
 def _to_datetime(item: NewsItem) -> datetime:
-    return datetime(item.posted.year, item.posted.month, item.posted.day, tzinfo=UTC)
+    """Promote a news item's date-only ``posted`` field to a UTC datetime."""
+    return datetime.combine(item.posted, time.min, tzinfo=UTC)
 
 
 def _xml_to_str(root: ET.Element) -> str:
+    """Serialize an ElementTree element to a UTF-8 XML string with declaration."""
     ET.indent(root)
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding="unicode")
 
 
 def generate_rss(items: list[NewsItem], config: SiteConfig) -> str:
-    """Generate an RSS 2.0 feed."""
+    """Generate an RSS 2.0 feed XML document.
+
+    :param items: News items to include, in the order they should appear.
+    :param config: Site config providing the channel title, description,
+        and base URL used to construct per-item permalinks.
+    :returns: A complete XML document string with the XML declaration.
+    """
     rss = ET.Element("rss", version="2.0")
     chan = ET.SubElement(rss, "channel")
 
@@ -37,7 +54,7 @@ def generate_rss(items: list[NewsItem], config: SiteConfig) -> str:
         ET.SubElement(entry, "link").text = link
         ET.SubElement(entry, "guid").text = link
         ET.SubElement(entry, "pubDate").text = format_datetime(_to_datetime(item))
-        ET.SubElement(entry, "description").text = item.body[:500]
+        ET.SubElement(entry, "description").text = item.body[:MAX_FEED_SUMMARY_LEN]
         for author in item.authors:
             ET.SubElement(entry, "author").text = author
 
@@ -45,7 +62,13 @@ def generate_rss(items: list[NewsItem], config: SiteConfig) -> str:
 
 
 def generate_atom(items: list[NewsItem], config: SiteConfig) -> str:
-    """Generate an Atom 1.0 feed."""
+    """Generate an Atom 1.0 feed XML document.
+
+    :param items: News items to include, in the order they should appear.
+    :param config: Site config providing the feed title, author, and base
+        URL used to construct per-entry IDs and permalinks.
+    :returns: A complete XML document string with the XML declaration.
+    """
     ET.register_namespace("", _ATOM_NS)
     ns = _ATOM_NS
 
@@ -84,7 +107,7 @@ def generate_atom(items: list[NewsItem], config: SiteConfig) -> str:
 
         summary = ET.SubElement(entry, f"{{{ns}}}summary")
         summary.set("type", "text")
-        summary.text = item.body[:500]
+        summary.text = item.body[:MAX_FEED_SUMMARY_LEN]
 
         content = ET.SubElement(entry, f"{{{ns}}}content")
         content.set("type", "text")

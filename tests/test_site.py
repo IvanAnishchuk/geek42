@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+from geek42 import site as site_module
+from geek42.errors import GitNotFoundError
 from geek42.models import NewsItem, NewsSource, SiteConfig
 from geek42.site import build_site, collect_items, pull_source
 
@@ -143,3 +147,14 @@ def test_build_site_rebuilds_existing_output(site_config: SiteConfig) -> None:
     build_site(site_config, items)
     assert not (site_config.output_dir / "stale.txt").exists()
     assert (site_config.output_dir / "index.html").exists()
+
+
+def test_pull_source_raises_when_git_missing(
+    site_config: SiteConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If shutil.which('git') returns None at import time, calling
+    pull_source raises GitNotFoundError instead of crashing inside subprocess."""
+    monkeypatch.setattr(site_module, "_GIT", None)
+    source = site_config.sources[0]
+    with pytest.raises(GitNotFoundError):
+        pull_source(source, site_config.data_dir)
