@@ -12,6 +12,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .errors import (
+    Geek42Error,
+    ItemNotFoundError,
+    NoSourcesConfiguredError,
+    SourceNotFoundError,
+    SourceNotPulledError,
+)
 from .models import NewsItem, NewsSource, SiteConfig
 from .site import build_site, collect_items, pull_source
 
@@ -185,8 +192,7 @@ def read(
     items = collect_items(cfg, pull=False)
     matches = [i for i in items if item_id in i.id]
     if not matches:
-        err_console.print(f"[red]No item matching[/] '{item_id}'")
-        raise typer.Exit(1)
+        raise ItemNotFoundError(item_id)
     item = matches[0]
     _render_item(item)
 
@@ -244,8 +250,7 @@ def new(
     src_obj = _resolve_source(cfg, source)
     repo_dir = cfg.data_dir / "repos" / src_obj.name
     if not repo_dir.is_dir():
-        err_console.print("[red]Source not pulled.[/] Run 'geek42 pull' first.")
-        raise typer.Exit(1)
+        raise SourceNotPulledError(src_obj.name)
 
     template = generate_template()
     tmp = make_temp_copy(template, prefix="geek42-new-")
@@ -270,9 +275,6 @@ def new(
 
         final = place_news_item(tmp, repo_dir, language=cfg.language)
         console.print(f"[green]Created[/] {final}")
-    except ValueError as e:
-        err_console.print(f"[red]Error:[/] {e}")
-        raise typer.Exit(1) from None
     finally:
         if tmp.exists():
             tmp.unlink()
@@ -295,8 +297,7 @@ def revise(
 
     item_path = find_item_file(item_id, cfg.data_dir, cfg.sources, cfg.language)
     if item_path is None:
-        err_console.print(f"[red]No item matching[/] '{item_id}'")
-        raise typer.Exit(1)
+        raise ItemNotFoundError(item_id)
 
     console.print(f"Revising [bold]{item_path.parent.name}[/]")
     tmp = prepare_revision(item_path)
@@ -327,17 +328,19 @@ def revise(
 
 
 def _resolve_source(cfg: SiteConfig, name: str | None = None) -> NewsSource:
-    """Resolve a source by name, or default to the first one."""
+    """Resolve a source by name, or default to the first one.
+
+    :raises SourceNotFoundError: ``name`` is given but doesn't match.
+    :raises NoSourcesConfiguredError: No sources in the config at all.
+    """
     if name:
         matches = [s for s in cfg.sources if s.name == name]
         if not matches:
-            err_console.print(f"[red]Unknown source:[/] {name}")
-            raise typer.Exit(1)
+            raise SourceNotFoundError(name)
         return matches[0]
     if cfg.sources:
         return cfg.sources[0]
-    err_console.print("[red]No sources configured.[/]")
-    raise typer.Exit(1)
+    raise NoSourcesConfiguredError
 
 
 @app.command()
@@ -372,4 +375,9 @@ def lint(
 
 
 def main() -> None:
-    app()
+    """Entry point. Catches Geek42Error at the boundary and formats it."""
+    try:
+        app()
+    except Geek42Error as exc:
+        err_console.print(f"[red]Error:[/] {exc}")
+        raise typer.Exit(1) from exc

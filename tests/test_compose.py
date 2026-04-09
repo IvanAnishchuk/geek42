@@ -17,6 +17,7 @@ from geek42.compose import (
     prepare_revision,
     title_to_slug,
 )
+from geek42.errors import EmptyTitleError, SlugDerivationError
 from geek42.models import NewsSource
 
 # -- get_editor --
@@ -150,7 +151,18 @@ def test_place_news_item_empty_title(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
 
-    with pytest.raises(ValueError, match="Title cannot be empty"):
+    with pytest.raises(EmptyTitleError):
+        place_news_item(src, repo)
+
+
+def test_place_news_item_unslugable_title(tmp_path: Path) -> None:
+    src = tmp_path / "draft.txt"
+    # Title is all punctuation, won't produce a slug
+    src.write_text(_valid_content("!@#$%^&*()"))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    with pytest.raises(SlugDerivationError):
         place_news_item(src, repo)
 
 

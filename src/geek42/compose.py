@@ -11,6 +11,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+from .errors import EmptyTitleError, SlugDerivationError
 from .linter import Diagnostic, Severity, lint_news_file
 
 _GIT = shutil.which("git")
@@ -106,20 +107,21 @@ def make_temp_copy(content: str, prefix: str = "geek42-") -> Path:
 
 
 def place_news_item(src: Path, repo_dir: Path, language: str = "en") -> Path:
-    """Parse a composed file, derive item ID, place it in the repo.
+    """Parse a composed file, derive its item ID, and place it in the repo.
 
-    Returns the final file path.
-    Raises ValueError if the title is empty.
+    :raises EmptyTitleError: The parsed file has an empty Title.
+    :raises SlugDerivationError: A valid slug cannot be derived from the title.
+    :returns: The final path under ``repo_dir``.
     """
     from .parser import parse_news_file
 
     item = parse_news_file(src)
     if not item.title.strip():
-        raise ValueError("Title cannot be empty")
+        raise EmptyTitleError
 
     slug = title_to_slug(item.title)
     if not slug:
-        raise ValueError(f"Cannot derive slug from title: {item.title!r}")
+        raise SlugDerivationError(item.title)
 
     item_id = f"{item.posted.isoformat()}-{slug}"
     target_dir = repo_dir / item_id

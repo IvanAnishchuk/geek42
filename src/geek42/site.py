@@ -8,6 +8,7 @@ from pathlib import Path
 
 import jinja2
 
+from .errors import GitNotFoundError
 from .feeds import generate_atom, generate_rss
 from .models import NewsItem, NewsSource, SiteConfig
 from .parser import scan_repo
@@ -19,8 +20,9 @@ _GIT = shutil.which("git")
 
 
 def _require_git() -> str:
+    """Return the absolute path to ``git``, or raise :class:`GitNotFoundError`."""
     if _GIT is None:
-        raise RuntimeError("git executable not found in PATH")
+        raise GitNotFoundError
     return _GIT
 
 
@@ -45,9 +47,11 @@ def pull_source(source: NewsSource, data_dir: Path) -> Path:
 
 
 def collect_items(config: SiteConfig, *, pull: bool = False) -> list[NewsItem]:
-    """Collect news items from all configured sources.
+    """Collect news items from all configured sources, sorted newest first.
 
-    Returns (items, errors) where errors is a list of (source_name, error_msg).
+    If ``pull`` is true, each source is cloned/updated before scanning;
+    sources that fail to pull but have a cached clone are still scanned
+    from the cache. Sources with no cache are silently skipped.
     """
     all_items: list[NewsItem] = []
     for source in config.sources:
