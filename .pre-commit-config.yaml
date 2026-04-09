@@ -1,0 +1,153 @@
+# pre-commit hooks for geek42
+# https://pre-commit.com
+#
+# Install:
+#     uv run pre-commit install --install-hooks
+#     uv run pre-commit install --hook-type commit-msg
+#     uv run pre-commit install --hook-type pre-push
+#
+# Run manually on all files:
+#     uv run pre-commit run --all-files
+#
+# Update hook versions:
+#     uv run pre-commit autoupdate
+#
+# Versions below are pinned by tag; Dependabot's pre-commit ecosystem
+# keeps them current. The "local" hooks call tools installed by uv,
+# guaranteeing byte-identical behavior between local runs and CI.
+
+default_language_version:
+  python: python3.13
+
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+  - pre-push
+
+default_stages: [pre-commit]
+
+# Fail fast on catastrophic issues before running slower hooks
+fail_fast: false
+
+repos:
+  # --------------------------------------------------------------
+  # General hygiene: whitespace, EOF, file validity, large files,
+  # merge conflict markers, symlinks, secrets.
+  # --------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: [--branch, main]
+      - id: check-ast
+        types: [python]
+      - id: debug-statements
+        types: [python]
+      - id: check-docstring-first
+        types: [python]
+
+  # --------------------------------------------------------------
+  # uv lockfile is always in sync with pyproject.toml
+  # --------------------------------------------------------------
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.5.11
+    hooks:
+      - id: uv-lock
+
+  # --------------------------------------------------------------
+  # Ruff + ty via uv — identical binaries to CI.
+  # Using `language: system` ensures we use the uv-managed tools
+  # instead of pre-commit installing its own copies.
+  # --------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (security + style, auto-fix)
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ty-check
+        name: ty (type check)
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true
+
+  # --------------------------------------------------------------
+  # Secret scanning — runs before commit, blocks accidental leaks
+  # --------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # --------------------------------------------------------------
+  # Conventional Commits validation (commit-msg stage)
+  # --------------------------------------------------------------
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.6.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - --strict
+          - feat
+          - fix
+          - security
+          - perf
+          - docs
+          - test
+          - refactor
+          - style
+          - chore
+          - ci
+          - build
+
+  # --------------------------------------------------------------
+  # Pre-push: run the full test suite and the dependency audit.
+  # These are slower so they only run on `git push`, not every
+  # commit.
+  # --------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (full suite)
+        entry: uv run pytest tests/ -q --no-cov
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: pip-audit
+        name: pip-audit (CVE scan)
+        entry: bash -c 'uv export --format requirements-txt --no-emit-project > /tmp/geek42-req.txt && uv run pip-audit --strict --requirement /tmp/geek42-req.txt'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

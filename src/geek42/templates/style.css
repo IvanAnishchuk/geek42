@@ -1,0 +1,126 @@
+:root {
+    --fg: #2e3440;
+    --bg: #eceff4;
+    --accent: #5e81ac;
+    --muted: #7b88a1;
+    --border: #d8dee9;
+    --surface: #fff;
+    --tag-pkg-bg: #d8dee9;
+    --tag-pkg-fg: #4c566a;
+    --tag-arch-bg: #ebcb8b33;
+    --tag-arch-fg: #8a6d3b;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --fg: #d8dee9;
+        --bg: #2e3440;
+        --accent: #88c0d0;
+        --muted: #7b88a1;
+        --border: #434c5e;
+        --surface: #3b4252;
+        --tag-pkg-bg: #434c5e;
+        --tag-pkg-fg: #d8dee9;
+        --tag-arch-bg: #ebcb8b22;
+        --tag-arch-fg: #ebcb8b;
+    }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    line-height: 1.7;
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-size: 0.9em; background: var(--surface); padding: 0.1em 0.3em; border-radius: 3px; }
+
+/* Header */
+header[role="banner"] { margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+header[role="banner"] h1 { font-size: 1.5rem; }
+header[role="banner"] h1 a { color: var(--fg); }
+header .description { color: var(--muted); font-size: 0.9rem; }
+header nav { margin-top: 0.5rem; font-size: 0.85rem; }
+header nav a { margin-right: 1rem; }
+
+/* News list */
+.news-list article {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.news-list article:last-child { border-bottom: none; }
+.news-list article h2 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+
+/* Metadata line */
+.meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.meta time { font-variant-numeric: tabular-nums; }
+.source { font-style: italic; }
+.revision, .format { font-variant-numeric: tabular-nums; }
+
+/* Inline author address (post page) */
+address.author-inline { display: inline; font-style: normal; }
+
+/* Tags (packages, architectures) */
+.tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.4rem 0; }
+.tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.15em 0.5em;
+    border-radius: 3px;
+    font-family: monospace;
+}
+.tag-package { background: var(--tag-pkg-bg); color: var(--tag-pkg-fg); }
+.tag-arch { background: var(--tag-arch-bg); color: var(--tag-arch-fg); }
+
+.excerpt { color: var(--muted); font-size: 0.9rem; }
+
+/* Post detail page */
+.post header { margin-bottom: 1rem; }
+.post header h2 { margin-bottom: 0.3rem; }
+
+/* Relevance aside */
+.relevance {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.6rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.85rem;
+}
+.relevance summary { cursor: pointer; font-weight: 600; color: var(--muted); }
+.relevance dl { margin-top: 0.5rem; }
+.relevance dt { color: var(--muted); font-weight: 600; margin-top: 0.3rem; }
+.relevance dd { margin-left: 1rem; }
+.relevance dd code { font-size: 0.85em; }
+
+/* Post body */
+.post .body { margin: 1.5rem 0; }
+.post .body p { margin-bottom: 1em; }
+.post .body a { word-break: break-all; }
+
+/* Post footer */
+.post-footer {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+.post-footer .post-id { color: var(--muted); margin-bottom: 0.5rem; }
+.post-footer nav a { margin-right: 0.5rem; }
+
+/* Site footer */
+footer[role="contentinfo"] {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.8rem;
+}

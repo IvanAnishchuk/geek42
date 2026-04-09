@@ -1,0 +1,18 @@
+# CODEOWNERS — code review policy
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+#
+# These owners are automatically requested for review on every PR.
+# Owners must also be listed as required reviewers in branch protection
+# for this file to be enforced.
+
+# Default: everything requires owner review
+* @OWNER
+
+# Security-sensitive paths require extra scrutiny
+/SECURITY.md                  @OWNER
+/.github/                     @OWNER
+/.github/workflows/           @OWNER
+/.github/CODEOWNERS           @OWNER
+/pyproject.toml               @OWNER
+/src/geek42/compose.py        @OWNER
+/src/geek42/site.py           @OWNER

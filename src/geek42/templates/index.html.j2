@@ -1,0 +1,35 @@
+{% extends "base.html.j2" %}
+{% block content %}
+<section class="news-list" aria-label="News items">
+    {% for item in items %}
+    <article itemscope itemtype="https://schema.org/NewsArticle">
+        <h2>
+            <a href="{{ root }}/posts/{{ item.id }}.html" itemprop="url">
+                <span itemprop="headline">{{ item.title }}</span>
+            </a>
+        </h2>
+        <div class="meta">
+            <time datetime="{{ item.posted.isoformat() }}" itemprop="datePublished">{{ item.posted }}</time>
+            {% for author in item.authors %}
+            &middot; <span itemprop="author" itemscope itemtype="https://schema.org/Person"><span itemprop="name">{{ author }}</span></span>
+            {% endfor %}
+            {% if item.source %}
+            &middot; <span class="source" title="News source repository">{{ item.source }}</span>
+            {% endif %}
+        </div>
+        {% if item.display_if_installed or item.display_if_keyword %}
+        <div class="tags">
+            {% for pkg in item.display_if_installed %}
+            <span class="tag tag-package" title="Relevant package">{{ pkg }}</span>
+            {% endfor %}
+            {% for kw in item.display_if_keyword %}
+            <span class="tag tag-arch" title="Architecture">{{ kw }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <p class="excerpt" itemprop="description">{{ item.body[:280] }}{% if item.body|length > 280 %}&hellip;{% endif %}</p>
+        <meta itemprop="identifier" content="{{ item.id }}">
+    </article>
+    {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html.j2" %}
+
+{% block title %}{{ item.title }} &mdash; {{ config.title }}{% endblock %}
+{% block meta_description %}{{ item.body[:160] | e }}{% endblock %}
+{% block meta_author %}{{ item.authors | join(", ") }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og_title %}{{ item.title }}{% endblock %}
+{% block og_description %}{{ item.body[:200] | e }}{% endblock %}
+{% block og_extra %}
+    <meta property="article:published_time" content="{{ item.posted.isoformat() }}">
+    {% for author in item.authors %}
+    <meta property="article:author" content="{{ author }}">
+    {% endfor %}
+    {% for kw in item.display_if_keyword %}
+    <meta property="article:tag" content="{{ kw }}">
+    {% endfor %}
+    {% for pkg in item.display_if_installed %}
+    <meta property="article:tag" content="{{ pkg }}">
+    {% endfor %}
+{% endblock %}
+
+{% block content %}
+<article class="post" itemscope itemtype="https://schema.org/NewsArticle">
+    <header>
+        <h2 itemprop="headline">{{ item.title }}</h2>
+        <div class="meta">
+            <time datetime="{{ item.posted.isoformat() }}" itemprop="datePublished">{{ item.posted }}</time>
+            {% for author in item.authors %}
+            &middot;
+            <address class="author-inline" itemprop="author" itemscope itemtype="https://schema.org/Person">
+                <span itemprop="name">{{ author }}</span>
+            </address>
+            {% endfor %}
+            {% if item.source %}
+            &middot; <span class="source" title="News source repository">{{ item.source }}</span>
+            {% endif %}
+            &middot; <span class="revision" title="Revision">rev {{ item.revision }}</span>
+            &middot; <span class="format" title="GLEP 42 format version">format {{ item.news_item_format }}</span>
+        </div>
+    </header>
+
+    {% if item.display_if_installed or item.display_if_keyword or item.display_if_profile %}
+    <aside class="relevance" aria-label="Relevance criteria">
+        <details open>
+            <summary>Relevance</summary>
+            <dl>
+                {% if item.display_if_installed %}
+                <dt>Packages</dt>
+                {% for pkg in item.display_if_installed %}
+                <dd><code>{{ pkg }}</code></dd>
+                {% endfor %}
+                {% endif %}
+                {% if item.display_if_keyword %}
+                <dt>Architectures</dt>
+                {% for kw in item.display_if_keyword %}
+                <dd><code>{{ kw }}</code></dd>
+                {% endfor %}
+                {% endif %}
+                {% if item.display_if_profile %}
+                <dt>Profiles</dt>
+                {% for profile in item.display_if_profile %}
+                <dd><code>{{ profile }}</code></dd>
+                {% endfor %}
+                {% endif %}
+            </dl>
+        </details>
+    </aside>
+    {% endif %}
+
+    <div class="body" itemprop="articleBody">
+        {{ body_html | safe }}
+    </div>
+
+    <footer class="post-footer">
+        <p class="post-id" title="GLEP 42 item identifier"><code>{{ item.id }}</code></p>
+        <nav aria-label="Post navigation">
+            <a href="{{ root }}/">&larr; All news</a>
+            &middot;
+            <a href="{{ root }}/markdown/{{ item.id }}.md" download>Markdown</a>
+        </nav>
+    </footer>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "NewsArticle",
+        "headline": {{ item.title | tojson }},
+        "datePublished": "{{ item.posted.isoformat() }}",
+        "author": [
+            {% for author in item.authors %}
+            {"@type": "Person", "name": {{ author | tojson }}}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        "identifier": {{ item.id | tojson }},
+        "version": {{ item.revision }}
+    }
+    </script>
+</article>
+{% endblock %}

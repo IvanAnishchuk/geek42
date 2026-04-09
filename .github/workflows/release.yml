@@ -1,0 +1,249 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      testpypi:
+        description: "Publish to TestPyPI instead of PyPI"
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+jobs:
+  # -------------------------------------------------------------------
+  # Build wheel + sdist with reproducible settings, generate SBOM,
+  # attest provenance, and sign with sigstore.
+  # -------------------------------------------------------------------
+  build:
+    name: Build & attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write      # OIDC for sigstore + attestations
+      attestations: write  # actions/attest-*
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+
+      - name: Compute SOURCE_DATE_EPOCH from tag commit
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct "${GITHUB_SHA}")" >> "$GITHUB_ENV"
+          echo "PYTHONHASHSEED=0" >> "$GITHUB_ENV"
+
+      - name: Build sdist and wheel
+        run: |
+          uv build
+          ls -la dist/
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          uv export --format requirements-txt --no-emit-project > requirements-release.txt
+          uv run cyclonedx-py requirements requirements-release.txt \
+            --output-format json \
+            --output-file dist/geek42-sbom.cdx.json
+          ls -la dist/
+
+      - name: Compute artifact hashes
+        id: hash
+        run: |
+          cd dist
+          HASHES=$(sha256sum geek42-*.whl geek42-*.tar.gz | base64 -w0)
+          echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
+          sha256sum geek42-*.whl geek42-*.tar.gz > SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1.4.4
+        with:
+          subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v1.4.1
+        with:
+          subject-path: "dist/geek42-*.whl"
+          sbom-path: "dist/geek42-sbom.cdx.json"
+
+      - name: Sign artifacts with sigstore
+        uses: sigstore/gh-action-sigstore-python@f514d46b907ebcd5bedc05145c03b69c1edd8b46 # v3.0.0
+        with:
+          inputs: ./dist/geek42-*.whl ./dist/geek42-*.tar.gz
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        with:
+          name: release-dist
+          path: |
+            dist/
+            requirements-release.txt
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # SLSA Level 3 provenance generator (reusable workflow).
+  # Runs in an isolated environment so the provenance is
+  # non-falsifiable.
+  # -------------------------------------------------------------------
+  provenance:
+    name: SLSA L3 provenance
+    needs: build
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: false
+      provenance-name: geek42-provenance.intoto.jsonl
+
+  # -------------------------------------------------------------------
+  # Publish to PyPI via trusted publishing (OIDC, no password).
+  # Protected by the `pypi` environment which requires manual approval.
+  # -------------------------------------------------------------------
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [build, provenance]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/geek42/
+    permissions:
+      id-token: write  # OIDC for trusted publishing
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - name: Download artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-dist
+          path: release-dist/
+
+      - name: Prepare dist/
+        run: |
+          mkdir -p dist
+          cp release-dist/dist/geek42-*.whl release-dist/dist/geek42-*.tar.gz dist/
+          ls -la dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        with:
+          # No password / token — uses trusted publishing (OIDC)
+          print-hash: true
+          verbose: true
+
+  # -------------------------------------------------------------------
+  # Publish to TestPyPI when triggered manually with testpypi=true.
+  # -------------------------------------------------------------------
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.testpypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/geek42/
+    permissions:
+      id-token: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - name: Download artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-dist
+          path: release-dist/
+
+      - name: Prepare dist/
+        run: |
+          mkdir -p dist
+          cp release-dist/dist/geek42-*.whl release-dist/dist/geek42-*.tar.gz dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
+          verbose: true
+
+  # -------------------------------------------------------------------
+  # Create GitHub Release with all artifacts (wheel, sdist, SBOM,
+  # sigstore bundles, provenance).
+  # -------------------------------------------------------------------
+  github-release:
+    name: Create GitHub Release
+    needs: [build, provenance, publish-pypi]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-dist
+          path: release-dist/
+
+      - name: Download SLSA provenance
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: geek42-provenance.intoto.jsonl
+          path: release-dist/
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            /^## \[/ { if (p) exit; if ($0 ~ "\\[" ver "\\]") p=1; next }
+            p { print }
+          ' CHANGELOG.md > release-notes.md
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2.2.1
+        with:
+          name: "geek42 ${{ steps.notes.outputs.version }}"
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            release-dist/dist/geek42-*.whl
+            release-dist/dist/geek42-*.tar.gz
+            release-dist/dist/geek42-sbom.cdx.json
+            release-dist/dist/SHA256SUMS.txt
+            release-dist/dist/*.sigstore
+            release-dist/geek42-provenance.intoto.jsonl

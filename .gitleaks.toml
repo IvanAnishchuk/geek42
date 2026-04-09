@@ -1,0 +1,25 @@
+# gitleaks configuration for geek42
+# https://github.com/gitleaks/gitleaks
+
+title = "geek42 gitleaks config"
+
+# Extend the default rules
+[extend]
+useDefault = true
+
+# Allowlist: known-safe test fixtures and documentation examples
+[allowlist]
+description = "Allow test fixtures and documentation examples"
+paths = [
+    '''tests/conftest\.py''',
+    '''tests/test_.*\.py''',
+    '''docs/.*\.md''',
+    '''CHANGELOG\.md''',
+    '''SECURITY\.md''',
+]
+regexes = [
+    # Example email addresses used in docs and tests
+    '''(dev|test|old|sam|ada|jane|john|your|d)@(gentoo|example)\.(org|com)''',
+    # The placeholder author in the compose template
+    '''your@email\.org''',
+]

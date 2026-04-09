@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# uv
+.venv/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+
+# All CI / build reports go here
+.reports/
+
+# geek42 runtime
+_site/
+.geek42/
+geek42.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
