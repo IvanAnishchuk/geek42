@@ -16,6 +16,7 @@ from rich.table import Table
 from .errors import (
     EditorFailedError,
     Geek42Error,
+    GitNotFoundError,
     ItemNotFoundError,
     NoSourcesConfiguredError,  # noqa: F401  # re-exported for typing
     SourceNotFoundError,
@@ -427,6 +428,231 @@ def lint(
 
     if errors or (strict and warnings):
         raise typer.Exit(1)
+
+
+# -- commit / push / deploy-status helpers --
+
+
+def _git(args: list[str], root: Path, **kwargs: object) -> subprocess.CompletedProcess[str]:
+    """Run a git command rooted at *root*. Returns the CompletedProcess."""
+    git = shutil.which("git")
+    if git is None:
+        raise GitNotFoundError
+    return subprocess.run(  # noqa: S603
+        [git, "-C", str(root), *args],
+        text=True,
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def _detect_news_changes(root: Path) -> tuple[list[str], list[str], list[str]]:
+    """Return (added, modified, deleted) item IDs from ``git status``."""
+    from .parser import NEWS_SUBDIR
+
+    result = _git(
+        ["status", "--porcelain", "--", str(NEWS_SUBDIR)],
+        root,
+        capture_output=True,
+        check=False,
+    )
+    added: list[str] = []
+    modified: list[str] = []
+    deleted: list[str] = []
+    seen: set[str] = set()
+
+    for line in result.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        status, filepath = line[:2], line[3:]
+        parts = Path(filepath).parts
+        try:
+            idx = list(parts).index("news")
+        except ValueError:
+            continue
+        if idx + 1 >= len(parts):
+            continue
+        item_id = parts[idx + 1]
+        if item_id in seen:
+            continue
+        seen.add(item_id)
+
+        if "?" in status or "A" in status:
+            added.append(item_id)
+        elif "D" in status:
+            deleted.append(item_id)
+        else:
+            modified.append(item_id)
+
+    return added, modified, deleted
+
+
+def _news_commit_message(
+    added: list[str], modified: list[str], deleted: list[str]
+) -> str:
+    """Generate a Conventional Commits message from news changes."""
+    if len(added) == 1 and not modified and not deleted:
+        return f"feat(news): add {added[0]}"
+    if len(modified) == 1 and not added and not deleted:
+        return f"fix(news): revise {modified[0]}"
+    if len(deleted) == 1 and not added and not modified:
+        return f"chore(news): remove {deleted[0]}"
+    parts: list[str] = []
+    if added:
+        parts.append(f"add {len(added)}")
+    if modified:
+        parts.append(f"revise {len(modified)}")
+    if deleted:
+        parts.append(f"remove {len(deleted)}")
+    return f"feat(news): {', '.join(parts)} item(s)"
+
+
+@app.command()
+def commit(
+    message: Annotated[
+        str | None, typer.Option("--message", "-m", help="Commit message.")
+    ] = None,
+    config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
+) -> None:
+    """Stage news items, compile blog, and commit.
+
+    Runs compile-blog before committing so that generated Markdown and
+    the README index are included in the same commit. When --message is
+    omitted a Conventional Commits message is derived from the changed
+    news items (like ``pkgdev commit``).
+    """
+    from .blog import compile_news
+    from .parser import NEWS_SUBDIR
+
+    cfg = _load_config(config, directory)
+    root = (directory or Path(".")).resolve()
+
+    added, modified, deleted = _detect_news_changes(root)
+    if not added and not modified and not deleted:
+        err_console.print("[yellow]Nothing to commit.[/]")
+        raise typer.Exit(0)
+
+    # Compile blog so the pre-commit hook is a no-op
+    compile_news(root, language=cfg.language)
+
+    # Stage news items and compiled output
+    for p in (str(NEWS_SUBDIR), "news", "README.md"):
+        if (root / p).exists():
+            _git(["add", p], root, capture_output=True, check=False)
+
+    if message is None:
+        message = _news_commit_message(added, modified, deleted)
+
+    result = _git(["commit", "-m", message], root, capture_output=True, check=False)
+    if result.returncode == 0:
+        console.print(f"[green]Committed:[/] {message}")
+    else:
+        # Pre-commit may have modified files — re-stage and retry once
+        for p in (str(NEWS_SUBDIR), "news", "README.md"):
+            if (root / p).exists():
+                _git(["add", p], root, capture_output=True, check=False)
+        result = _git(["commit", "-m", message], root, capture_output=True, check=False)
+        if result.returncode == 0:
+            console.print(f"[green]Committed:[/] {message}")
+        else:
+            err_console.print(f"[red]Commit failed:[/]\n{result.stderr.strip()}")
+            raise typer.Exit(1)
+
+
+@app.command()
+def push(
+    directory: DirectoryOption = None,
+) -> None:
+    """Push commits to the remote repository."""
+    root = (directory or Path(".")).resolve()
+    # Let git write progress directly to the terminal
+    result = _git(["push"], root, check=False)
+    if result.returncode != 0:
+        raise typer.Exit(1)
+
+
+@app.command("deploy-status")
+def deploy_status(
+    directory: DirectoryOption = None,
+) -> None:
+    """Check GitHub Pages build and CI status on main."""
+    import json as json_mod
+
+    gh = shutil.which("gh")
+    if gh is None:
+        err_console.print("[red]gh CLI not found in PATH[/]")
+        raise typer.Exit(1)
+
+    root = (directory or Path(".")).resolve()
+
+    def _gh(args: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603
+            [gh, *args], capture_output=True, text=True, check=False, cwd=str(root)
+        )
+
+    # Resolve owner/repo
+    nwo_r = _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"])
+    if nwo_r.returncode != 0:
+        err_console.print("[red]Could not detect GitHub repository.[/]")
+        raise typer.Exit(1)
+    nwo = nwo_r.stdout.strip()
+    console.print(f"[bold]{nwo}[/]\n")
+
+    # Pages info
+    pages_r = _gh(["api", f"repos/{nwo}/pages"])
+    if pages_r.returncode == 0:
+        pages = json_mod.loads(pages_r.stdout)
+        url = pages.get("html_url", "N/A")
+        status = pages.get("status", "unknown")
+        style = "green" if status == "built" else "yellow"
+        console.print(f"  [bold]Pages:[/] {url}")
+        console.print(f"  [bold]Status:[/] [{style}]{status}[/]")
+
+        # Latest build
+        builds_r = _gh(["api", f"repos/{nwo}/pages/builds?per_page=1"])
+        if builds_r.returncode == 0:
+            builds = json_mod.loads(builds_r.stdout)
+            if builds:
+                b = builds[0]
+                bstatus = b.get("status", "unknown")
+                created = b.get("created_at", "")[:16].replace("T", " ")
+                sha = (b.get("commit") or "")[:7]
+                bstyle = (
+                    "green" if bstatus == "built" else "yellow" if bstatus == "building" else "red"
+                )
+                console.print(f"  [bold]Build:[/]  [{bstyle}]{bstatus}[/] {created} ({sha})")
+    else:
+        console.print("  [yellow]GitHub Pages not configured.[/]")
+
+    # Latest CI run on main
+    ci_r = _gh(
+        [
+            "run",
+            "list",
+            "--branch",
+            "main",
+            "--limit",
+            "1",
+            "--json",
+            "status,conclusion,displayTitle,headSha",
+        ]
+    )
+    if ci_r.returncode == 0:
+        runs = json_mod.loads(ci_r.stdout)
+        if runs:
+            run = runs[0]
+            conclusion = run.get("conclusion") or run.get("status", "unknown")
+            title = run.get("displayTitle", "")
+            sha = run.get("headSha", "")[:7]
+            if conclusion == "success":
+                icon, cstyle = "✓", "green"
+            elif conclusion in ("failure", "cancelled"):
+                icon, cstyle = "✗", "red"
+            else:
+                icon, cstyle = "…", "yellow"
+            console.print(f"  [bold]CI:[/]    [{cstyle}]{icon} {conclusion}[/] {title} ({sha})")
+
+    console.print()
 
 
 def main() -> None:

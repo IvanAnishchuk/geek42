@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `place_news_item` always writes to `metadata/news/`.
 - **`resolve_news_root`** helper and **`NEWS_SUBDIR`** constant
   exported from the public API.
+- **`geek42 commit`** — stages news items, runs `compile-blog`, and
+  commits with an auto-generated Conventional Commits message (like
+  `pkgdev commit`). Accepts `-m` to override the message.
+- **`geek42 push`** — pushes commits to the remote.
+- **`geek42 deploy-status`** — checks GitHub Pages deployment and
+  latest CI run status on main (requires `gh` CLI).
 
 ## [0.3.0] - 2026-04-10
 

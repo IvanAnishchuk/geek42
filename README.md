@@ -109,6 +109,10 @@ geek42 list -C <dir>     List news items from a specific directory
 geek42 read <id>         Read a specific news item in the terminal
 geek42 pull              Clone or update remote news sources
 geek42 build             Pull remote sources and build the static site
+geek42 commit            Stage news, compile blog, commit (like pkgdev commit)
+geek42 commit -m "msg"   Commit with a custom message
+geek42 push              Push commits to the remote
+geek42 deploy-status     Check GitHub Pages and CI status (requires gh)
 ```
 
 Most commands accept `--directory` / `-C` to operate on a directory
