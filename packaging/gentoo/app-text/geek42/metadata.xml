@@ -2,7 +2,7 @@
 <!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
 <pkgmetadata>
 	<maintainer type="person">
-		<email>noreply@congentoo.org</email>
+		<email>ivan@agorism.org</email>
 		<name>geek42 contributors</name>
 	</maintainer>
 	<longdescription lang="en">
@@ -15,10 +15,10 @@
 		rules.
 	</longdescription>
 	<upstream>
-		<remote-id type="github">congentoo/geek42</remote-id>
+		<remote-id type="github">IvanAnishchuk/geek42</remote-id>
 		<remote-id type="pypi">geek42</remote-id>
-		<bugs-to>https://github.com/congentoo/geek42/issues</bugs-to>
-		<doc>https://github.com/congentoo/geek42/blob/main/README.md</doc>
-		<changelog>https://github.com/congentoo/geek42/blob/main/CHANGELOG.md</changelog>
+		<bugs-to>https://github.com/IvanAnishchuk/geek42/issues</bugs-to>
+		<doc>https://github.com/IvanAnishchuk/geek42/blob/main/README.md</doc>
+		<changelog>https://github.com/IvanAnishchuk/geek42/blob/main/CHANGELOG.md</changelog>
 	</upstream>
 </pkgmetadata>

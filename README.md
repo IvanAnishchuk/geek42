@@ -1,28 +1,19 @@
 # geek42
 
-<!-- Build & test -->
-[![CI](https://github.com/congentoo/geek42/actions/workflows/ci.yml/badge.svg)](https://github.com/congentoo/geek42/actions/workflows/ci.yml)
-[![Coverage](https://raw.githubusercontent.com/congentoo/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/congentoo/geek42/tree/python-coverage-comment-action-data)
-[![Tests](https://img.shields.io/github/actions/workflow/status/congentoo/geek42/ci.yml?label=tests&branch=main)](https://github.com/congentoo/geek42/actions/workflows/ci.yml)
-
-<!-- Security -->
-[![CodeQL](https://github.com/congentoo/geek42/actions/workflows/codeql.yml/badge.svg)](https://github.com/congentoo/geek42/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/congentoo/geek42/badge)](https://scorecard.dev/viewer/?uri=github.com/congentoo/geek42)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/XXXXX/badge)](https://www.bestpractices.dev/projects/XXXXX)
-[![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![StepSecurity](https://img.shields.io/badge/runners-hardened-blue)](https://app.stepsecurity.io/github/congentoo/geek42)
-
-<!-- Packaging -->
-[![PyPI](https://img.shields.io/pypi/v/geek42)](https://pypi.org/project/geek42/)
-[![Python](https://img.shields.io/pypi/pyversions/geek42)](https://pypi.org/project/geek42/)
-[![Downloads](https://img.shields.io/pypi/dm/geek42)](https://pypi.org/project/geek42/)
-
-<!-- Project health -->
+[![CI](https://github.com/IvanAnishchuk/geek42/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/IvanAnishchuk/geek42/actions/workflows/codeql.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/IvanAnishchuk/geek42/badge)](https://scorecard.dev/viewer/?uri=github.com/IvanAnishchuk/geek42)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12450/badge)](https://www.bestpractices.dev/projects/12450)
+[![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE.md)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE.md)
+
+<!-- Uncomment after PyPI publish and first successful coverage run:
+[![PyPI](https://img.shields.io/pypi/v/geek42)](https://pypi.org/project/geek42/)
+[![Python](https://img.shields.io/pypi/pyversions/geek42)](https://pypi.org/project/geek42/)
+[![Coverage](https://raw.githubusercontent.com/IvanAnishchuk/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/IvanAnishchuk/geek42/tree/python-coverage-comment-action-data)
+-->
 
 Convert [GLEP 42](https://www.gentoo.org/glep/glep-0042.html) Gentoo news repositories into a static blog with RSS/Atom feeds, Markdown exports, and a terminal reader — no `eselect news` required.
 
@@ -242,22 +233,22 @@ jobs:
 
 ```sh
 # Download wheel and attestations
-gh release download v0.1.0 --repo congentoo/geek42
+gh release download v0.1.0 --repo IvanAnishchuk/geek42
 
 # Verify sigstore signature (requires `uv tool install sigstore`)
 uv tool run sigstore verify identity \
-    --cert-identity-regexp '^https://github\.com/congentoo/geek42/\.github/workflows/release\.yml@' \
+    --cert-identity-regexp '^https://github\.com/IvanAnishchuk/geek42/\.github/workflows/release\.yml@' \
     --cert-oidc-issuer 'https://token.actions.githubusercontent.com' \
     --bundle geek42-0.1.0-py3-none-any.whl.sigstore \
     geek42-0.1.0-py3-none-any.whl
 
 # Verify GitHub build provenance
-gh attestation verify geek42-0.1.0-py3-none-any.whl --owner congentoo
+gh attestation verify geek42-0.1.0-py3-none-any.whl --owner IvanAnishchuk
 
 # Verify SLSA L3 provenance
 slsa-verifier verify-artifact \
     --provenance-path geek42-provenance.intoto.jsonl \
-    --source-uri github.com/congentoo/geek42 \
+    --source-uri github.com/IvanAnishchuk/geek42 \
     --source-tag v0.1.0 \
     geek42-0.1.0-py3-none-any.whl
 ```

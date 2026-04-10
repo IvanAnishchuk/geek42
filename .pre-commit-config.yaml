@@ -17,7 +17,7 @@
 # guaranteeing byte-identical behavior between local runs and CI.
 
 default_language_version:
-  python: python3.13
+  python: python3
 
 default_install_hook_types:
   - pre-commit

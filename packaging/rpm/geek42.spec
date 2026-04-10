@@ -12,7 +12,7 @@ Release:        1%{?dist}
 Summary:        GLEP 42 Gentoo news to static blog converter
 
 License:        CC0-1.0
-URL:            https://github.com/congentoo/%{pypi_name}
+URL:            https://github.com/IvanAnishchuk/%{pypi_name}
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz#/%{pypi_name}-%{version}.tar.gz
 
 BuildArch:      noarch
@@ -53,14 +53,14 @@ Summary:        %{summary}
 %{_bindir}/geek42
 
 %changelog
-* Fri Apr 10 2026 geek42 contributors <noreply@congentoo.org> - 0.3.0-1
+* Fri Apr 10 2026 geek42 contributors <ivan@agorism.org> - 0.3.0-1
 - New upstream release.
 - Adds --directory / -C option to all commands.
 
-* Thu Apr 09 2026 geek42 contributors <noreply@congentoo.org> - 0.2.0-1
+* Thu Apr 09 2026 geek42 contributors <ivan@agorism.org> - 0.2.0-1
 - New upstream release.
 - Adds compose/revise/read-new commands.
 - Full supply-chain security hardening.
 
-* Thu Apr 09 2026 geek42 contributors <noreply@congentoo.org> - 0.1.0-1
+* Thu Apr 09 2026 geek42 contributors <ivan@agorism.org> - 0.1.0-1
 - Initial release.

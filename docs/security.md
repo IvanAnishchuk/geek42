@@ -123,7 +123,7 @@ every release:
 
 1. **Sigstore bundle** (`*.sigstore`)
    - Keyless signing via Fulcio + Rekor
-   - Identity: `https://github.com/congentoo/geek42/.github/workflows/release.yml@refs/tags/vX.Y.Z`
+   - Identity: `https://github.com/IvanAnishchuk/geek42/.github/workflows/release.yml@refs/tags/vX.Y.Z`
    - Issuer: `https://token.actions.githubusercontent.com`
    - Transparency log entry at `rekor.sigstore.dev`
 2. **GitHub build provenance** (in-toto attestation)
@@ -241,7 +241,7 @@ As a consumer of geek42, you can independently verify any release.
 ### Quick verification (one command)
 
 ```sh
-gh attestation verify geek42-0.2.0-py3-none-any.whl --owner congentoo
+gh attestation verify geek42-0.2.0-py3-none-any.whl --owner IvanAnishchuk
 ```
 
 This checks the GitHub-hosted build provenance attestation and
@@ -251,7 +251,7 @@ confirms the wheel was built by the release workflow.
 
 ```sh
 # 0. Download everything from the GitHub release
-gh release download v0.2.0 --repo congentoo/geek42
+gh release download v0.2.0 --repo IvanAnishchuk/geek42
 ls
 # geek42-0.2.0-py3-none-any.whl
 # geek42-0.2.0.tar.gz
@@ -266,18 +266,18 @@ sha256sum -c SHA256SUMS.txt
 
 # 2. Sigstore signature (keyless, verifies workflow identity)
 uv tool run sigstore verify identity \
-    --cert-identity-regexp '^https://github\.com/congentoo/geek42/\.github/workflows/release\.yml@' \
+    --cert-identity-regexp '^https://github\.com/IvanAnishchuk/geek42/\.github/workflows/release\.yml@' \
     --cert-oidc-issuer 'https://token.actions.githubusercontent.com' \
     --bundle geek42-0.2.0-py3-none-any.whl.sigstore \
     geek42-0.2.0-py3-none-any.whl
 
 # 3. GitHub build provenance attestation
-gh attestation verify geek42-0.2.0-py3-none-any.whl --owner congentoo
+gh attestation verify geek42-0.2.0-py3-none-any.whl --owner IvanAnishchuk
 
 # 4. SLSA Level 3 provenance (non-falsifiable)
 slsa-verifier verify-artifact \
     --provenance-path geek42-provenance.intoto.jsonl \
-    --source-uri github.com/congentoo/geek42 \
+    --source-uri github.com/IvanAnishchuk/geek42 \
     --source-tag v0.2.0 \
     geek42-0.2.0-py3-none-any.whl
 
@@ -291,7 +291,7 @@ To prove the wheel was built from the tagged source (and not tampered
 with in the pipeline), rebuild from source and compare hashes:
 
 ```sh
-git clone --branch v0.2.0 https://github.com/congentoo/geek42
+git clone --branch v0.2.0 https://github.com/IvanAnishchuk/geek42
 cd geek42
 
 # Use the exact SOURCE_DATE_EPOCH from the tag commit

@@ -1,7 +1,7 @@
 Source: geek42
 Section: python
 Priority: optional
-Maintainer: geek42 contributors <noreply@congentoo.org>
+Maintainer: geek42 contributors <ivan@agorism.org>
 Build-Depends:
  debhelper-compat (= 13),
  dh-sequence-python3,
@@ -16,9 +16,9 @@ Build-Depends:
  python3-pytest <!nocheck>,
  python3-pytest-cov <!nocheck>,
 Standards-Version: 4.7.0
-Homepage: https://github.com/congentoo/geek42
-Vcs-Browser: https://github.com/congentoo/geek42
-Vcs-Git: https://github.com/congentoo/geek42.git
+Homepage: https://github.com/IvanAnishchuk/geek42
+Vcs-Browser: https://github.com/IvanAnishchuk/geek42
+Vcs-Git: https://github.com/IvanAnishchuk/geek42.git
 Rules-Requires-Root: no
 
 Package: geek42

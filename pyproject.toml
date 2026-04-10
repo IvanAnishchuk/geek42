@@ -29,12 +29,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/congentoo/geek42"
-Documentation = "https://github.com/congentoo/geek42/blob/main/docs/news-format.md"
-Repository = "https://github.com/congentoo/geek42"
-Issues = "https://github.com/congentoo/geek42/issues"
-Changelog = "https://github.com/congentoo/geek42/blob/main/CHANGELOG.md"
-Security = "https://github.com/congentoo/geek42/blob/main/SECURITY.md"
+Homepage = "https://github.com/IvanAnishchuk/geek42"
+Documentation = "https://github.com/IvanAnishchuk/geek42/blob/main/docs/news-format.md"
+Repository = "https://github.com/IvanAnishchuk/geek42"
+Issues = "https://github.com/IvanAnishchuk/geek42/issues"
+Changelog = "https://github.com/IvanAnishchuk/geek42/blob/main/CHANGELOG.md"
+Security = "https://github.com/IvanAnishchuk/geek42/blob/main/SECURITY.md"
 
 [project.scripts]
 geek42 = "geek42.cli:main"
@@ -116,6 +116,7 @@ junit_log_passing_tests = false
 [tool.coverage.run]
 source = ["geek42"]
 branch = true
+relative_files = true
 data_file = ".reports/test/.coverage"
 
 [tool.coverage.report]

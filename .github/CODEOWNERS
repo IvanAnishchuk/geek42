@@ -6,13 +6,13 @@
 # for this file to be enforced.
 
 # Default: everything requires owner review
-* @congentoo
+* @IvanAnishchuk
 
 # Security-sensitive paths require extra scrutiny
-/SECURITY.md                  @congentoo
-/.github/                     @congentoo
-/.github/workflows/           @congentoo
-/.github/CODEOWNERS           @congentoo
-/pyproject.toml               @congentoo
-/src/geek42/compose.py        @congentoo
-/src/geek42/site.py           @congentoo
+/SECURITY.md                  @IvanAnishchuk
+/.github/                     @IvanAnishchuk
+/.github/workflows/           @IvanAnishchuk
+/.github/CODEOWNERS           @IvanAnishchuk
+/pyproject.toml               @IvanAnishchuk
+/src/geek42/compose.py        @IvanAnishchuk
+/src/geek42/site.py           @IvanAnishchuk
