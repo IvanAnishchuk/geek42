@@ -462,18 +462,35 @@ def sign(
     config: ConfigOption = Path("geek42.toml"),
     directory: DirectoryOption = None,
 ) -> None:
-    """Regenerate the root Manifest and sign it with gpg.
+    """Regenerate the root Manifest and optionally sign it.
 
-    Runs ``gemato create`` (or pure-Python fallback) to rebuild the
-    Manifest covering every file in the repo, then clear-signs it.
-    The key comes from --key or ``signing_key`` in geek42.toml.
+    Uses ``gemato create -s -k KEY`` when gemato is available (create +
+    sign in one step). Falls back to pure-Python Manifest generation
+    plus ``gpg --clearsign``.  The key comes from --key or
+    ``signing_key`` in geek42.toml.
     """
-    from .manifest import generate_manifest, manifest_path
+    from .manifest import _GEMATO, generate_manifest, manifest_path
 
     cfg = _load_config(config, directory)
     root = (directory or Path(".")).resolve()
     signing_key = key or cfg.signing_key or None
 
+    # If gemato is available and we have a key, do create+sign in one shot
+    if _GEMATO and signing_key:
+        result = subprocess.run(  # noqa: S603
+            [_GEMATO, "create", "--profile", "ebuild",
+             "-s", "-k", signing_key, str(root)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            err_console.print(f"[red]gemato create --sign failed:[/]\n{result.stderr.strip()}")
+            raise typer.Exit(1)
+        console.print(f"[green]Manifest created and signed[/] with key {signing_key}")
+        return
+
+    # Otherwise: generate Manifest, then sign separately
     ok = generate_manifest(root)
     if not ok:
         err_console.print("[yellow]Nothing to sign.[/]")
