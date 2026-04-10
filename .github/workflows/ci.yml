@@ -406,7 +406,7 @@ jobs:
         run: mkdir -p "${REPORTS_DIR}/osv"
 
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@5e6a8517a5c0ec65b5fefec1ac7d10fc8bdf9c9b # v1.9.2
+        uses: google/osv-scanner-action/osv-scanner-action@eb5b619bb565d10623076caba5263750fde3c790 # main 2026-04-10
         with:
           scan-args: |-
             --output=.reports/osv/osv-results.sarif
@@ -514,7 +514,7 @@ jobs:
 
       - name: Coverage comment + badge (PR + main)
         if: matrix.python-version == '3.13'
-        uses: py-cov-action/python-coverage-comment-action@968e9b1a5b2cd849f8a29d89a47b0d2d1a6b3b7b # v3.30
+        uses: py-cov-action/python-coverage-comment-action@7188638f871f721a365d644f505d1ff3df20d683 # v3.40
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERAGE_DATA_BRANCH: python-coverage-comment-action-data
