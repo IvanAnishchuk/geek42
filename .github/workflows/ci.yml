@@ -442,7 +442,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write  # coverage, etc
       pull-requests: write  # coverage + test-report comments
       checks: write         # publish test result check
       issues: write         # test reporter creates a check
