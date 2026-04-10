@@ -14,6 +14,7 @@ Example::
 
 from __future__ import annotations
 
+from .blog import compile_news
 from .errors import (
     ComposeError,
     ConfigError,
@@ -42,6 +43,7 @@ __version__ = "0.2.0"
 
 __all__ = [
     "ComposeError",
+    "compile_news",
     "ConfigError",
     "Diagnostic",
     "EditorFailedError",

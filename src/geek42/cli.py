@@ -331,6 +331,29 @@ def _resolve_source(cfg: SiteConfig, name: str | None = None) -> NewsSource:
     raise NoSourcesConfiguredError
 
 
+@app.command("compile-blog")
+def compile_blog(
+    path: Annotated[Path, typer.Argument(help="Root of a GLEP 42 news repository.")] = Path("."),
+    news_dir: Annotated[
+        str, typer.Option("--news-dir", "-d", help="Output directory for Markdown files.")
+    ] = "news",
+    readme: Annotated[str, typer.Option("--readme", help="README file to update.")] = "README.md",
+    language: Annotated[str, typer.Option("--language", "-l", help="Preferred language.")] = "en",
+) -> None:
+    """Compile news items into Markdown files and update the README index.
+
+    Designed to run as a pre-commit hook so the repo doubles as a blog.
+    """
+    from .blog import compile_news
+
+    root = path.resolve()
+    count = compile_news(root, news_dir=news_dir, readme=readme, language=language)
+    if count:
+        console.print(f"[green]Compiled[/] {count} news item(s) -> {news_dir}/")
+    else:
+        console.print("[yellow]No news items found.[/]")
+
+
 @app.command()
 def lint(
     path: Annotated[Path, typer.Argument(help="Path to a news file or repository directory.")],
