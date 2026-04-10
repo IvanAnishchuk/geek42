@@ -26,9 +26,7 @@ def _require_git() -> str:
     return _GIT
 
 
-def pull_source(
-    source: NewsSource, data_dir: Path, *, root_dir: Path | None = None
-) -> Path:
+def pull_source(source: NewsSource, data_dir: Path, *, root_dir: Path | None = None) -> Path:
     """Clone or update a news source git repository."""
     if source.is_local:
         return (root_dir or Path(".")).resolve()

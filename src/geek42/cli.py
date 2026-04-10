@@ -512,7 +512,13 @@ def verify(
 # -- commit / push / deploy-status helpers --
 
 
-def _git(args: list[str], root: Path, **kwargs: object) -> subprocess.CompletedProcess[str]:
+def _git(
+    args: list[str],
+    root: Path,
+    *,
+    capture_output: bool = False,
+    check: bool = False,
+) -> subprocess.CompletedProcess[str]:
     """Run a git command rooted at *root*. Returns the CompletedProcess."""
     git = shutil.which("git")
     if git is None:
@@ -520,7 +526,8 @@ def _git(args: list[str], root: Path, **kwargs: object) -> subprocess.CompletedP
     return subprocess.run(  # noqa: S603
         [git, "-C", str(root), *args],
         text=True,
-        **kwargs,  # type: ignore[arg-type]
+        capture_output=capture_output,
+        check=check,
     )
 
 
@@ -565,9 +572,7 @@ def _detect_news_changes(root: Path) -> tuple[list[str], list[str], list[str]]:
     return added, modified, deleted
 
 
-def _news_commit_message(
-    added: list[str], modified: list[str], deleted: list[str]
-) -> str:
+def _news_commit_message(added: list[str], modified: list[str], deleted: list[str]) -> str:
     """Generate a Conventional Commits message from news changes."""
     if len(added) == 1 and not modified and not deleted:
         return f"feat(news): add {added[0]}"
@@ -587,9 +592,7 @@ def _news_commit_message(
 
 @app.command()
 def commit(
-    message: Annotated[
-        str | None, typer.Option("--message", "-m", help="Commit message.")
-    ] = None,
+    message: Annotated[str | None, typer.Option("--message", "-m", help="Commit message.")] = None,
     config: ConfigOption = Path("geek42.toml"),
     directory: DirectoryOption = None,
 ) -> None:

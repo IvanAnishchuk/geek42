@@ -96,9 +96,7 @@ def test_generate_creates_sub_manifests(tmp_path: Path) -> None:
 
     # Sub-directory Manifests exist
     sub_manifests = sorted(
-        p.relative_to(root)
-        for p in root.rglob("Manifest")
-        if p != manifest_path(root)
+        p.relative_to(root) for p in root.rglob("Manifest") if p != manifest_path(root)
     )
     assert sub_manifests, "expected sub-Manifest files"
 
@@ -110,9 +108,12 @@ def test_generate_covers_all_non_dot_files(tmp_path: Path) -> None:
     generate_manifest(root)
 
     # gemato verify would fail if any file is uncovered
+    assert _GEMATO is not None
     result = subprocess.run(
         [_GEMATO, "verify", str(root)],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
 
@@ -208,9 +209,11 @@ def test_gemato_verify_matches_gemato_create(tmp_path: Path) -> None:
     our_root = manifest_path(root).read_text()
 
     # Regenerate with gemato directly (should be idempotent)
+    assert _GEMATO is not None
     subprocess.run(
         [_GEMATO, "create", "--profile", "ebuild", str(root)],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
     their_root = manifest_path(root).read_text()
 

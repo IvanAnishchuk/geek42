@@ -61,11 +61,15 @@ def generate_manifest(root: Path, *, signing_key: str = "") -> bool:
     # First run needs "create"; subsequent runs use "update"
     sub = "update" if mf.exists() else "create"
     args = [
-        gemato, sub,
-        "--profile", "ebuild",
-        "--hashes", _HASHES,
+        gemato,
+        sub,
+        "--profile",
+        "ebuild",
+        "--hashes",
+        _HASHES,
         "--timestamp",
-        "--compress-watermark", _COMPRESS_WATERMARK,
+        "--compress-watermark",
+        _COMPRESS_WATERMARK,
         "-q",
     ]
     if signing_key:
@@ -73,7 +77,10 @@ def generate_manifest(root: Path, *, signing_key: str = "") -> bool:
     args.append(str(root))
 
     result = subprocess.run(  # noqa: S603
-        args, capture_output=True, text=True, check=False,
+        args,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return result.returncode == 0
 
@@ -94,13 +101,14 @@ def verify_manifest(root: Path, *, key_file: str = "metadata/key.asc") -> list[s
     args += ["--keep-going", str(root)]
 
     result = subprocess.run(  # noqa: S603
-        args, capture_output=True, text=True, check=False,
+        args,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode == 0:
         return []
     errors = [
-        line.strip()
-        for line in result.stderr.splitlines()
-        if line.strip() and "ERROR" in line
+        line.strip() for line in result.stderr.splitlines() if line.strip() and "ERROR" in line
     ]
     return errors or [result.stderr.strip() or f"gemato exited {result.returncode}"]
