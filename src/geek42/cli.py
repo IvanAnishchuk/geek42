@@ -47,6 +47,9 @@ output_dir = "_site"
 data_dir = ".geek42"
 language = "en"
 
+# OpenPGP key ID for Manifest signing (used by `geek42 sign`):
+# signing_key = "0xABCD1234"
+
 [[sources]]
 name = "local"
 url = "."
@@ -79,19 +82,39 @@ def _load_config(config_path: Path, directory: Path | None = None) -> SiteConfig
 def init(
     config: ConfigOption = Path("geek42.toml"),
     directory: DirectoryOption = None,
+    title: Annotated[str, typer.Option("--title", "-t", help="Site title.")] = "My News",
+    bare: Annotated[bool, typer.Option("--bare", help="Only create geek42.toml.")] = False,
 ) -> None:
-    """Create a default geek42.toml configuration file."""
+    """Scaffold a new GLEP 42 news repository.
+
+    Creates the standard directory layout with pre-commit hooks, CI
+    workflow, and tool configuration. Use --bare to create only
+    geek42.toml (old behaviour).
+    """
     from .compose import infer_author
 
-    if directory is not None and not config.is_absolute():
-        config = directory / config
-    if config.exists():
-        err_console.print(f"[yellow]Already exists:[/] {config}")
-        return
-    content = DEFAULT_CONFIG.format(title="My News", author=infer_author())
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(content, encoding="utf-8")
-    console.print(f"[green]Created[/] {config}")
+    root = (directory or Path(".")).resolve()
+    author = infer_author()
+
+    if bare:
+        cfg_path = root / config if not config.is_absolute() else config
+        if cfg_path.exists():
+            err_console.print(f"[yellow]Already exists:[/] {cfg_path}")
+            return
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        content = DEFAULT_CONFIG.format(title=title, author=author)
+        cfg_path.write_text(content, encoding="utf-8")
+        console.print(f"[green]Created[/] {cfg_path}")
+    else:
+        from .scaffold import scaffold
+
+        created = scaffold(root, title=title, author=author)
+        if created:
+            for f in created:
+                console.print(f"  [green]+[/] {f.relative_to(root)}")
+            console.print(f"\n[green]{len(created)} file(s) created.[/]")
+        else:
+            err_console.print("[yellow]All files already exist.[/]")
 
 
 @app.command()
@@ -430,6 +453,91 @@ def lint(
         raise typer.Exit(1)
 
 
+# -- sign / verify --
+
+
+@app.command()
+def sign(
+    key: Annotated[str | None, typer.Option("--key", "-k", help="OpenPGP key ID.")] = None,
+    config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
+) -> None:
+    """Generate a Manifest with checksums (optionally sign with gpg).
+
+    Produces a gemato-compatible Manifest covering all files under
+    metadata/news/. Signing uses --key, or falls back to
+    ``signing_key`` in geek42.toml.
+    """
+    from .manifest import generate_manifest
+
+    cfg = _load_config(config, directory)
+    root = (directory or Path(".")).resolve()
+    signing_key = key or cfg.signing_key or None
+
+    body = generate_manifest(root)
+    if not body:
+        err_console.print("[yellow]No news items to sign.[/]")
+        raise typer.Exit(1)
+
+    manifest_path = root / "Manifest"
+    manifest_path.write_text(body, encoding="utf-8")
+    console.print(f"[green]Manifest written[/] ({body.count(chr(10))} entries)")
+
+    if signing_key:
+        gpg = shutil.which("gpg") or shutil.which("gpg2")
+        if gpg is None:
+            err_console.print("[red]gpg not found in PATH[/]")
+            raise typer.Exit(1)
+        result = subprocess.run(  # noqa: S603
+            [gpg, "--clearsign", "--local-user", signing_key, "--output", "-", str(manifest_path)],
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            err_console.print(f"[red]gpg signing failed[/] (exit {result.returncode})")
+            raise typer.Exit(1)
+        manifest_path.write_bytes(result.stdout)
+        console.print(f"[green]Signed[/] with key {signing_key}")
+
+
+@app.command()
+def verify(
+    directory: DirectoryOption = None,
+) -> None:
+    """Verify Manifest checksums (and gpg signature if present)."""
+    from .manifest import verify_manifest
+
+    root = (directory or Path(".")).resolve()
+    manifest_path = root / "Manifest"
+
+    # Verify GPG signature if Manifest looks signed
+    if manifest_path.exists():
+        text = manifest_path.read_text(encoding="utf-8")
+        if "BEGIN PGP SIGNED MESSAGE" in text:
+            gpg = shutil.which("gpg") or shutil.which("gpg2")
+            if gpg:
+                result = subprocess.run(  # noqa: S603
+                    [gpg, "--verify", str(manifest_path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    console.print("[green]GPG signature valid.[/]")
+                else:
+                    err_console.print(f"[red]GPG verification failed:[/]\n{result.stderr.strip()}")
+                    raise typer.Exit(1)
+            else:
+                err_console.print("[yellow]gpg not found — skipping signature check[/]")
+
+    errors = verify_manifest(root)
+    if errors:
+        for e in errors:
+            err_console.print(f"  [red]✗[/] {e}")
+        raise typer.Exit(1)
+    console.print("[green]All checksums verified.[/]")
+
+
 # -- commit / push / deploy-status helpers --
 
 
@@ -517,11 +625,13 @@ def commit(
     """Stage news items, compile blog, and commit.
 
     Runs compile-blog before committing so that generated Markdown and
-    the README index are included in the same commit. When --message is
-    omitted a Conventional Commits message is derived from the changed
-    news items (like ``pkgdev commit``).
+    the README index are included in the same commit. Updates the
+    Manifest when ``signing_key`` is set in the config. When --message
+    is omitted a Conventional Commits message is derived from the
+    changed news items (like ``pkgdev commit``).
     """
     from .blog import compile_news
+    from .manifest import generate_manifest
     from .parser import NEWS_SUBDIR
 
     cfg = _load_config(config, directory)
@@ -535,8 +645,13 @@ def commit(
     # Compile blog so the pre-commit hook is a no-op
     compile_news(root, language=cfg.language)
 
-    # Stage news items and compiled output
-    for p in (str(NEWS_SUBDIR), "news", "README.md"):
+    # Update Manifest checksums
+    body = generate_manifest(root)
+    if body:
+        (root / "Manifest").write_text(body, encoding="utf-8")
+
+    # Stage news items, compiled output, and Manifest
+    for p in (str(NEWS_SUBDIR), "news", "README.md", "Manifest"):
         if (root / p).exists():
             _git(["add", p], root, capture_output=True, check=False)
 

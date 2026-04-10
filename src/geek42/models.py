@@ -111,3 +111,7 @@ class SiteConfig(BaseModel):
         default="en",
         description="Preferred language for selecting translated news items.",
     )
+    signing_key: str = Field(
+        default="",
+        description="OpenPGP key ID for Manifest signing (used by `geek42 sign`).",
+    )

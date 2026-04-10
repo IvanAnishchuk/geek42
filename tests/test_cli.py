@@ -63,7 +63,7 @@ def test_init_refuses_overwrite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
 def test_init_custom_path(tmp_path: Path) -> None:
     cfg_path = tmp_path / "custom.toml"
-    result = runner.invoke(app, ["init", "--config", str(cfg_path)])
+    result = runner.invoke(app, ["init", "--bare", "--config", str(cfg_path)])
     assert result.exit_code == 0
     assert cfg_path.exists()
 

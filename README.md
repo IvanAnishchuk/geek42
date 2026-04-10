@@ -55,17 +55,18 @@ uv tool install geek42
 mkdir my-blog && cd my-blog
 git init
 
-# Initialize configuration
-geek42 init
+# Scaffold the repo (config, pre-commit, CI, README, ...)
+geek42 init --title "My Blog"
+
+# Set up pre-commit hooks
+uv sync --dev && pre-commit install
 
 # Write your first post (opens $EDITOR)
 geek42 new
 
-# Commit (pre-commit hook compiles Markdown + README index)
-git add -A && git commit -m "feat: first post"
-
-# Push (GitHub Actions builds static site)
-git push
+# Commit and push (pre-commit compiles blog automatically)
+geek42 commit
+geek42 push
 ```
 
 ## Configuration
@@ -113,6 +114,9 @@ geek42 commit            Stage news, compile blog, commit (like pkgdev commit)
 geek42 commit -m "msg"   Commit with a custom message
 geek42 push              Push commits to the remote
 geek42 deploy-status     Check GitHub Pages and CI status (requires gh)
+geek42 sign              Generate gemato-compatible Manifest checksums
+geek42 sign -k KEY_ID    Sign the Manifest with gpg
+geek42 verify            Verify Manifest checksums and signature
 ```
 
 Most commands accept `--directory` / `-C` to operate on a directory
