@@ -112,6 +112,14 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
+
+      - id: verify-manifest
+        name: verify Manifest
+        entry: uv tool run geek42 verify
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
 """
 
 _CI_YML = """\
@@ -155,14 +163,11 @@ jobs:
       - name: Lint news items
         run: uv tool run geek42 lint metadata/news
 
-      # -- Manifest checksums --
-      - name: Verify Manifest
-        run: |
-          if [ -f Manifest ]; then
-            uv tool run geek42 verify
-          else
-            echo "No Manifest — skipping"
-          fi
+      # -- Manifest checksums & signature --
+      - name: Verify Manifest (geek42)
+        run: uv tool run geek42 verify
+      - name: Verify Manifest (gemato)
+        run: uv tool run gemato verify .
 
       # -- compiled output is up to date --
       - name: Compile blog
@@ -204,6 +209,7 @@ requires-python = ">=3.13"
 [dependency-groups]
 dev = [
     "geek42",
+    "gemato",
     "pre-commit>=4.0",
 ]
 """

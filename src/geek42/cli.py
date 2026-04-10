@@ -462,41 +462,39 @@ def sign(
     config: ConfigOption = Path("geek42.toml"),
     directory: DirectoryOption = None,
 ) -> None:
-    """Generate a Manifest with checksums (optionally sign with gpg).
+    """Regenerate the root Manifest and sign it with gpg.
 
-    Produces a gemato-compatible Manifest covering all files under
-    metadata/news/. Signing uses --key, or falls back to
-    ``signing_key`` in geek42.toml.
+    Runs ``gemato create`` (or pure-Python fallback) to rebuild the
+    Manifest covering every file in the repo, then clear-signs it.
+    The key comes from --key or ``signing_key`` in geek42.toml.
     """
-    from .manifest import generate_manifest
+    from .manifest import generate_manifest, manifest_path
 
     cfg = _load_config(config, directory)
     root = (directory or Path(".")).resolve()
     signing_key = key or cfg.signing_key or None
 
-    body = generate_manifest(root)
-    if not body:
-        err_console.print("[yellow]No news items to sign.[/]")
+    ok = generate_manifest(root)
+    if not ok:
+        err_console.print("[yellow]Nothing to sign.[/]")
         raise typer.Exit(1)
-
-    manifest_path = root / "Manifest"
-    manifest_path.write_text(body, encoding="utf-8")
-    console.print(f"[green]Manifest written[/] ({body.count(chr(10))} entries)")
+    console.print("[green]Manifest updated.[/]")
 
     if signing_key:
+        mf = manifest_path(root)
         gpg = shutil.which("gpg") or shutil.which("gpg2")
         if gpg is None:
             err_console.print("[red]gpg not found in PATH[/]")
             raise typer.Exit(1)
         result = subprocess.run(  # noqa: S603
-            [gpg, "--clearsign", "--local-user", signing_key, "--output", "-", str(manifest_path)],
+            [gpg, "--clearsign", "--local-user", signing_key, "--output", "-", str(mf)],
             capture_output=True,
             check=False,
         )
         if result.returncode != 0:
             err_console.print(f"[red]gpg signing failed[/] (exit {result.returncode})")
             raise typer.Exit(1)
-        manifest_path.write_bytes(result.stdout)
+        mf.write_bytes(result.stdout)
         console.print(f"[green]Signed[/] with key {signing_key}")
 
 
@@ -504,31 +502,39 @@ def sign(
 def verify(
     directory: DirectoryOption = None,
 ) -> None:
-    """Verify Manifest checksums (and gpg signature if present)."""
-    from .manifest import verify_manifest
+    """Verify Manifest checksums and signature.
+
+    Uses ``gemato verify`` when available, otherwise falls back to
+    pure-Python checksum verification. GPG signatures are checked
+    if the Manifest is clear-signed.
+    """
+    from .manifest import manifest_path, verify_manifest
 
     root = (directory or Path(".")).resolve()
-    manifest_path = root / "Manifest"
+    mf = manifest_path(root)
 
-    # Verify GPG signature if Manifest looks signed
-    if manifest_path.exists():
-        text = manifest_path.read_text(encoding="utf-8")
-        if "BEGIN PGP SIGNED MESSAGE" in text:
-            gpg = shutil.which("gpg") or shutil.which("gpg2")
-            if gpg:
-                result = subprocess.run(  # noqa: S603
-                    [gpg, "--verify", str(manifest_path)],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if result.returncode == 0:
-                    console.print("[green]GPG signature valid.[/]")
-                else:
-                    err_console.print(f"[red]GPG verification failed:[/]\n{result.stderr.strip()}")
-                    raise typer.Exit(1)
+    if not mf.exists():
+        err_console.print("[yellow]No Manifest found.[/]")
+        raise typer.Exit(0)
+
+    # GPG signature check (before gemato, which strips the armour)
+    text = mf.read_text(encoding="utf-8")
+    if "BEGIN PGP SIGNED MESSAGE" in text:
+        gpg = shutil.which("gpg") or shutil.which("gpg2")
+        if gpg:
+            result = subprocess.run(  # noqa: S603
+                [gpg, "--verify", str(mf)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                console.print("[green]GPG signature valid.[/]")
             else:
-                err_console.print("[yellow]gpg not found — skipping signature check[/]")
+                err_console.print(f"[red]GPG verification failed:[/]\n{result.stderr.strip()}")
+                raise typer.Exit(1)
+        else:
+            err_console.print("[yellow]gpg not found — skipping signature check[/]")
 
     errors = verify_manifest(root)
     if errors:
@@ -645,10 +651,8 @@ def commit(
     # Compile blog so the pre-commit hook is a no-op
     compile_news(root, language=cfg.language)
 
-    # Update Manifest checksums
-    body = generate_manifest(root)
-    if body:
-        (root / "Manifest").write_text(body, encoding="utf-8")
+    # Regenerate Manifest checksums
+    generate_manifest(root)
 
     # Stage news items, compiled output, and Manifest
     for p in (str(NEWS_SUBDIR), "news", "README.md", "Manifest"):

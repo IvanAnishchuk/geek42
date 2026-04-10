@@ -1,69 +1,115 @@
 """Gemato-compatible Manifest generation and verification.
 
-Produces ``Manifest`` files containing BLAKE2B and SHA512 checksums
-for every news item file, following the Gentoo Manifest 2 format.
-Signing uses ``gpg`` for clear-text signatures, which gemato can
-verify transparently.
+The ``Manifest`` lives at the repository root and covers every file
+in the tree, exactly as ``gemato create --hashes "BLAKE2B SHA512"``
+produces.  When gemato is available on ``$PATH`` it is used directly;
+otherwise a pure-Python fallback generates / verifies the same format.
 """
 
 from __future__ import annotations
 
 import hashlib
+import shutil
+import subprocess
 from pathlib import Path
 
-from .parser import NEWS_SUBDIR
+_HASHES = "BLAKE2B SHA512"
+_GEMATO = shutil.which("gemato")
+
+# -- public helpers -----------------------------------------------------------
 
 
-def _hash_file(path: Path) -> tuple[int, str, str]:
-    """Return (size, blake2b_hex, sha512_hex) for *path*."""
-    data = path.read_bytes()
-    b2 = hashlib.blake2b(data).hexdigest()
-    s5 = hashlib.sha512(data).hexdigest()
-    return len(data), b2, s5
+def manifest_path(root: Path) -> Path:
+    """Return the canonical Manifest location (``root / Manifest``)."""
+    return root / "Manifest"
 
 
-def generate_manifest(root: Path) -> str:
-    """Build a Manifest string covering all news item files under *root*.
+# -- generation ---------------------------------------------------------------
 
-    The output uses Gentoo's Manifest 2 ``DATA`` entries with BLAKE2B
-    and SHA512 checksums, compatible with ``gemato verify``.
+
+def generate_manifest(root: Path) -> bool:
+    """Create or update the root ``Manifest``.
+
+    Uses ``gemato create`` when available, falls back to pure Python.
+    Returns True when a Manifest was written.
     """
-    news_root = root / NEWS_SUBDIR
-    if not news_root.is_dir():
-        return ""
+    if _GEMATO:
+        return _gemato_create(root)
+    return _py_create(root)
 
+
+def _gemato_create(root: Path) -> bool:
+    result = subprocess.run(  # noqa: S603
+        [_GEMATO, "create", "--hashes", _HASHES, str(root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def _py_create(root: Path) -> bool:
     lines: list[str] = []
-    for item_dir in sorted(news_root.iterdir()):
-        if not item_dir.is_dir():
+    for f in sorted(root.rglob("*")):
+        if not f.is_file():
             continue
-        for f in sorted(item_dir.iterdir()):
-            if not f.is_file():
-                continue
-            rel = f.relative_to(root)
-            size, b2, s5 = _hash_file(f)
-            lines.append(f"DATA {rel} {size} BLAKE2B {b2} SHA512 {s5}")
+        rel = f.relative_to(root)
+        if str(rel) == "Manifest":
+            continue
+        if any(p.startswith(".") for p in rel.parts):
+            continue
+        size, b2, s5 = _hash_file(f)
+        lines.append(f"DATA {rel} {size} BLAKE2B {b2} SHA512 {s5}")
+    if not lines:
+        return False
+    manifest_path(root).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return True
 
-    return "\n".join(lines) + "\n" if lines else ""
+
+# -- verification -------------------------------------------------------------
 
 
 def verify_manifest(root: Path) -> list[str]:
-    """Check every ``DATA`` entry in the Manifest against disk.
+    """Verify the Manifest.  Returns a list of errors (empty = OK).
 
-    Returns a list of error strings (empty means all OK).
+    Delegates to ``gemato verify`` when available, otherwise checks
+    each ``DATA`` entry with pure Python.
     """
-    manifest_path = root / "Manifest"
-    if not manifest_path.exists():
+    if _GEMATO:
+        return _gemato_verify(root)
+    return _py_verify(root)
+
+
+def _gemato_verify(root: Path) -> list[str]:
+    result = subprocess.run(  # noqa: S603
+        [_GEMATO, "verify", str(root)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return []
+    # Parse gemato's error output into a list
+    errors = [
+        line.strip()
+        for line in result.stderr.splitlines()
+        if line.strip() and "ERROR" in line
+    ]
+    return errors or [result.stderr.strip() or f"gemato exited {result.returncode}"]
+
+
+def _py_verify(root: Path) -> list[str]:
+    mf = manifest_path(root)
+    if not mf.exists():
         return ["Manifest file not found"]
 
-    text = manifest_path.read_text(encoding="utf-8")
+    text = mf.read_text(encoding="utf-8")
     errors: list[str] = []
 
     for line in text.splitlines():
-        # Skip PGP armour and blank lines
         if not line.startswith("DATA "):
             continue
         parts = line.split()
-        # DATA path size BLAKE2B hash SHA512 hash
         if len(parts) < 7:
             errors.append(f"malformed line: {line}")
             continue
@@ -79,7 +125,6 @@ def verify_manifest(root: Path) -> list[str]:
         size, b2, s5 = _hash_file(target)
         if size != expected_size:
             errors.append(f"size mismatch: {rel_path} ({size} != {expected_size})")
-        # Check whichever hashes are present
         hashes = dict(zip(parts[3::2], parts[4::2], strict=False))
         if "BLAKE2B" in hashes and hashes["BLAKE2B"] != b2:
             errors.append(f"BLAKE2B mismatch: {rel_path}")
@@ -87,3 +132,15 @@ def verify_manifest(root: Path) -> list[str]:
             errors.append(f"SHA512 mismatch: {rel_path}")
 
     return errors
+
+
+# -- internal -----------------------------------------------------------------
+
+
+def _hash_file(path: Path) -> tuple[int, str, str]:
+    data = path.read_bytes()
+    return (
+        len(data),
+        hashlib.blake2b(data).hexdigest(),
+        hashlib.sha512(data).hexdigest(),
+    )
