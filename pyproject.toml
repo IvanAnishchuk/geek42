@@ -118,10 +118,6 @@ junit_log_passing_tests = false
 source_pkgs = ["geek42"]
 branch = true
 relative_files = true
-data_file = ".reports/test/.coverage"
-
-[tool.coverage.paths]
-geek42 = ["src/geek42", "*/site-packages/geek42"]
 
 [tool.coverage.report]
 fail_under = 75

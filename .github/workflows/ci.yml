@@ -522,7 +522,6 @@ jobs:
           COVERAGE_DATA_BRANCH: python-coverage-comment-action-data
           MINIMUM_GREEN: 90
           MINIMUM_ORANGE: 75
-          COVERAGE_PATH: .reports/test
 
       - name: Upload test + coverage artifacts
         if: always()
