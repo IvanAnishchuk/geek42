@@ -103,6 +103,7 @@ ignore = [
 [tool.pytest.ini_options]
 addopts = [
     "--cov=geek42",
+    "--cov-config=pyproject.toml",
     "--cov-report=term-missing",
     "--cov-report=html:.reports/test/htmlcov",
     "--cov-report=xml:.reports/test/coverage.xml",
@@ -114,9 +115,13 @@ junit_logging = "all"
 junit_log_passing_tests = false
 
 [tool.coverage.run]
+source_pkgs = ["geek42"]
 branch = true
 relative_files = true
 data_file = ".reports/test/.coverage"
+
+[tool.coverage.paths]
+geek42 = ["src/geek42", "*/site-packages/geek42"]
 
 [tool.coverage.report]
 fail_under = 75
