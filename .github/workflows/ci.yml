@@ -30,22 +30,22 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
         with:
           enable-cache: true
 
       - run: uv sync --frozen --dev
 
       - name: Cache pre-commit environments
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
@@ -69,15 +69,15 @@ jobs:
       security-events: write  # upload SARIF to code scanning
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
         with:
           enable-cache: true
 
@@ -130,14 +130,14 @@ jobs:
 
       - name: Upload Ruff SARIF to code scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@4fa2a7953630fd2f3fb380f21be14ede0169dd4f # v3.27.5
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.27.5
         with:
           sarif_file: .reports/lint/ruff.sarif
           category: ruff
 
       - name: Upload lint logs
         if: always()
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lint-logs
           path: .reports/lint/
@@ -164,15 +164,15 @@ jobs:
       security-events: write
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
         with:
           enable-cache: true
 
@@ -232,14 +232,14 @@ jobs:
 
       - name: Upload security SARIF to code scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@4fa2a7953630fd2f3fb380f21be14ede0169dd4f # v3.27.5
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.27.5
         with:
           sarif_file: .reports/security-lint/ruff-security.sarif
           category: ruff-security
 
       - name: Upload security lint logs
         if: always()
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-lint-logs
           path: .reports/security-lint/
@@ -256,15 +256,15 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
         with:
           enable-cache: true
 
@@ -278,7 +278,7 @@ jobs:
 
       - name: Upload ty log
         if: always()
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: typecheck-log
           path: .reports/typecheck/
@@ -299,15 +299,15 @@ jobs:
       contents: read
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
         with:
           enable-cache: true
 
@@ -368,7 +368,7 @@ jobs:
 
       - name: Upload audit artifacts
         if: always()
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dependency-audit
           path: |
@@ -396,11 +396,11 @@ jobs:
       security-events: write
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
@@ -419,14 +419,14 @@ jobs:
 
       - name: Upload OSV SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@4fa2a7953630fd2f3fb380f21be14ede0169dd4f # v3.27.5
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.27.5
         with:
           sarif_file: .reports/osv/osv-results.sarif
           category: osv-scanner
 
       - name: Upload OSV report
         if: always()
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: osv-scan-report
           path: .reports/osv/
@@ -452,16 +452,16 @@ jobs:
         python-version: ["3.13"]
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # persist-credentials needed for coverage action to push to data branch
           persist-credentials: true
 
-      - uses: astral-sh/setup-uv@4db96194c378173c656ce18a155ffc14a9fc4355 # v4.2.0
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
@@ -508,7 +508,7 @@ jobs:
 
       - name: Publish test results (PR annotations)
         if: always() && github.event_name == 'pull_request'
-        uses: EnricoMi/publish-unit-test-result-action@82082dac68ad6a19d980f8ce817e108b9f496c2a # v2.17.1
+        uses: EnricoMi/publish-unit-test-result-action@c950f6fb443cb5af20a377fd0dfaa78838901040 # v2.23.0
         with:
           files: .reports/test/test-results.xml
           check_name: "Pytest report (${{ matrix.python-version }})"
@@ -526,7 +526,7 @@ jobs:
 
       - name: Upload test + coverage artifacts
         if: always()
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results-${{ matrix.python-version }}
           path: .reports/test/
