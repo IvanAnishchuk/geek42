@@ -132,11 +132,15 @@ repos:
           - --strict
           - feat
           - fix
+          - chore
           - security
           - perf
           - docs
           - test
           - refactor
+          - ci
+          - build
+          - revert
           - style
           - chore
           - ci
