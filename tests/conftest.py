@@ -70,12 +70,49 @@ def news_repo(tmp_path: Path) -> Path:
 @pytest.fixture
 def git_news_repo(news_repo: Path) -> Path:
     """Like news_repo but initialized as a git repository."""
-    subprocess.run(["git", "init", str(news_repo)], check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(news_repo), "add", "-A"], check=True, capture_output=True)
+    import os
+
+    env = {**os.environ, "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "test@test"}
+    subprocess.run(["git", "init", str(news_repo)], check=True, capture_output=True, env=env)
     subprocess.run(
-        ["git", "-C", str(news_repo), "commit", "-m", "init"],
+        [
+            "git",
+            "-C",
+            str(news_repo),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@test",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "init",
+            "--no-gpg-sign",
+        ],
         check=True,
         capture_output=True,
+        env=env,
+    )
+    subprocess.run(
+        ["git", "-C", str(news_repo), "add", "-A"], check=True, capture_output=True, env=env
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(news_repo),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@test",
+            "commit",
+            "-m",
+            "add news",
+            "--no-gpg-sign",
+        ],
+        check=True,
+        capture_output=True,
+        env=env,
     )
     return news_repo
 

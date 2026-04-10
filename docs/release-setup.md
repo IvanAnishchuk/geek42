@@ -12,22 +12,23 @@ from 2026-04-10 shows most are still **Disabled**. Turn them all on.
 
 | Setting | Current | Action |
 |---------|---------|--------|
-| Private vulnerability reporting | Disabled | **Enable** — allows private disclosure per `SECURITY.md` |
-| Dependency graph | Disabled | **Enable** — GitHub default, needed by Dependabot |
-| Dependabot alerts | Disabled | **Enable** — flags known CVEs in dependencies |
-| Dependabot malware alerts | Disabled | **Enable** |
-| Dependabot security updates | Disabled | **Enable** — auto-opens PRs for vuln fixes |
-| Grouped security updates | Disabled | **Enable** — one PR per ecosystem, less noise |
-| Dependabot version updates | Configured | Already via `.github/dependabot.yml` |
-| CodeQL analysis | Advanced setup | Working (last scan 4 min ago per screenshot) |
-| Copilot Autofix | On | OK — suggests fixes for CodeQL alerts |
-| Secret scanning | Disabled | **Enable** |
-| Push protection | Disabled | **Enable** — blocks commits containing secrets |
-| Code scanning thresholds | Set | Security: High or higher, Standard: Only errors — OK |
+| Private vulnerability reporting | Enabled | Done |
+| Dependency graph | Enabled | Done |
+| Automatic dependency submission | Enabled | Done |
+| Dependabot alerts | Enabled | Done (1 rule) |
+| Dependabot malware alerts | Enabled | Done |
+| Dependabot security updates | Enabled | Done |
+| Grouped security updates | Enabled | Done |
+| Dependabot version updates | Configured | Via `.github/dependabot.yml` |
+| CodeQL analysis | Advanced setup | Done (weekly + on PR) |
+| Copilot Autofix | On | Done |
+| Secret Protection | Enabled | Done |
+| Push protection | Enabled | Done |
+| Code scanning thresholds | Set | Security: High or higher, Standard: Only errors |
 
 **Code scanning config error**: "Ruff and osv-scanner are reporting
-errors" — this is the broken SHA-pinned actions issue. Already fixed
-in the last commit; will clear after next successful CI run.
+errors" — will clear once CI goes green (the SARIF upload steps
+need a successful run to register with GitHub).
 
 ## 2. Branch Protection — `main`
 
@@ -137,19 +138,21 @@ After the release succeeds, uncomment the PyPI badges in `README.md`.
 
 ### Before v0.3.0 (manual GitHub UI actions)
 
-- [ ] Enable private vulnerability reporting
-- [ ] Enable dependency graph
-- [ ] Enable Dependabot alerts
-- [ ] Enable Dependabot malware alerts
-- [ ] Enable Dependabot security updates
-- [ ] Enable grouped security updates
-- [ ] Enable secret scanning
-- [ ] Enable push protection
+- [x] Enable private vulnerability reporting
+- [x] Enable dependency graph
+- [x] Enable Dependabot alerts
+- [x] Enable Dependabot malware alerts
+- [x] Enable Dependabot security updates
+- [x] Enable grouped security updates
+- [x] Enable secret scanning
+- [x] Enable push protection
+- [x] Install repository-settings app
 - [ ] Verify branch protection applied by settings app
 - [ ] Enable 2FA on PyPI account
 - [ ] Create `pypi` environment with reviewer gate
 - [ ] Enable GitHub Pages (source: GitHub Actions)
 - [ ] Complete OpenSSF Best Practices form (project 12450)
+- [ ] Fix CI (coverage comment action) so all checks go green
 
 ### After first release
 

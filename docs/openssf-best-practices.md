@@ -109,22 +109,32 @@ enforced by:
 
 ---
 
-## GitHub security settings — now enabled
+## GitHub security settings — all enabled
 
-As of 2026-04-10 (confirmed via Security > Overview screenshot):
+As of 2026-04-10, confirmed via Settings > Advanced Security:
 
+- [x] Private vulnerability reporting: **Enabled**
+- [x] Dependency graph: **Enabled**
+- [x] Automatic dependency submission: **Enabled**
+- [x] Dependabot alerts: **Enabled** (1 rule enabled)
+- [x] Dependabot malware alerts: **Enabled**
+- [x] Dependabot security updates: **Enabled**
+- [x] Grouped security updates: **Enabled**
+- [x] Dependabot version updates: **Configured** (via `.github/dependabot.yml`)
+- [x] CodeQL analysis: **Advanced setup** (weekly + on PR)
+- [x] Copilot Autofix: **On**
+- [x] Secret Protection: **Enabled**
+- [x] Push protection: **Enabled**
+- [x] Code scanning thresholds: Security **High or higher**, Standard **Only errors**
+
+Confirmed via Security > Overview:
 - [x] Security policy: **Enabled** (via `SECURITY.md`)
 - [x] Security advisories: **Enabled**
-- [x] Private vulnerability reporting: **Enabled**
-- [x] Dependabot alerts: **Enabled**
-- [x] Code scanning alerts: **Enabled** (CodeQL + ruff + osv-scanner)
-- [x] Secret scanning alerts: **Enabled**
+- [x] Code scanning alerts: **Enabled** (9 alerts from CodeQL)
 
-Still needs action:
-- [ ] Dependency graph (enable in Settings > Code security)
-- [ ] Dependabot security updates (enable in Settings > Code security)
-- [ ] Push protection (enable in Settings > Code security)
+Remaining:
 - [ ] Branch protection (settings app installed, pending first sync)
+- [ ] Code scanning config error (ruff + osv-scanner SARIF — clears when CI is green)
 
 ## Improvements since initial assessment
 
