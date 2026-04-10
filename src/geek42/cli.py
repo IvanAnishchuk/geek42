@@ -462,103 +462,51 @@ def sign(
     config: ConfigOption = Path("geek42.toml"),
     directory: DirectoryOption = None,
 ) -> None:
-    """Regenerate the root Manifest and optionally sign it.
+    """Regenerate the Manifest tree and optionally sign it.
 
-    Uses ``gemato create -s -k KEY`` when gemato is available (create +
-    sign in one step). Falls back to pure-Python Manifest generation
-    plus ``gpg --clearsign``.  The key comes from --key or
-    ``signing_key`` in geek42.toml.
+    Uses the same gemato flags as the Gentoo overlay workflow.
+    The key comes from --key or ``signing_key`` in geek42.toml.
     """
-    from .manifest import _GEMATO, generate_manifest, manifest_path
+    from .manifest import generate_manifest
 
     cfg = _load_config(config, directory)
     root = (directory or Path(".")).resolve()
-    signing_key = key or cfg.signing_key or None
+    signing_key = key or cfg.signing_key or ""
 
-    # If gemato is available and we have a key, do create+sign in one shot
-    if _GEMATO and signing_key:
-        result = subprocess.run(  # noqa: S603
-            [_GEMATO, "create", "--profile", "ebuild",
-             "-s", "-k", signing_key, str(root)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            err_console.print(f"[red]gemato create --sign failed:[/]\n{result.stderr.strip()}")
-            raise typer.Exit(1)
-        console.print(f"[green]Manifest created and signed[/] with key {signing_key}")
-        return
-
-    # Otherwise: generate Manifest, then sign separately
-    ok = generate_manifest(root)
+    ok = generate_manifest(root, signing_key=signing_key)
     if not ok:
-        err_console.print("[yellow]Nothing to sign.[/]")
+        err_console.print("[red]gemato update failed[/]")
         raise typer.Exit(1)
-    console.print("[green]Manifest updated.[/]")
 
     if signing_key:
-        mf = manifest_path(root)
-        gpg = shutil.which("gpg") or shutil.which("gpg2")
-        if gpg is None:
-            err_console.print("[red]gpg not found in PATH[/]")
-            raise typer.Exit(1)
-        result = subprocess.run(  # noqa: S603
-            [gpg, "--clearsign", "--local-user", signing_key, "--output", "-", str(mf)],
-            capture_output=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            err_console.print(f"[red]gpg signing failed[/] (exit {result.returncode})")
-            raise typer.Exit(1)
-        mf.write_bytes(result.stdout)
-        console.print(f"[green]Signed[/] with key {signing_key}")
+        console.print(f"[green]Manifest updated and signed[/] with key {signing_key}")
+    else:
+        console.print("[green]Manifest updated.[/]")
 
 
 @app.command()
 def verify(
     directory: DirectoryOption = None,
 ) -> None:
-    """Verify Manifest checksums and signature.
+    """Verify the Manifest tree (checksums and signature).
 
-    Uses ``gemato verify`` when available, otherwise falls back to
-    pure-Python checksum verification. GPG signatures are checked
-    if the Manifest is clear-signed.
+    Delegates entirely to ``gemato verify``, which handles the
+    hierarchical compressed sub-Manifests and OpenPGP signatures.
     """
     from .manifest import manifest_path, verify_manifest
 
     root = (directory or Path(".")).resolve()
-    mf = manifest_path(root)
 
-    if not mf.exists():
+    if not manifest_path(root).exists():
         err_console.print("[yellow]No Manifest found.[/]")
         raise typer.Exit(0)
-
-    # GPG signature check (before gemato, which strips the armour)
-    text = mf.read_text(encoding="utf-8")
-    if "BEGIN PGP SIGNED MESSAGE" in text:
-        gpg = shutil.which("gpg") or shutil.which("gpg2")
-        if gpg:
-            result = subprocess.run(  # noqa: S603
-                [gpg, "--verify", str(mf)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode == 0:
-                console.print("[green]GPG signature valid.[/]")
-            else:
-                err_console.print(f"[red]GPG verification failed:[/]\n{result.stderr.strip()}")
-                raise typer.Exit(1)
-        else:
-            err_console.print("[yellow]gpg not found — skipping signature check[/]")
 
     errors = verify_manifest(root)
     if errors:
         for e in errors:
             err_console.print(f"  [red]✗[/] {e}")
         raise typer.Exit(1)
-    console.print("[green]All checksums verified.[/]")
+    console.print("[green]Verified.[/]")
 
 
 # -- commit / push / deploy-status helpers --

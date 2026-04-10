@@ -1,4 +1,4 @@
-"""Tests for Manifest generation and verification — including gemato parity."""
+"""Tests for Manifest generation and verification via gemato."""
 
 from __future__ import annotations
 
@@ -8,8 +8,12 @@ from pathlib import Path
 
 import pytest
 
-import geek42.manifest as manifest_mod
-from geek42.manifest import generate_manifest, manifest_path, verify_manifest
+from geek42.manifest import (
+    GematoNotFoundError,
+    generate_manifest,
+    manifest_path,
+    verify_manifest,
+)
 
 from .conftest import SAMPLE_NEWS_FORMAT2
 
@@ -35,7 +39,6 @@ def _make_nested_repo(tmp_path: Path) -> Path:
     """News repo with nested dirs, multiple items, dotfiles, extra files."""
     root = tmp_path / "repo"
 
-    # Two news items
     for slug in ("2025-01-01-alpha", "2025-06-15-beta-update"):
         d = root / "metadata" / "news" / slug
         d.mkdir(parents=True)
@@ -44,51 +47,32 @@ def _make_nested_repo(tmp_path: Path) -> Path:
             f"Revision: 1\nNews-Item-Format: 2.0\n\nBody.\n"
         )
 
-    # Top-level files
     (root / "geek42.toml").write_text('title = "Nested"\n')
     (root / "README.md").write_text("# Nested\n")
 
-    # Compiled blog output
     news_dir = root / "news"
     news_dir.mkdir()
     (news_dir / "2025-01-01-alpha.md").write_text("compiled\n")
     (news_dir / "2025-06-15-beta-update.md").write_text("compiled\n")
 
-    # Deeper non-news directory
     sub = root / "docs" / "guides"
     sub.mkdir(parents=True)
     (sub / "quickstart.md").write_text("guide\n")
 
-    # Dotfiles / dotdirs (should be excluded)
     (root / ".gitignore").write_text("_site/\n")
     dotdir = root / ".git-fake"
     dotdir.mkdir()
     (dotdir / "config").write_text("gitdata\n")
 
-    # metadata/layout.conf
     (root / "metadata" / "layout.conf").write_text("repo-name = test\n")
 
     return root
 
 
-def _data_lines(text: str) -> list[str]:
-    """Extract and sort DATA lines from a Manifest (or decompressed .gz)."""
-    return sorted(ln for ln in text.splitlines() if ln.startswith("DATA "))
-
-
-def _data_paths(text: str) -> list[str]:
-    """Extract sorted file paths from DATA lines."""
-    return sorted(ln.split()[1] for ln in text.splitlines() if ln.startswith("DATA "))
-
-
-def _py_generate(root: Path) -> None:
-    """Force the pure-Python fallback regardless of gemato availability."""
-    manifest_mod._py_create(root)
-
-
 # -- generation ---------------------------------------------------------------
 
 
+@_requires_gemato
 def test_generate_creates_manifest(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     ok = generate_manifest(root)
@@ -98,57 +82,68 @@ def test_generate_creates_manifest(tmp_path: Path) -> None:
     text = mf.read_text()
     assert "BLAKE2B" in text
     assert "SHA512" in text
-    # Top-level files are DATA entries; news items are in sub-Manifests
     assert "README.md" in text
 
 
-def test_generate_empty_repo(tmp_path: Path) -> None:
-    root = tmp_path / "empty"
-    root.mkdir()
-    generate_manifest(root)
-    mf = manifest_path(root)
-    if mf.exists():
-        assert "DATA " not in mf.read_text()
-
-
-def test_manifest_covers_all_non_dot_files(tmp_path: Path) -> None:
+@_requires_gemato
+def test_generate_creates_sub_manifests(tmp_path: Path) -> None:
     root = _make_nested_repo(tmp_path)
-    _py_generate(root)
+    generate_manifest(root)
+
+    # Root references sub-Manifests (uncompressed with high watermark)
     text = manifest_path(root).read_text()
-    paths = _data_paths(text)
+    assert "MANIFEST" in text
 
-    # Should include
-    assert "geek42.toml" in paths
-    assert "README.md" in paths
-    assert "metadata/news/2025-01-01-alpha/2025-01-01-alpha.en.txt" in paths
-    assert "metadata/news/2025-06-15-beta-update/2025-06-15-beta-update.en.txt" in paths
-    assert "news/2025-01-01-alpha.md" in paths
-    assert "docs/guides/quickstart.md" in paths
-    assert "metadata/layout.conf" in paths
-
-    # Should exclude
-    assert not any(".git" in p for p in paths)
-    assert not any("Manifest" in p for p in paths)
+    # Sub-directory Manifests exist
+    sub_manifests = sorted(
+        p.relative_to(root)
+        for p in root.rglob("Manifest")
+        if p != manifest_path(root)
+    )
+    assert sub_manifests, "expected sub-Manifest files"
 
 
-def test_manifest_skips_manifest_files(tmp_path: Path) -> None:
-    root = _make_repo(tmp_path)
-    # Create a stray Manifest.old
-    (root / "Manifest.old").write_text("stale\n")
-    _py_generate(root)
+@_requires_gemato
+def test_generate_covers_all_non_dot_files(tmp_path: Path) -> None:
+    """All non-dotfiles must be covered somewhere in the Manifest tree."""
+    root = _make_nested_repo(tmp_path)
+    generate_manifest(root)
+
+    # gemato verify would fail if any file is uncovered
+    result = subprocess.run(
+        [_GEMATO, "verify", str(root)],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@_requires_gemato
+def test_generate_skips_dotfiles(tmp_path: Path) -> None:
+    root = _make_nested_repo(tmp_path)
+    generate_manifest(root)
     text = manifest_path(root).read_text()
-    assert "Manifest" not in _data_paths(text)
+    assert ".git" not in text
+    assert ".gitignore" not in text
 
 
 # -- verification -------------------------------------------------------------
 
 
+@_requires_gemato
 def test_verify_ok(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     generate_manifest(root)
     assert verify_manifest(root) == []
 
 
+@_requires_gemato
+def test_verify_nested_ok(tmp_path: Path) -> None:
+    root = _make_nested_repo(tmp_path)
+    generate_manifest(root)
+    assert verify_manifest(root) == []
+
+
+@_requires_gemato
 def test_verify_detects_modification(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     generate_manifest(root)
@@ -156,6 +151,15 @@ def test_verify_detects_modification(tmp_path: Path) -> None:
     assert verify_manifest(root)
 
 
+@_requires_gemato
+def test_verify_detects_deep_modification(tmp_path: Path) -> None:
+    root = _make_nested_repo(tmp_path)
+    generate_manifest(root)
+    (root / "docs" / "guides" / "quickstart.md").write_text("EVIL\n")
+    assert verify_manifest(root)
+
+
+@_requires_gemato
 def test_verify_detects_missing_file(tmp_path: Path) -> None:
     root = _make_repo(tmp_path)
     generate_manifest(root)
@@ -163,123 +167,62 @@ def test_verify_detects_missing_file(tmp_path: Path) -> None:
     assert verify_manifest(root)
 
 
+@_requires_gemato
 def test_verify_no_manifest(tmp_path: Path) -> None:
-    root = tmp_path / "nomanifest"
+    root = tmp_path / "empty"
     root.mkdir()
     assert verify_manifest(root)
 
 
-def test_verify_nested_repo(tmp_path: Path) -> None:
-    root = _make_nested_repo(tmp_path)
-    generate_manifest(root)
-    assert verify_manifest(root) == []
-
-
-def test_verify_nested_tamper_deep_file(tmp_path: Path) -> None:
-    root = _make_nested_repo(tmp_path)
-    generate_manifest(root)
-    (root / "docs" / "guides" / "quickstart.md").write_text("EVIL\n")
-    assert verify_manifest(root)
-
-
-# -- gemato parity tests (nested) --------------------------------------------
+# -- matches real gentoo structure -------------------------------------------
 
 
 @_requires_gemato
-def test_py_fallback_passes_gemato_verify(tmp_path: Path) -> None:
-    """Our pure-Python flat Manifest must pass ``gemato verify``."""
+def test_structure_matches_gentoo(tmp_path: Path) -> None:
+    """Our Manifest tree must have the same shape as the Gentoo portage repo."""
     root = _make_nested_repo(tmp_path)
-    _py_generate(root)
+    generate_manifest(root)
 
-    result = subprocess.run(
-        [_GEMATO, "verify", str(root)],
-        capture_output=True, text=True, check=False,
-    )
-    assert result.returncode == 0, result.stderr
-
-
-@_requires_gemato
-def test_gemato_ebuild_profile_produces_sub_manifests(tmp_path: Path) -> None:
-    """``gemato create --profile ebuild`` must produce compressed sub-Manifests."""
-    root = _make_nested_repo(tmp_path)
-    subprocess.run(
-        [_GEMATO, "create", "--profile", "ebuild", str(root)],
-        check=True, capture_output=True,
-    )
-    # Root Manifest references compressed sub-Manifests
+    # Root Manifest: DATA + IGNORE + MANIFEST entries
     text = manifest_path(root).read_text()
-    assert "MANIFEST metadata/Manifest.gz" in text or "MANIFEST metadata/" in text
+    has_data = any(ln.startswith("DATA ") for ln in text.splitlines())
+    has_manifest = any(ln.startswith("MANIFEST ") for ln in text.splitlines())
+    has_ignore = any(ln.startswith("IGNORE ") for ln in text.splitlines())
+    assert has_data, "root should have DATA entries for top-level files"
+    assert has_manifest, "root should have MANIFEST entries for subdirs"
+    assert has_ignore, "root should have IGNORE entries (ebuild profile)"
 
-    # Sub-Manifests exist as .gz
-    gz_files = list(root.rglob("Manifest.gz"))
-    assert gz_files, "expected at least one Manifest.gz"
+    # Sub-Manifests exist (uncompressed with high compress-watermark)
+    assert (root / "metadata" / "Manifest").exists() or (root / "metadata" / "Manifest.gz").exists()
+    metadata_news = root / "metadata" / "news"
+    assert (metadata_news / "Manifest").exists() or (metadata_news / "Manifest.gz").exists()
 
 
 @_requires_gemato
-def test_gemato_ebuild_profile_passes_our_verify(tmp_path: Path) -> None:
-    """Hierarchical Manifests from --profile ebuild must pass our verify."""
+def test_gemato_verify_matches_gemato_create(tmp_path: Path) -> None:
+    """A Manifest we generate must be identical to one gemato creates."""
     root = _make_nested_repo(tmp_path)
+
+    # Our generate (which calls gemato create --profile ebuild)
+    generate_manifest(root)
+    our_root = manifest_path(root).read_text()
+
+    # Regenerate with gemato directly (should be idempotent)
     subprocess.run(
         [_GEMATO, "create", "--profile", "ebuild", str(root)],
         check=True, capture_output=True,
     )
-    # Our verify should handle MANIFEST entries and .gz decompression
-    errors = manifest_mod._py_verify(root)
-    assert errors == []
+    their_root = manifest_path(root).read_text()
+
+    assert our_root == their_root
 
 
-@_requires_gemato
-def test_generate_uses_ebuild_profile(tmp_path: Path) -> None:
-    """generate_manifest() with gemato must use --profile ebuild."""
-    root = _make_nested_repo(tmp_path)
-    generate_manifest(root)
-
-    # Should have compressed sub-Manifests
-    gz_files = list(root.rglob("Manifest.gz"))
-    assert gz_files, "expected Manifest.gz files (ebuild profile)"
-
-    # And gemato must verify it
-    result = subprocess.run(
-        [_GEMATO, "verify", str(root)],
-        capture_output=True, text=True, check=False,
-    )
-    assert result.returncode == 0, result.stderr
+# -- error handling -----------------------------------------------------------
 
 
-@_requires_gemato
-def test_gemato_detects_tamper_after_generate(tmp_path: Path) -> None:
-    root = _make_nested_repo(tmp_path)
-    generate_manifest(root)
-    (root / "docs" / "guides" / "quickstart.md").write_text("EVIL\n")
+def test_gemato_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import geek42.manifest as mod
 
-    result = subprocess.run(
-        [_GEMATO, "verify", str(root)],
-        capture_output=True, text=True, check=False,
-    )
-    assert result.returncode != 0
-
-
-@_requires_gemato
-def test_our_verify_detects_tamper_on_ebuild_profile(tmp_path: Path) -> None:
-    """Our Python verify must catch tampering in the hierarchical structure."""
-    root = _make_nested_repo(tmp_path)
-    subprocess.run(
-        [_GEMATO, "create", "--profile", "ebuild", str(root)],
-        check=True, capture_output=True,
-    )
-    (root / "docs" / "guides" / "quickstart.md").write_text("EVIL\n")
-    errors = manifest_mod._py_verify(root)
-    assert errors
-
-
-@_requires_gemato
-def test_simple_repo_gemato_verify(tmp_path: Path) -> None:
-    """Smoke test: generate_manifest on minimal repo passes gemato verify."""
-    root = _make_repo(tmp_path)
-    generate_manifest(root)
-
-    result = subprocess.run(
-        [_GEMATO, "verify", str(root)],
-        capture_output=True, text=True, check=False,
-    )
-    assert result.returncode == 0, result.stderr
+    monkeypatch.setattr(mod, "_GEMATO", None)
+    with pytest.raises(GematoNotFoundError):
+        generate_manifest(tmp_path)

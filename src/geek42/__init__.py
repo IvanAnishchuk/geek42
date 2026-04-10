@@ -34,7 +34,7 @@ from .errors import (
 )
 from .feeds import generate_atom, generate_rss
 from .linter import Diagnostic, Severity, lint_news_file, lint_repo
-from .manifest import generate_manifest, verify_manifest
+from .manifest import GematoNotFoundError, generate_manifest, verify_manifest
 from .models import NewsItem, NewsSource, SiteConfig
 from .parser import NEWS_SUBDIR, parse_news_file, resolve_news_root, scan_repo
 from .renderer import body_to_html, news_to_markdown, write_markdown
@@ -51,6 +51,7 @@ __all__ = [
     "EditorFailedError",
     "EmptyTitleError",
     "Geek42Error",
+    "GematoNotFoundError",
     "GitNotFoundError",
     "InvalidHeaderValueError",
     "ItemNotFoundError",

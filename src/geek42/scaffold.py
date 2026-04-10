@@ -1,8 +1,8 @@
 """Scaffold a complete GLEP 42 news repository.
 
-Creates the standard directory layout, pre-commit hooks, CI workflow,
-and tool configuration so that a news repo works identically in local
-development and CI from the first commit.
+Creates the standard directory layout, pre-commit hooks, CI workflows,
+and tool configuration matching the Gentoo overlay conventions so that
+a news repo works identically in local development and CI.
 """
 
 from __future__ import annotations
@@ -47,7 +47,11 @@ def _render_templates(*, title: str, author: str, name: str) -> dict[str, str]:
     return {
         "geek42.toml": _GEEK42_TOML.format(title=title, author=author),
         ".pre-commit-config.yaml": _PRE_COMMIT_YAML,
-        ".github/workflows/ci.yml": _CI_YML.format(name=name),
+        ".github/workflows/lint.yml": _LINT_YML,
+        ".github/workflows/manifest.yml": _MANIFEST_YML,
+        ".github/workflows/deploy.yml": _DEPLOY_YML,
+        ".github/dependabot.yml": _DEPENDABOT_YML,
+        ".yamllint.yml": _YAMLLINT_YML,
         "pyproject.toml": _PYPROJECT_TOML.format(name=name),
         "README.md": _README_MD.format(title=title),
         ".gitignore": _GITIGNORE,
@@ -80,23 +84,47 @@ url = "."
 # branch = "master"
 """
 
+# ---- pre-commit (mirrors localrepo pattern) ----
+
 _PRE_COMMIT_YAML = """\
+# Pre-commit hooks for GLEP 42 news repository
+# Install: uv sync --dev && pre-commit install
+
 repos:
-  # -- whitespace & formatting ------------------------------------------------
+  # -- text hygiene -----------------------------------------------------------
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+        exclude: '(/|^)Manifest$'
       - id: mixed-line-ending
         args: [--fix=lf]
       - id: check-yaml
       - id: check-toml
       - id: check-merge-conflict
-      - id: fix-byte-order-marker
-      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
 
-  # -- geek42 news checks ----------------------------------------------------
+  # -- YAML lint --------------------------------------------------------------
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: ['--strict', '-c', '.yamllint.yml']
+
+  # -- Markdown formatting ----------------------------------------------------
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        args: ['--wrap=keep', '--number']
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-tables
+          - mdformat-frontmatter
+
+  # -- geek42 / gemato local hooks -------------------------------------------
   - repo: local
     hooks:
       - id: lint-news
@@ -113,8 +141,26 @@ repos:
         always_run: true
         pass_filenames: false
 
+      - id: gemato-sign
+        name: update and sign Manifest tree
+        description: >-
+          Run gemato update to refresh the Manifest tree.
+          Fails if Manifest files changed so you can stage them.
+        entry: >-
+          bash -c '
+          command -v gemato >/dev/null ||
+            { echo "gemato not installed (uv tool install gemato);"
+              echo "to skip: SKIP=gemato-sign git commit"; exit 1; };
+          uv tool run geek42 sign &&
+          git diff --exit-code --name-only -- Manifest
+            ":(glob)**/Manifest" ||
+            { echo "Manifest tree updated — stage and re-commit";
+              exit 1; }'
+        language: system
+        pass_filenames: false
+
       - id: verify-manifest
-        name: verify Manifest
+        name: verify Manifest tree
         entry: uv tool run geek42 verify
         language: system
         always_run: true
@@ -122,8 +168,10 @@ repos:
         stages: [pre-push]
 """
 
-_CI_YML = """\
-name: CI
+# ---- CI: lint (portable pre-commit hooks) ----
+
+_LINT_YML = """\
+name: lint
 
 on:
   push:
@@ -131,55 +179,81 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: pre-commit/action@v3.0.1
+        env:
+          SKIP: gemato-sign,verify-manifest
+"""
+
+# ---- CI: manifest verification ----
+
+_MANIFEST_YML = """\
+name: manifest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Regenerate Manifests
+        run: uv tool run geek42 sign
+      - name: Verify Manifests are up to date
+        run: |
+          git diff --exit-code --name-only -- Manifest \
+            ':(glob)**/Manifest' ':(glob)**/Manifest.gz' || \\
+            { echo "::error::Manifests are stale"; exit 1; }
+          echo "All Manifests up to date"
+
+      - name: Verify Manifest tree (gemato)
+        run: uv tool run gemato verify --keep-going .
+
+      - name: Verify compiled blog is up to date
+        run: |
+          uv tool run geek42 compile-blog
+          git diff --exit-code -- news/ README.md || \\
+            { echo "::error::Compiled output is stale"; exit 1; }
+"""
+
+# ---- CI: GitHub Pages deploy ----
+
+_DEPLOY_YML = """\
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
 permissions: {{}}
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-
-      # -- whitespace & formatting --
-      - name: Check trailing whitespace
-        run: |
-          ! grep -rn '[[:blank:]]$' metadata/news/ && echo "OK: no trailing whitespace"
-      - name: Check line endings (LF only)
-        run: |
-          ! grep -rPl '\\r' metadata/news/ && echo "OK: no CRLF"
-      - name: Check final newline
-        run: |
-          bad=0
-          for f in $(find metadata/news -name '*.txt'); do
-            [ -s "$f" ] && [ "$(tail -c1 "$f" | xxd -p)" != "0a" ] && \
-              echo "missing newline: $f" && bad=1
-          done
-          [ "$bad" -eq 0 ] && echo "OK: all files end with newline"
-          exit $bad
-
-      # -- GLEP 42 lint --
-      - name: Lint news items
-        run: uv tool run geek42 lint metadata/news
-
-      # -- Manifest checksums & signature --
-      - name: Verify Manifest (geek42)
-        run: uv tool run geek42 verify
-      - name: Verify Manifest (gemato)
-        run: uv tool run gemato verify .
-
-      # -- compiled output is up to date --
-      - name: Compile blog
-        run: uv tool run geek42 compile-blog
-      - name: Confirm no uncommitted changes
-        run: |
-          git diff --exit-code -- news/ README.md || \
-            (echo "::error::Compiled output is stale" && exit 1)
-
   deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: check
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -199,6 +273,35 @@ jobs:
         uses: actions/deploy-pages@v4
 """
 
+# ---- dependabot ----
+
+_DEPENDABOT_YML = """\
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+"""
+
+# ---- yamllint ----
+
+_YAMLLINT_YML = """\
+extends: relaxed
+
+rules:
+  line-length: disable
+  document-start: disable
+  truthy:
+    check-keys: false
+"""
+
+# ---- pyproject.toml ----
+
 _PYPROJECT_TOML = """\
 [project]
 name = "{name}"
@@ -213,6 +316,8 @@ dev = [
     "pre-commit>=4.0",
 ]
 """
+
+# ---- README ----
 
 _README_MD = """\
 # {title}
@@ -231,7 +336,7 @@ _README_MD = """\
 # Write a news item
 geek42 new
 
-# Commit (compiles blog automatically via pre-commit)
+# Commit (compiles blog and updates Manifests via pre-commit)
 geek42 commit
 
 # Push
@@ -246,6 +351,8 @@ pre-commit install
 ```
 """
 
+# ---- gitignore ----
+
 _GITIGNORE = """\
 _site/
 .geek42/
@@ -253,7 +360,8 @@ _site/
 *.pyc
 """
 
+# ---- metadata/layout.conf ----
+
 _LAYOUT_CONF = """\
-# Repository layout metadata
 repo-name = {name}
 """
