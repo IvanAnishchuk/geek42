@@ -210,10 +210,18 @@ Signed-off-by: Jane Doe <jane@example.org>
 
 For a complete reference and rationale see [docs/devops.md](docs/devops.md#semantic-commits-conventional-commits).
 
+## Testing and coverage
+
+All new features and bug fixes must include tests. See
+[docs/testing-policy.md](docs/testing-policy.md) for the full policy.
+
+For coding conventions, commit format details, and file organization,
+see [docs/style-guide.md](docs/style-guide.md).
+
 ## Pull request checklist
 
 - [ ] Tests added/updated for new behavior
-- [ ] `uv run pytest` passes with ≥ 80% coverage
+- [ ] `uv run pytest` passes (coverage must not drop below floor)
 - [ ] `uv run ruff check` passes
 - [ ] `uv run ruff format --check` passes
 - [ ] `uv run ty check` passes

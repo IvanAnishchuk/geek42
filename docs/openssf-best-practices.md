@@ -109,14 +109,35 @@ enforced by:
 
 ---
 
-## GitHub settings required (not automatable via files)
+## GitHub security settings — now enabled
 
-These toggles in **Settings > Code security and analysis** don't have
-file-based equivalents. They must be enabled manually:
+As of 2026-04-10 (confirmed via Security > Overview screenshot):
 
-- Private vulnerability reporting
-- Dependency graph
-- Dependabot alerts + malware alerts + security updates
-- Secret scanning + push protection
+- [x] Security policy: **Enabled** (via `SECURITY.md`)
+- [x] Security advisories: **Enabled**
+- [x] Private vulnerability reporting: **Enabled**
+- [x] Dependabot alerts: **Enabled**
+- [x] Code scanning alerts: **Enabled** (CodeQL + ruff + osv-scanner)
+- [x] Secret scanning alerts: **Enabled**
 
-See `docs/release-setup.md` for the full checklist with current status.
+Still needs action:
+- [ ] Dependency graph (enable in Settings > Code security)
+- [ ] Dependabot security updates (enable in Settings > Code security)
+- [ ] Push protection (enable in Settings > Code security)
+- [ ] Branch protection (settings app installed, pending first sync)
+
+## Improvements since initial assessment
+
+| Area | Before | After |
+|------|--------|-------|
+| **Vulnerability reporting** | `SECURITY.md` only | + Private vulnerability reporting enabled on GitHub |
+| **Dependabot** | Version updates only | + Alerts enabled, security updates pending |
+| **Code scanning** | CodeQL only | + ruff SARIF, osv-scanner SARIF, secret scanning |
+| **Test policy** | Implicit (fail_under) | Documented in `docs/testing-policy.md`, referenced from CONTRIBUTING.md |
+| **Coverage** | Floor only | + PR diff comments via coverage action, pragmatic exceptions policy |
+| **Style guide** | Ruff config only | Documented in `docs/style-guide.md` |
+| **User guide** | README quickstart | Full workflow walkthrough in `docs/user-guide.md` |
+| **Manifests** | None | gemato-compatible Manifest tree, signed, verified in CI |
+| **Newsrepo scaffold** | Config file only | Full repo template matching Gentoo overlay conventions |
+
+See `docs/release-setup.md` for the remaining setup steps.
