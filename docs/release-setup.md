@@ -5,10 +5,49 @@ so each step builds on the previous one.
 
 ---
 
-## 1. PyPI — Trusted Publisher (OIDC, no tokens)
+## 1. GitHub Settings — Security (manual toggles)
 
-PyPI supports "trusted publishing" where GitHub Actions authenticates
-via OIDC — no API tokens needed.
+These are in **Settings > Code security and analysis**. The screenshot
+from 2026-04-10 shows most are still **Disabled**. Turn them all on.
+
+| Setting | Current | Action |
+|---------|---------|--------|
+| Private vulnerability reporting | Disabled | **Enable** — allows private disclosure per `SECURITY.md` |
+| Dependency graph | Disabled | **Enable** — GitHub default, needed by Dependabot |
+| Dependabot alerts | Disabled | **Enable** — flags known CVEs in dependencies |
+| Dependabot malware alerts | Disabled | **Enable** |
+| Dependabot security updates | Disabled | **Enable** — auto-opens PRs for vuln fixes |
+| Grouped security updates | Disabled | **Enable** — one PR per ecosystem, less noise |
+| Dependabot version updates | Configured | Already via `.github/dependabot.yml` |
+| CodeQL analysis | Advanced setup | Working (last scan 4 min ago per screenshot) |
+| Copilot Autofix | On | OK — suggests fixes for CodeQL alerts |
+| Secret scanning | Disabled | **Enable** |
+| Push protection | Disabled | **Enable** — blocks commits containing secrets |
+| Code scanning thresholds | Set | Security: High or higher, Standard: Only errors — OK |
+
+**Code scanning config error**: "Ruff and osv-scanner are reporting
+errors" — this is the broken SHA-pinned actions issue. Already fixed
+in the last commit; will clear after next successful CI run.
+
+## 2. Branch Protection — `main`
+
+The [repository-settings app](https://github.com/apps/settings) is
+now installed. `.github/settings.yml` declares:
+
+- Required PR reviews (1 approval, dismiss stale, code owner review)
+- Required status checks (strict): pre-commit, lint, security lint,
+  type check, audit, OSV scan, test, CodeQL, secret scan,
+  dependency review
+- Signed commits required
+- Enforce for admins (no bypass)
+- Linear history required
+- No force pushes, no branch deletion
+- Conversation resolution required
+
+The app applies these settings on the next push to main. Verify
+afterward: Settings > Branches should show the protection rule.
+
+## 3. PyPI — Trusted Publisher (OIDC, no tokens)
 
 1. **Create a PyPI account** at <https://pypi.org/account/register/>
 2. **Enable 2FA** at <https://pypi.org/manage/account/#two-factor>
@@ -26,83 +65,64 @@ Optional — TestPyPI first:
 2. Trigger the release workflow with `workflow_dispatch` and the
    TestPyPI option
 
-## 2. GitHub Environment — `pypi`
-
-The release workflow deploys to a `pypi` environment with reviewer gate.
+## 4. GitHub Environment — `pypi`
 
 1. Go to **Settings > Environments** on the repo
 2. Create environment **`pypi`**
 3. Check **Required reviewers** and add yourself
 4. Under **Deployment branches**, select **Protected branches only**
 
-## 3. GitHub Pages
+(`.github/settings.yml` also declares `pypi` and `testpypi`
+environments, but reviewer gates need manual setup.)
+
+## 5. GitHub Pages
 
 1. **Settings > Pages**
 2. Source: **GitHub Actions** (not "Deploy from a branch")
-3. The `deploy.yml` workflow (in the newsrepo template) or the
-   existing CI deploy job handles the rest
-
-## 4. GitHub Settings — Security
-
-Do these in **Settings > Code security and analysis**:
-
-- [x] **Dependabot alerts**: enable
-- [x] **Dependabot security updates**: enable
-- [x] **Dependabot version updates**: already configured via `.github/dependabot.yml`
-- [x] **Secret scanning**: enable
-- [x] **Push protection**: enable (blocks commits containing secrets)
-- [x] **CodeQL**: already runs via `.github/workflows/codeql.yml`
-
-## 5. Branch Protection — `main`
-
-**Settings > Branches > Add rule** for `main`:
-
-- [x] Require pull request before merging (1 approval)
-- [x] Require status checks: `pre-commit`, `test`, `lint`, `audit`
-- [x] Require signed commits
-- [x] Do not allow bypassing
-- [x] Restrict who can push (yourself only)
-
-Note: `.github/settings.yml` declares these if the
-[repository-settings app](https://github.com/apps/settings) is
-installed.
 
 ## 6. OpenSSF Best Practices — Project 12450
 
 Badge form: <https://www.bestpractices.dev/projects/12450/edit>
 
 See `docs/openssf-best-practices.md` for answers to each question.
-After completing PyPI setup and the first release, revisit the "?"
-items (2FA, signed releases, reproducibility).
+Many items are satisfied by GitHub defaults + our repo configuration:
 
-## 7. Scorecard
+| OpenSSF question | How it's met |
+|------------------|-------------|
+| Public VCS | GitHub public repo (default) |
+| Issue tracker | GitHub Issues (default, `has_issues: true` in settings.yml) |
+| License in standard location | `LICENSE.md` at root |
+| Security policy | `SECURITY.md` at root (GitHub auto-detects) |
+| Bug report process | `.github/ISSUE_TEMPLATE/config.yml` |
+| Vulnerability reporting | `SECURITY.md` + private vuln reporting (enable above) |
+| Contribution guide | `CONTRIBUTING.md` (GitHub auto-detects) |
+| Unique versions | SemVer in `pyproject.toml` + `__version__` |
+| Release notes | `CHANGELOG.md` + GitHub Releases |
+| Static analysis | ruff (S/BLE/TRY rules) + CodeQL in CI |
+| Signed commits | Required via branch protection |
+| Automated tests | 158 pytest tests, `fail_under = 80` |
+| Dependency monitoring | Dependabot alerts + `pip-audit` in CI |
+| Secure delivery | PyPI OIDC + sigstore + SLSA L3 provenance |
 
-The OpenSSF Scorecard workflow (`.github/workflows/scorecard.yml`)
-runs automatically. After the first successful run:
-
-1. Results appear at
-   <https://scorecard.dev/viewer/?uri=github.com/IvanAnishchuk/geek42>
-2. SARIF results upload to **Security > Code scanning**
-
-## 8. Coverage Badge
+## 7. Coverage Badge
 
 After the first successful CI run with the coverage comment action:
 
 1. An orphan branch `python-coverage-comment-action-data` is created
 2. Uncomment the Coverage badge in `README.md`
 
-## 9. First Release
+## 8. First Release
 
 ```sh
 # Make sure CI is green
-gh run list --workflow ci.yml --limit 1
+gh run list --repo IvanAnishchuk/geek42 --workflow ci.yml --limit 1
 
 # Tag
 git tag -s v0.3.0 -m "v0.3.0"
 git push origin v0.3.0
 
 # The release workflow will:
-#   1. Build wheel + sdist (reproducible)
+#   1. Build wheel + sdist (reproducible via SOURCE_DATE_EPOCH)
 #   2. Generate CycloneDX SBOM
 #   3. Sign with sigstore
 #   4. Create GitHub Release with artifacts
@@ -115,37 +135,32 @@ After the release succeeds, uncomment the PyPI badges in `README.md`.
 
 ## Security TODO
 
-Items requiring manual action, policy decisions, or GitHub settings
-that cannot be automated via repo files:
+### Before v0.3.0 (manual GitHub UI actions)
 
-### Immediate (before v0.3.0)
-
-- [ ] **Install [repository-settings app](https://github.com/apps/settings)**
-      on the repo — this activates `.github/settings.yml` which
-      declares branch protection, required status checks, signed
-      commits, dismiss stale reviews, etc. Without it, the file is
-      inert. Alternatively, configure manually:
-      Settings > Branches > Add rule for `main`.
-- [ ] **Enable branch protection on `main`** (if not using the app):
-      require PR reviews (1), require status checks (pre-commit,
-      test, lint, audit, CodeQL, etc.), require signed commits,
-      enforce for admins, require linear history.
+- [ ] Enable private vulnerability reporting
+- [ ] Enable dependency graph
+- [ ] Enable Dependabot alerts
+- [ ] Enable Dependabot malware alerts
+- [ ] Enable Dependabot security updates
+- [ ] Enable grouped security updates
+- [ ] Enable secret scanning
+- [ ] Enable push protection
+- [ ] Verify branch protection applied by settings app
 - [ ] Enable 2FA on PyPI account
 - [ ] Create `pypi` environment with reviewer gate
-- [ ] Enable secret scanning + push protection
-      (Settings > Code security and analysis)
-- [ ] Enable Dependabot alerts + security updates
-- [ ] Review and complete OpenSSF Best Practices form
+- [ ] Enable GitHub Pages (source: GitHub Actions)
+- [ ] Complete OpenSSF Best Practices form (project 12450)
 
 ### After first release
 
 - [ ] Verify sigstore signatures on the published wheel
 - [ ] Verify SLSA provenance on the GitHub Release
-- [ ] Verify reproducible build (`SOURCE_DATE_EPOCH` produces
-      identical artifacts)
+- [ ] Verify reproducible build (two builds with same
+      `SOURCE_DATE_EPOCH` produce identical artifacts)
 - [ ] Uncomment PyPI + Coverage badges in README
 - [ ] Run `pip-audit` against the published package
 - [ ] Review Scorecard results and address any findings
+- [ ] Confirm code scanning errors cleared (ruff + osv-scanner SARIF)
 
 ### Ongoing
 
@@ -155,3 +170,15 @@ that cannot be automated via repo files:
 - [ ] Re-run OpenSSF Best Practices self-assessment annually
 - [ ] Review and rotate any API tokens (ideally: none, OIDC only)
 - [ ] Consider adding a second maintainer (bus factor)
+
+### What's already automated (no action needed)
+
+- Conventional Commits enforced by `conventional-pre-commit` hook
+- Branch protection declared in `.github/settings.yml`
+- Required status checks declared in `.github/settings.yml`
+- CODEOWNERS for security-sensitive paths
+- CodeQL weekly + on PR
+- Gitleaks secret scanning on push
+- Dependency review on PRs (license + vuln gating)
+- OpenSSF Scorecard weekly
+- Pre-commit hooks for formatting, linting, security

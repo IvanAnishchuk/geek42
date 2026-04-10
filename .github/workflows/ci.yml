@@ -52,6 +52,8 @@ jobs:
 
       - name: Run pre-commit on all files
         run: uv run pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: no-commit-to-branch
 
   # ================================================================
   # lint — ruff (style + security) with SARIF upload, text log, and
