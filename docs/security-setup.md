@@ -119,7 +119,7 @@ Navigate to: **Settings → Actions → General**
 
 **Actions permissions:**
 
-- Allow OWNER, and select non-OWNER actions and reusable workflows
+- Allow congentoo, and select non-congentoo, actions and reusable workflows
 - Allow actions created by GitHub
 - Allow actions by Marketplace verified creators
 - Explicitly allowlist third-party actions by full path (astral-sh/*, step-security/*, ossf/*, gitleaks/*, sigstore/*, slsa-framework/*, pypa/*, softprops/*)
@@ -162,7 +162,7 @@ Before the first release, register geek42 on PyPI with trusted publishing.
 2. Navigate to **Your account → Publishing**
 3. Under "Add a new pending publisher", fill in:
    - **Project name**: `geek42`
-   - **Owner**: `OWNER` (your GitHub org or user)
+   - **Owner**: `congentoo` (your GitHub org or user)
    - **Repository name**: `geek42`
    - **Workflow name**: `release.yml`
    - **Environment name**: `pypi`
@@ -188,7 +188,7 @@ Register the project at <https://www.bestpractices.dev/>:
 
 1. Sign in with GitHub
 2. "Add new project"
-3. Repository URL: `https://github.com/OWNER/geek42`
+3. Repository URL: `https://github.com/congentoo/geek42`
 4. Complete the self-assessment questionnaire (aim for "passing" on
    first submission, then work up to "silver" and "gold")
 5. Copy the badge project ID into the `README.md` badges block
@@ -201,7 +201,7 @@ Register the project at <https://www.bestpractices.dev/>:
 Once the scorecard workflow runs for the first time (after merge to
 main), your score appears at:
 
-<https://scorecard.dev/viewer/?uri=github.com/OWNER/geek42>
+<https://scorecard.dev/viewer/?uri=github.com/congentoo/geek42>
 
 Iterate on any failing checks. Target score: ≥ 7.0.
 

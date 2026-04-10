@@ -6,13 +6,13 @@
 # for this file to be enforced.
 
 # Default: everything requires owner review
-* @OWNER
+* @congentoo
 
 # Security-sensitive paths require extra scrutiny
-/SECURITY.md                  @OWNER
-/.github/                     @OWNER
-/.github/workflows/           @OWNER
-/.github/CODEOWNERS           @OWNER
-/pyproject.toml               @OWNER
-/src/geek42/compose.py        @OWNER
-/src/geek42/site.py           @OWNER
+/SECURITY.md                  @congentoo
+/.github/                     @congentoo
+/.github/workflows/           @congentoo
+/.github/CODEOWNERS           @congentoo
+/pyproject.toml               @congentoo
+/src/geek42/compose.py        @congentoo
+/src/geek42/site.py           @congentoo

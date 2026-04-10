@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: geek42
-Upstream-Contact: geek42 contributors <noreply@example.org>
-Source: https://github.com/OWNER/geek42
+Upstream-Contact: geek42 contributors <noreply@congentoo.org>
+Source: https://github.com/congentoo/geek42
 
 Files: *
 Copyright: 2026 geek42 contributors

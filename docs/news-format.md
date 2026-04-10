@@ -137,7 +137,7 @@ Edit `geek42.toml` to point the first source at your own repo:
 ```toml
 title = "My Tech Blog"
 description = "Notes on Gentoo, systems, and code"
-base_url = "https://yourusername.github.io/blog"
+base_url = "https://congentoo.github.io/newsrepo"
 author = "Your Name <you@example.org>"
 output_dir = "_site"
 data_dir = ".geek42"

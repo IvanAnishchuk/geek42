@@ -15,7 +15,7 @@ repository:
   description: >-
     Convert GLEP 42 Gentoo news repositories into static blogs with
     RSS/Atom feeds, SLSA L3 provenance, and sigstore-signed releases.
-  homepage: https://github.com/OWNER/geek42
+  homepage: https://github.com/congentoo/geek42
   topics:
     - gentoo
     - glep42

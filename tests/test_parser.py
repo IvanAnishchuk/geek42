@@ -101,9 +101,7 @@ def test_parse_missing_title_raises(tmp_path: Path) -> None:
     item_dir = tmp_path / "2025-01-01-no-title"
     item_dir.mkdir()
     f = item_dir / "2025-01-01-no-title.en.txt"
-    f.write_text(
-        "Author: D <d@g>\nPosted: 2025-01-01\nRevision: 1\nNews-Item-Format: 2.0\n\nBody."
-    )
+    f.write_text("Author: D <d@g>\nPosted: 2025-01-01\nRevision: 1\nNews-Item-Format: 2.0\n\nBody.")
     with pytest.raises(MissingHeaderError) as exc_info:
         parse_news_file(f)
     assert exc_info.value.header == "Title"
@@ -125,8 +123,7 @@ def test_parse_invalid_posted_date(tmp_path: Path) -> None:
     item_dir.mkdir()
     f = item_dir / "2025-01-01-bad-date.en.txt"
     f.write_text(
-        "Title: T\nAuthor: D <d@g>\nPosted: not-a-date\nRevision: 1\n"
-        "News-Item-Format: 2.0\n\nBody."
+        "Title: T\nAuthor: D <d@g>\nPosted: not-a-date\nRevision: 1\nNews-Item-Format: 2.0\n\nBody."
     )
     with pytest.raises(InvalidHeaderValueError) as exc_info:
         parse_news_file(f)

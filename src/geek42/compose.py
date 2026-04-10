@@ -196,6 +196,8 @@ def find_item_file(
     data_dir: Path,
     sources: list[NewsSource],
     language: str = "en",
+    *,
+    root_dir: Path | None = None,
 ) -> Path | None:
     """Locate the file backing a news item by ID across all configured sources.
 
@@ -207,10 +209,12 @@ def find_item_file(
     :param data_dir: The geek42 data dir containing ``repos/<name>/``.
     :param sources: Configured news sources (only the ``name`` is used).
     :param language: ``en`` etc. — picks the right ``{id}.{lang}.txt``.
+    :param root_dir: Base directory for local sources (default: cwd).
     :returns: The path to the news file, or ``None`` if no match.
     """
+    _root = (root_dir or Path(".")).resolve()
     for source in sources:
-        repo_dir = data_dir / "repos" / source.name
+        repo_dir = _root if source.is_local else data_dir / "repos" / source.name
         if not repo_dir.is_dir():
             continue
         # Exact match first

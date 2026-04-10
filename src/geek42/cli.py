@@ -33,51 +33,76 @@ console = Console()
 err_console = Console(stderr=True)
 
 ConfigOption = Annotated[Path, typer.Option("--config", "-c", help="Config file path.")]
+DirectoryOption = Annotated[
+    Path | None, typer.Option("--directory", "-C", help="Working directory.")
+]
 
 DEFAULT_CONFIG = """\
-title = "Gentoo News"
-description = "Gentoo Linux News Items"
-base_url = "https://example.github.io/gentoo-news"
-author = "Gentoo Developers"
+title = "{title}"
+author = "{author}"
+description = "News Items"
+base_url = ""
 output_dir = "_site"
 data_dir = ".geek42"
 language = "en"
 
 [[sources]]
-name = "gentoo"
-url = "https://anongit.gentoo.org/git/data/glep42-news-gentoo.git"
-branch = "master"
+name = "local"
+url = "."
 
-# Add more sources:
+# To read news from remote repositories, add more sources:
 # [[sources]]
-# name = "overlay-news"
-# url = "https://example.org/overlay-news.git"
-# branch = "main"
+# name = "gentoo"
+# url = "https://anongit.gentoo.org/git/data/glep42-news-gentoo.git"
+# branch = "master"
 """
 
 
-def _load_config(config_path: Path) -> SiteConfig:
+def _load_config(config_path: Path, directory: Path | None = None) -> SiteConfig:
+    if directory is not None and not config_path.is_absolute():
+        config_path = directory / config_path
     if config_path.exists():
         with open(config_path, "rb") as f:
-            return SiteConfig(**tomllib.load(f))
-    return SiteConfig()
+            cfg = SiteConfig(**tomllib.load(f))
+    else:
+        cfg = SiteConfig()
+    if directory is not None:
+        if not cfg.data_dir.is_absolute():
+            cfg.data_dir = directory / cfg.data_dir
+        if not cfg.output_dir.is_absolute():
+            cfg.output_dir = directory / cfg.output_dir
+    return cfg
 
 
 @app.command()
-def init(config: ConfigOption = Path("geek42.toml")) -> None:
+def init(
+    config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
+) -> None:
     """Create a default geek42.toml configuration file."""
+    from .compose import infer_author
+
+    if directory is not None and not config.is_absolute():
+        config = directory / config
     if config.exists():
         err_console.print(f"[yellow]Already exists:[/] {config}")
         return
-    config.write_text(DEFAULT_CONFIG, encoding="utf-8")
+    content = DEFAULT_CONFIG.format(title="My News", author=infer_author())
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(content, encoding="utf-8")
     console.print(f"[green]Created[/] {config}")
 
 
 @app.command()
-def pull(config: ConfigOption = Path("geek42.toml")) -> None:
+def pull(
+    config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
+) -> None:
     """Clone or update news source repositories."""
-    cfg = _load_config(config)
+    cfg = _load_config(config, directory)
     for source in cfg.sources:
+        if source.is_local:
+            continue
         console.print(f"Pulling [bold]{source.name}[/] ({source.url})...")
         try:
             pull_source(source, cfg.data_dir)
@@ -90,25 +115,29 @@ def pull(config: ConfigOption = Path("geek42.toml")) -> None:
 def build(
     config: ConfigOption = Path("geek42.toml"),
     no_pull: Annotated[bool, typer.Option("--no-pull", help="Skip pulling sources.")] = False,
+    directory: DirectoryOption = None,
 ) -> None:
     """Build the static site."""
-    cfg = _load_config(config)
+    cfg = _load_config(config, directory)
+    root_dir = directory.resolve() if directory is not None else None
     do_pull = not no_pull
 
     if do_pull:
-        console.print("[bold]Pulling sources...[/]")
-        for source in cfg.sources:
-            console.print(f"  {source.name}...", end=" ")
-            try:
-                pull_source(source, cfg.data_dir)
-                console.print("[green]OK[/]")
-            except subprocess.CalledProcessError as e:
-                err_console.print(f"[red]Failed:[/] {e}")
+        remote_sources = [s for s in cfg.sources if not s.is_local]
+        if remote_sources:
+            console.print("[bold]Pulling sources...[/]")
+            for source in remote_sources:
+                console.print(f"  {source.name}...", end=" ")
+                try:
+                    pull_source(source, cfg.data_dir)
+                    console.print("[green]OK[/]")
+                except subprocess.CalledProcessError as e:
+                    err_console.print(f"[red]Failed:[/] {e}")
 
     console.print("[bold]Collecting news items...[/]")
-    items = collect_items(cfg, pull=False)
+    items = collect_items(cfg, pull=False, root_dir=root_dir)
     if not items:
-        err_console.print("[yellow]No news items found.[/] Run 'geek42 pull' first.")
+        err_console.print("[yellow]No news items found.[/]")
         raise typer.Exit(1)
 
     console.print("[bold]Building site...[/]")
@@ -122,13 +151,15 @@ def list_news(
     source: Annotated[str | None, typer.Option("--source", "-s", help="Filter by source.")] = None,
     limit: Annotated[int, typer.Option("--limit", "-n", help="Max items.")] = 20,
     new: Annotated[bool, typer.Option("--new", help="Show only unread items.")] = False,
+    directory: DirectoryOption = None,
 ) -> None:
     """List news items in the terminal."""
     from .tracker import ReadTracker
 
-    cfg = _load_config(config)
+    cfg = _load_config(config, directory)
+    root_dir = directory.resolve() if directory is not None else None
     tracker = ReadTracker(cfg.data_dir)
-    items = collect_items(cfg, pull=False)
+    items = collect_items(cfg, pull=False, root_dir=root_dir)
     if source:
         items = [i for i in items if i.source == source]
     if new:
@@ -137,7 +168,7 @@ def list_news(
         if new:
             err_console.print("[yellow]No unread items.[/]")
         else:
-            err_console.print("[yellow]No news items.[/] Run 'geek42 pull' first.")
+            err_console.print("[yellow]No news items.[/]")
 
         raise typer.Exit(1)
 
@@ -186,12 +217,14 @@ def _render_item(item: NewsItem) -> None:
 def read(
     item_id: str,
     config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
 ) -> None:
     """Read a specific news item in the terminal (marks it as read)."""
     from .tracker import ReadTracker
 
-    cfg = _load_config(config)
-    items = collect_items(cfg, pull=False)
+    cfg = _load_config(config, directory)
+    root_dir = directory.resolve() if directory is not None else None
+    items = collect_items(cfg, pull=False, root_dir=root_dir)
     matches = [i for i in items if item_id in i.id]
     if not matches:
         raise ItemNotFoundError(item_id)
@@ -205,13 +238,15 @@ def read(
 @app.command("read-new")
 def read_new(
     config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
 ) -> None:
     """Read all unread news items, marking each as read."""
     from .tracker import ReadTracker
 
-    cfg = _load_config(config)
+    cfg = _load_config(config, directory)
+    root_dir = directory.resolve() if directory is not None else None
     tracker = ReadTracker(cfg.data_dir)
-    items = collect_items(cfg, pull=False)
+    items = collect_items(cfg, pull=False, root_dir=root_dir)
     unread = tracker.unread(items)
 
     if not unread:
@@ -262,18 +297,25 @@ def new(
     ] = None,
     editor: Annotated[str | None, typer.Option("--editor", "-e", help="Editor command.")] = None,
     config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
 ) -> None:
     """Create a new GLEP 42 news item (opens $EDITOR)."""
     from .compose import generate_template, get_editor, make_temp_copy, place_news_item
 
-    cfg = _load_config(config)
+    cfg = _load_config(config, directory)
     ed = get_editor(editor)
 
-    # Resolve target source repo
-    src_obj = _resolve_source(cfg, source)
-    repo_dir = cfg.data_dir / "repos" / src_obj.name
-    if not repo_dir.is_dir():
-        raise SourceNotPulledError(src_obj.name)
+    # Resolve target directory
+    if directory is not None:
+        repo_dir = directory.resolve()
+    else:
+        src_obj = _resolve_source(cfg, source)
+        if src_obj.is_local:
+            repo_dir = Path(".").resolve()
+        else:
+            repo_dir = cfg.data_dir / "repos" / src_obj.name
+            if not repo_dir.is_dir():
+                raise SourceNotPulledError(src_obj.name)
 
     template = generate_template()
     tmp = make_temp_copy(template, prefix="geek42-new-")
@@ -292,14 +334,16 @@ def revise(
     item_id: str,
     editor: Annotated[str | None, typer.Option("--editor", "-e", help="Editor command.")] = None,
     config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
 ) -> None:
     """Revise an existing news item (bump revision, open $EDITOR)."""
     from .compose import find_item_file, get_editor, prepare_revision
 
-    cfg = _load_config(config)
+    cfg = _load_config(config, directory)
+    root_dir = directory.resolve() if directory is not None else None
     ed = get_editor(editor)
 
-    item_path = find_item_file(item_id, cfg.data_dir, cfg.sources, cfg.language)
+    item_path = find_item_file(item_id, cfg.data_dir, cfg.sources, cfg.language, root_dir=root_dir)
     if item_path is None:
         raise ItemNotFoundError(item_id)
 

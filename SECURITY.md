@@ -16,13 +16,13 @@ Only the latest release of geek42 receives security fixes.
 Report privately via one of the following channels, in order of preference:
 
 1. **GitHub Private Vulnerability Reporting**
-   Use the "Report a vulnerability" button on the [Security tab](https://github.com/OWNER/geek42/security/advisories/new)
+   Use the "Report a vulnerability" button on the [Security tab](https://github.com/congentoo/geek42/security/advisories/new)
    of this repository. This creates a private advisory visible only to
    maintainers.
 
 2. **Encrypted email**
-   Send to `security@example.org` (update with real contact) encrypted with
-   the maintainer's public key published at `https://github.com/OWNER.gpg`.
+   Send to `security@congentoo.org` (update with real contact) encrypted with
+   the maintainer's public key published at `https://github.com/congentoo.gpg`.
 
 Please include:
 
@@ -80,18 +80,18 @@ gh release download v0.1.0 --pattern '*.sigstore'
 
 # Verify the signature (Sigstore) — requires `uv tool install sigstore`
 uv tool run sigstore verify identity \
-    --cert-identity-regexp '^https://github\.com/OWNER/geek42/\.github/workflows/release\.yml@' \
+    --cert-identity-regexp '^https://github\.com/congentoo/geek42/\.github/workflows/release\.yml@' \
     --cert-oidc-issuer 'https://token.actions.githubusercontent.com' \
     --bundle geek42-0.1.0-py3-none-any.whl.sigstore \
     geek42-0.1.0-py3-none-any.whl
 
 # Verify GitHub attestation (provenance)
-gh attestation verify geek42-0.1.0-py3-none-any.whl --owner OWNER
+gh attestation verify geek42-0.1.0-py3-none-any.whl --owner congentoo
 
 # Verify SLSA provenance
 slsa-verifier verify-artifact \
     --provenance-path geek42-0.1.0.intoto.jsonl \
-    --source-uri github.com/OWNER/geek42 \
+    --source-uri github.com/congentoo/geek42 \
     --source-tag v0.1.0 \
     geek42-0.1.0-py3-none-any.whl
 ```

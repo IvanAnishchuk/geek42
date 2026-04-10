@@ -26,8 +26,12 @@ def _require_git() -> str:
     return _GIT
 
 
-def pull_source(source: NewsSource, data_dir: Path) -> Path:
+def pull_source(
+    source: NewsSource, data_dir: Path, *, root_dir: Path | None = None
+) -> Path:
     """Clone or update a news source git repository."""
+    if source.is_local:
+        return (root_dir or Path(".")).resolve()
     git = _require_git()
     repo_dir = data_dir / "repos" / source.name
     if (repo_dir / ".git").is_dir():
@@ -46,22 +50,28 @@ def pull_source(source: NewsSource, data_dir: Path) -> Path:
     return repo_dir
 
 
-def collect_items(config: SiteConfig, *, pull: bool = False) -> list[NewsItem]:
+def collect_items(
+    config: SiteConfig, *, pull: bool = False, root_dir: Path | None = None
+) -> list[NewsItem]:
     """Collect news items from all configured sources, sorted newest first.
 
     If ``pull`` is true, each source is cloned/updated before scanning;
     sources that fail to pull but have a cached clone are still scanned
     from the cache. Sources with no cache are silently skipped.
     """
+    _root = (root_dir or Path(".")).resolve()
     all_items: list[NewsItem] = []
     for source in config.sources:
-        repo_dir = config.data_dir / "repos" / source.name
-        if pull:
-            try:
-                pull_source(source, config.data_dir)
-            except subprocess.CalledProcessError:
-                if not repo_dir.is_dir():
-                    continue
+        if source.is_local:
+            repo_dir = _root
+        else:
+            repo_dir = config.data_dir / "repos" / source.name
+            if pull:
+                try:
+                    pull_source(source, config.data_dir)
+                except subprocess.CalledProcessError:
+                    if not repo_dir.is_dir():
+                        continue
         if not repo_dir.is_dir():
             continue
         items = scan_repo(repo_dir, source=source.name, language=config.language)

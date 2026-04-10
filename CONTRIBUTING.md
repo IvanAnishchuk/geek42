@@ -12,7 +12,7 @@ Be kind. Assume good faith. If you're unsure, ask.
 geek42 uses [uv](https://docs.astral.sh/uv/) for environment management.
 
 ```sh
-git clone https://github.com/OWNER/geek42.git
+git clone https://github.com/congentoo/geek42.git
 cd geek42
 uv sync --frozen --dev
 

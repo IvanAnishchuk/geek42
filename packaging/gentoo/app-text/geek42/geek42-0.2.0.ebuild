@@ -10,7 +10,7 @@ inherit distutils-r1 pypi
 
 DESCRIPTION="Convert GLEP 42 Gentoo news repositories into static blogs"
 HOMEPAGE="
-	https://github.com/OWNER/geek42
+	https://github.com/congentoo/geek42
 	https://pypi.org/project/geek42/
 "
 

@@ -229,3 +229,28 @@ def test_find_item_not_found(tmp_path: Path) -> None:
 def test_find_item_unpulled_source(tmp_path: Path) -> None:
     sources = [NewsSource(name="missing", url="x", branch="main")]
     assert find_item_file("anything", tmp_path, sources) is None
+
+
+def test_find_item_local_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """find_item_file resolves local sources to cwd, not data_dir/repos/."""
+    item_dir = tmp_path / "2025-01-01-local-item"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-local-item.en.txt"
+    f.write_text("content")
+
+    monkeypatch.chdir(tmp_path)
+    sources = [NewsSource(name="local", url=".")]
+    result = find_item_file("2025-01-01-local-item", tmp_path, sources)
+    assert result == f
+
+
+def test_find_item_local_source_substring(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    item_dir = tmp_path / "2025-01-01-local-foobar"
+    item_dir.mkdir()
+    f = item_dir / "2025-01-01-local-foobar.en.txt"
+    f.write_text("content")
+
+    monkeypatch.chdir(tmp_path)
+    sources = [NewsSource(name="local", url=".")]
+    result = find_item_file("local-foobar", tmp_path, sources)
+    assert result == f

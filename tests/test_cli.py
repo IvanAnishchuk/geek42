@@ -26,14 +26,17 @@ def _write_config(path: Path, site_config: SiteConfig) -> None:
         f'language = "{site_config.language}"',
         "",
     ]
-    for source in site_config.sources:
-        lines += [
-            "[[sources]]",
-            f'name = "{source.name}"',
-            f'url = "{source.url}"',
-            f'branch = "{source.branch}"',
-            "",
-        ]
+    if site_config.sources:
+        for source in site_config.sources:
+            lines += [
+                "[[sources]]",
+                f'name = "{source.name}"',
+                f'url = "{source.url}"',
+                f'branch = "{source.branch}"',
+                "",
+            ]
+    else:
+        lines.append("sources = []")
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -47,6 +50,7 @@ def test_init_creates_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert (tmp_path / "geek42.toml").exists()
     content = (tmp_path / "geek42.toml").read_text()
     assert "[[sources]]" in content
+    assert 'url = "."' in content
 
 
 def test_init_refuses_overwrite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -473,6 +477,71 @@ def test_revise_item_not_found(tmp_path: Path, site_config: SiteConfig) -> None:
         pull_source(source, site_config.data_dir)
     result = runner.invoke(app, ["revise", "nonexistent-item", "--config", str(cfg_path)])
     assert result.exit_code == 1
+
+
+# -- local source tests --
+
+
+def test_new_local_source(tmp_path: Path, news_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """geek42 new works with a local source (no pull required)."""
+    monkeypatch.chdir(news_repo)
+    cfg = SiteConfig(
+        sources=[NewsSource(name="local", url=".")],
+        data_dir=news_repo / ".geek42",
+    )
+    cfg_path = news_repo / "geek42.toml"
+    _write_config(cfg_path, cfg)
+
+    import geek42.compose as compose_mod
+
+    def mock_editor(path: Path, editor: str) -> int:
+        return _fake_editor_that_fills_template(str(path))
+
+    monkeypatch.setattr(compose_mod, "open_in_editor", mock_editor)
+
+    result = runner.invoke(app, ["new", "--config", str(cfg_path)])
+    assert result.exit_code == 0
+    assert "Created" in result.output
+
+    # Item should be placed in the current directory, not .geek42/repos/
+    from datetime import date
+
+    today = date.today().isoformat()
+    item_dir = news_repo / f"{today}-my-test-news"
+    assert item_dir.is_dir()
+
+
+def test_build_local_source(news_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """geek42 build --no-pull works with a local source."""
+    monkeypatch.chdir(news_repo)
+    cfg = SiteConfig(
+        sources=[NewsSource(name="local", url=".")],
+        output_dir=news_repo / "_site",
+        data_dir=news_repo / ".geek42",
+    )
+    cfg_path = news_repo / "geek42.toml"
+    _write_config(cfg_path, cfg)
+
+    result = runner.invoke(app, ["build", "--no-pull", "--config", str(cfg_path)])
+    assert result.exit_code == 0
+    assert "Done" in result.output
+    assert (news_repo / "_site" / "index.html").exists()
+
+
+def test_pull_skips_local(news_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """geek42 pull silently skips local sources."""
+    monkeypatch.chdir(news_repo)
+    cfg = SiteConfig(
+        sources=[NewsSource(name="local", url=".")],
+        data_dir=news_repo / ".geek42",
+    )
+    cfg_path = news_repo / "geek42.toml"
+    _write_config(cfg_path, cfg)
+
+    result = runner.invoke(app, ["pull", "--config", str(cfg_path)])
+    assert result.exit_code == 0
+    # Should not attempt any git operations
+    assert "Error" not in result.output
 
 
 def test_revise_editor_failure(

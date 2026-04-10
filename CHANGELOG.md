@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Local-first workflow**: the default source is now `url = "."` (the
+  current directory). `geek42 init` creates a config for a local news
+  blog; `geek42 new` and `geek42 revise` work directly in the repo
+  without requiring `geek42 pull`. Remote sources remain fully
+  supported by adding `[[sources]]` entries with git URLs.
+- **`geek42 compile-blog` command**: compiles all GLEP 42 news items
+  into Markdown files in `news/` and updates a news index in
+  `README.md`. Designed to run as a pre-commit hook so the git repo
+  itself is a readable blog.
+- **`NewsSource.is_local` property**: True when `url == "."`, used
+  throughout to skip git operations for local sources.
+
+### Changed
+
+- **Default config**: `geek42 init` now generates a config with
+  `url = "."` (local source) and infers the author from git config,
+  instead of pointing at the Gentoo news repository.
+- **`pull` / `build`**: skip local sources during pull; `collect_items`
+  scans the current directory for local sources instead of
+  `data_dir/repos/`.
+- **`find_item_file`** (compose): resolves local sources to the current
+  directory, enabling `geek42 revise` without prior pull.
+
 - **Public API surface**: `src/geek42/__init__.py` now re-exports the
   full public API (`NewsItem`, `NewsSource`, `SiteConfig`, all
   exception classes, `parse_news_file`, `scan_repo`, `lint_news_file`,

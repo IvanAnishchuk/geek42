@@ -64,37 +64,40 @@ class NewsSource(BaseModel):
     name: str = Field(
         description="Logical name used as the local cache directory and on the site.",
     )
-    url: str = Field(description="Git URL — HTTPS recommended for public news repos.")
+    url: str = Field(
+        default=".",
+        description='Git URL, or "." for the current directory (local source).',
+    )
     branch: str = Field(
         default="master",
-        description="Branch to clone and follow.",
+        description="Branch to clone and follow (ignored for local sources).",
     )
+
+    @property
+    def is_local(self) -> bool:
+        """True when this source points at the current directory (no pull needed)."""
+        return self.url == "."
 
 
 class SiteConfig(BaseModel):
     """Top-level geek42 configuration loaded from ``geek42.toml``."""
 
-    title: str = Field(default="Gentoo News", description="Site title.")
+    title: str = Field(default="My News", description="Site title.")
     description: str = Field(
-        default="Gentoo Linux News Items",
+        default="News Items",
         description="Site description shown in feed metadata and the header.",
     )
     base_url: str = Field(
-        default="https://example.github.io/gentoo-news",
+        default="",
         description="Public URL where the built site will be hosted; used in feeds.",
     )
     author: str = Field(
-        default="Gentoo Developers",
+        default="",
         description="Default author shown in the Atom feed.",
     )
     sources: list[NewsSource] = Field(
-        default_factory=lambda: [
-            NewsSource(
-                name="gentoo",
-                url="https://anongit.gentoo.org/git/data/glep42-news-gentoo.git",
-            )
-        ],
-        description="One or more news source git repositories to aggregate.",
+        default_factory=lambda: [NewsSource(name="local", url=".")],
+        description='News sources. Use url="." for the current repo (default).',
     )
     output_dir: Path = Field(
         default=Path("_site"),

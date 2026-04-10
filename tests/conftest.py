@@ -98,3 +98,17 @@ def site_config(tmp_path: Path, git_news_repo: Path) -> SiteConfig:
         output_dir=tmp_path / "output",
         data_dir=tmp_path / "data",
     )
+
+
+@pytest.fixture
+def local_site_config(news_repo: Path) -> SiteConfig:
+    """A SiteConfig with a local source pointing at news_repo via url='.'."""
+    return SiteConfig(
+        title="Test News",
+        description="Test news site",
+        base_url="https://test.example.com",
+        author="Test Author",
+        sources=[NewsSource(name="local", url=".")],
+        output_dir=news_repo / "_site",
+        data_dir=news_repo / ".geek42",
+    )

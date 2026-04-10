@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from geek42 import site as site_module
 from geek42.errors import GitNotFoundError
 from geek42.models import NewsItem, NewsSource, SiteConfig
 from geek42.site import build_site, collect_items, pull_source
+
+
+def test_news_source_is_local() -> None:
+    assert NewsSource(name="local", url=".").is_local is True
+    assert NewsSource(name="remote", url="https://example.com/repo.git").is_local is False
 
 
 def test_pull_source(site_config: SiteConfig) -> None:
@@ -158,3 +165,44 @@ def test_pull_source_raises_when_git_missing(
     source = site_config.sources[0]
     with pytest.raises(GitNotFoundError):
         pull_source(source, site_config.data_dir)
+
+
+# -- local source tests --
+
+
+def test_pull_source_local_is_noop(
+    local_site_config: SiteConfig, news_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Pulling a local source returns cwd without invoking git."""
+    monkeypatch.chdir(news_repo)
+    source = local_site_config.sources[0]
+    result = pull_source(source, local_site_config.data_dir)
+    assert result == news_repo
+
+
+def test_collect_items_local_source(
+    local_site_config: SiteConfig, news_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """collect_items finds items in '.' without any pull."""
+    monkeypatch.chdir(news_repo)
+    items = collect_items(local_site_config, pull=False)
+    assert len(items) == 2
+    assert all(isinstance(i, NewsItem) for i in items)
+
+
+def test_collect_items_local_source_sorted(
+    local_site_config: SiteConfig, news_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(news_repo)
+    items = collect_items(local_site_config, pull=False)
+    assert items[0].posted >= items[1].posted
+
+
+def test_build_site_local_source(
+    local_site_config: SiteConfig, news_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(news_repo)
+    items = collect_items(local_site_config, pull=False)
+    count = build_site(local_site_config, items)
+    assert count == 2
+    assert (local_site_config.output_dir / "index.html").exists()

@@ -1,16 +1,16 @@
 # geek42
 
 <!-- Build & test -->
-[![CI](https://github.com/OWNER/geek42/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/geek42/actions/workflows/ci.yml)
-[![Coverage](https://raw.githubusercontent.com/OWNER/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/OWNER/geek42/tree/python-coverage-comment-action-data)
-[![Tests](https://img.shields.io/github/actions/workflow/status/OWNER/geek42/ci.yml?label=tests&branch=main)](https://github.com/OWNER/geek42/actions/workflows/ci.yml)
+[![CI](https://github.com/congentoo/geek42/actions/workflows/ci.yml/badge.svg)](https://github.com/congentoo/geek42/actions/workflows/ci.yml)
+[![Coverage](https://raw.githubusercontent.com/congentoo/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/congentoo/geek42/tree/python-coverage-comment-action-data)
+[![Tests](https://img.shields.io/github/actions/workflow/status/congentoo/geek42/ci.yml?label=tests&branch=main)](https://github.com/congentoo/geek42/actions/workflows/ci.yml)
 
 <!-- Security -->
-[![CodeQL](https://github.com/OWNER/geek42/actions/workflows/codeql.yml/badge.svg)](https://github.com/OWNER/geek42/actions/workflows/codeql.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/OWNER/geek42/badge)](https://scorecard.dev/viewer/?uri=github.com/OWNER/geek42)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/XXXX/badge)](https://www.bestpractices.dev/projects/XXXX)
+[![CodeQL](https://github.com/congentoo/geek42/actions/workflows/codeql.yml/badge.svg)](https://github.com/congentoo/geek42/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/congentoo/geek42/badge)](https://scorecard.dev/viewer/?uri=github.com/congentoo/geek42)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/XXXXX/badge)](https://www.bestpractices.dev/projects/XXXXX)
 [![SLSA Level 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![StepSecurity](https://img.shields.io/badge/runners-hardened-blue)](https://app.stepsecurity.io/github/OWNER/geek42)
+[![StepSecurity](https://img.shields.io/badge/runners-hardened-blue)](https://app.stepsecurity.io/github/congentoo/geek42)
 
 <!-- Packaging -->
 [![PyPI](https://img.shields.io/pypi/v/geek42)](https://pypi.org/project/geek42/)
@@ -28,13 +28,15 @@ Convert [GLEP 42](https://www.gentoo.org/glep/glep-0042.html) Gentoo news reposi
 
 ## Features
 
-- **Multiple sources** — aggregate news from several GLEP 42 git repos via `[[sources]]` in config
+- **Local-first blog** — write news items in your git repo, push to publish
 - **Static site** — generates a self-contained HTML site ready for GitHub Pages or any static host
+- **Pre-commit blog compiler** — auto-generates Markdown files and a README index on commit
 - **RSS + Atom feeds** — standards-compliant feeds generated from stdlib (no extra deps)
 - **Markdown exports** — each news item exported as `.md` with YAML frontmatter (Jekyll/Hugo compatible)
-- **Terminal reader** — `list` and `read` commands with Rich formatting, replacing `eselect news`
 - **Compose and revise** — `new` and `revise` commands open `$EDITOR` with templates and auto-lint
 - **Full GLEP 42 metadata** — packages, architectures, profiles, revision, format version all preserved
+- **Multiple sources** — optionally aggregate news from remote GLEP 42 git repos
+- **Terminal reader** — `list` and `read` commands with Rich formatting
 - **Semantic HTML** — Schema.org JSON-LD, Open Graph, proper `<article>`/`<time>`/`<address>` elements
 - **Dark mode** — respects `prefers-color-scheme`
 
@@ -43,73 +45,68 @@ Convert [GLEP 42](https://www.gentoo.org/glep/glep-0042.html) Gentoo news reposi
 Requires Python 3.13+.
 
 ```sh
-# With uv
-uv tool install .
-
-# Or from source
-uv sync
-uv run geek42 --help
+uv tool install geek42
 ```
 
 ## Quickstart
 
 ```sh
-# Create a config file
+# Create a git repo for your news blog
+mkdir my-blog && cd my-blog
+git init
+
+# Initialize configuration
 geek42 init
 
-# Edit geek42.toml to set your sources, base URL, etc.
+# Write your first post (opens $EDITOR)
+geek42 new
 
-# Pull news repos and build the site
-geek42 build
+# Commit (pre-commit hook compiles Markdown + README index)
+git add -A && git commit -m "feat: first post"
 
-# Or step by step:
-geek42 pull           # clone/update repos
-geek42 build --no-pull  # build without pulling
+# Push (GitHub Actions builds static site)
+git push
 ```
-
-The site is written to `_site/` by default.
 
 ## Configuration
 
-`geek42.toml`:
+`geek42.toml` (created by `geek42 init`):
 
 ```toml
-title = "Gentoo News"
-description = "Gentoo Linux News Items"
-base_url = "https://yourusername.github.io/gentoo-news"
-author = "Gentoo Developers"
+title = "My News"
+author = "Your Name <you@example.org>"
+description = "News Items"
+base_url = ""
 output_dir = "_site"
 data_dir = ".geek42"
 language = "en"
 
 [[sources]]
-name = "gentoo"
-url = "https://anongit.gentoo.org/git/data/glep42-news-gentoo.git"
-branch = "master"
+name = "local"
+url = "."
 
-[[sources]]
-name = "my-overlay"
-url = "https://github.com/user/overlay-news.git"
-branch = "main"
+# To read news from remote repositories:
+# [[sources]]
+# name = "gentoo"
+# url = "https://anongit.gentoo.org/git/data/glep42-news-gentoo.git"
+# branch = "master"
 ```
 
 ## CLI Commands
 
 ```
 geek42 init              Create a default geek42.toml
-geek42 pull              Clone or update news source repositories
-geek42 build             Pull sources and build the static site
-geek42 build --no-pull   Build from cached repos without pulling
-geek42 list              List news items in a Rich table
-geek42 list -s gentoo    Filter by source
-geek42 list -n 5         Limit output
-geek42 read <id>         Read a specific news item in the terminal
 geek42 new               Create a new news item (opens $EDITOR)
-geek42 new -s gentoo     Target a specific source
 geek42 new -e nano       Use a specific editor
 geek42 revise <id>       Revise an existing item (bump rev, open $EDITOR)
 geek42 lint <path>       Lint a news file or repository directory
 geek42 lint --strict .   Treat warnings as errors
+geek42 compile-blog      Compile Markdown files and update README index
+geek42 build --no-pull   Build static site from local items
+geek42 list              List news items in a Rich table
+geek42 read <id>         Read a specific news item in the terminal
+geek42 pull              Clone or update remote news sources
+geek42 build             Pull remote sources and build the static site
 ```
 
 ### Lint codes
@@ -174,8 +171,6 @@ name: Deploy
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "0 6 * * *"  # daily
 
 jobs:
   deploy:
@@ -189,8 +184,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync
-      - run: uv run geek42 build
+      - run: uv tool install geek42
+      - run: geek42 build --no-pull
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
@@ -217,22 +212,22 @@ jobs:
 
 ```sh
 # Download wheel and attestations
-gh release download v0.1.0 --repo OWNER/geek42
+gh release download v0.1.0 --repo congentoo/geek42
 
 # Verify sigstore signature (requires `uv tool install sigstore`)
 uv tool run sigstore verify identity \
-    --cert-identity-regexp '^https://github\.com/OWNER/geek42/\.github/workflows/release\.yml@' \
+    --cert-identity-regexp '^https://github\.com/congentoo/geek42/\.github/workflows/release\.yml@' \
     --cert-oidc-issuer 'https://token.actions.githubusercontent.com' \
     --bundle geek42-0.1.0-py3-none-any.whl.sigstore \
     geek42-0.1.0-py3-none-any.whl
 
 # Verify GitHub build provenance
-gh attestation verify geek42-0.1.0-py3-none-any.whl --owner OWNER
+gh attestation verify geek42-0.1.0-py3-none-any.whl --owner congentoo
 
 # Verify SLSA L3 provenance
 slsa-verifier verify-artifact \
     --provenance-path geek42-provenance.intoto.jsonl \
-    --source-uri github.com/OWNER/geek42 \
+    --source-uri github.com/congentoo/geek42 \
     --source-tag v0.1.0 \
     geek42-0.1.0-py3-none-any.whl
 ```

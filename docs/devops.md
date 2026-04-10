@@ -35,7 +35,7 @@ managed by `uv.lock` that CI uses. There is zero drift between
 ### One-time setup
 
 ```sh
-git clone https://github.com/OWNER/geek42.git
+git clone https://github.com/congentoo/geek42.git
 cd geek42
 uv sync --frozen --dev
 
@@ -456,7 +456,7 @@ this repository. If you prefer Codecov or Coveralls, see
 The badge URL in the README points at the raw SVG on the orphan branch:
 
 ```markdown
-[![Coverage](https://raw.githubusercontent.com/OWNER/geek42/python-coverage-comment-action-data/badge.svg)](...)
+[![Coverage](https://raw.githubusercontent.com/congentoo/geek42/python-coverage-comment-action-data/badge.svg)](...)
 ```
 
 Thresholds (configured in the CI step):
@@ -619,20 +619,20 @@ After the release is published:
 
 ```sh
 # Verify the sigstore bundle
-gh release download v0.2.0 --repo OWNER/geek42
+gh release download v0.2.0 --repo congentoo/geek42
 uv tool run sigstore verify identity \
-    --cert-identity-regexp '^https://github\.com/OWNER/geek42/\.github/workflows/release\.yml@' \
+    --cert-identity-regexp '^https://github\.com/congentoo/geek42/\.github/workflows/release\.yml@' \
     --cert-oidc-issuer 'https://token.actions.githubusercontent.com' \
     --bundle geek42-0.2.0-py3-none-any.whl.sigstore \
     geek42-0.2.0-py3-none-any.whl
 
 # Verify the attestation
-gh attestation verify geek42-0.2.0-py3-none-any.whl --owner OWNER
+gh attestation verify geek42-0.2.0-py3-none-any.whl --owner congentoo
 
 # Verify SLSA provenance
 slsa-verifier verify-artifact \
     --provenance-path geek42-provenance.intoto.jsonl \
-    --source-uri github.com/OWNER/geek42 \
+    --source-uri github.com/congentoo/geek42 \
     --source-tag v0.2.0 \
     geek42-0.2.0-py3-none-any.whl
 
@@ -699,7 +699,7 @@ diff /tmp/hash1 /tmp/hash2 && echo "REPRODUCIBLE"
 ### Verifying a release is reproducible
 
 ```sh
-git clone https://github.com/OWNER/geek42
+git clone https://github.com/congentoo/geek42
 cd geek42
 git checkout v0.2.0
 
