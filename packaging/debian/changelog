@@ -1,3 +1,11 @@
+geek42 (0.3.0-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Adds --directory / -C option to all commands.
+  * See CHANGELOG.md for details.
+
+ -- geek42 contributors <noreply@congentoo.org>  Fri, 10 Apr 2026 00:00:00 +0000
+
 geek42 (0.2.0-1) unstable; urgency=medium
 
   * New upstream release.

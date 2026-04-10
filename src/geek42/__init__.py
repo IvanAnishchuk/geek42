@@ -35,11 +35,11 @@ from .errors import (
 from .feeds import generate_atom, generate_rss
 from .linter import Diagnostic, Severity, lint_news_file, lint_repo
 from .models import NewsItem, NewsSource, SiteConfig
-from .parser import parse_news_file, scan_repo
+from .parser import NEWS_SUBDIR, parse_news_file, resolve_news_root, scan_repo
 from .renderer import body_to_html, news_to_markdown, write_markdown
 from .tracker import ReadTracker
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "ComposeError",
@@ -70,8 +70,10 @@ __all__ = [
     "generate_rss",
     "lint_news_file",
     "lint_repo",
+    "NEWS_SUBDIR",
     "news_to_markdown",
     "parse_news_file",
+    "resolve_news_root",
     "scan_repo",
     "write_markdown",
 ]

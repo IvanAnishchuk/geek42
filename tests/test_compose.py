@@ -143,6 +143,9 @@ def test_place_news_item(tmp_path: Path) -> None:
     assert "flexiblas-migration" in result.parent.name
     assert date.today().isoformat() in result.parent.name
     assert result.name.endswith(".en.txt")
+    # Items are placed under metadata/news/
+    assert "metadata" in result.parts
+    assert "news" in result.parts
 
 
 def test_place_news_item_empty_title(tmp_path: Path) -> None:
@@ -232,8 +235,10 @@ def test_find_item_unpulled_source(tmp_path: Path) -> None:
 
 
 def test_find_item_local_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """find_item_file resolves local sources to cwd, not data_dir/repos/."""
-    item_dir = tmp_path / "2025-01-01-local-item"
+    """find_item_file resolves local sources to metadata/news/, not data_dir/repos/."""
+    news_root = tmp_path / "metadata" / "news"
+    news_root.mkdir(parents=True)
+    item_dir = news_root / "2025-01-01-local-item"
     item_dir.mkdir()
     f = item_dir / "2025-01-01-local-item.en.txt"
     f.write_text("content")
@@ -245,7 +250,9 @@ def test_find_item_local_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
 
 def test_find_item_local_source_substring(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    item_dir = tmp_path / "2025-01-01-local-foobar"
+    news_root = tmp_path / "metadata" / "news"
+    news_root.mkdir(parents=True)
+    item_dir = news_root / "2025-01-01-local-foobar"
     item_dir.mkdir()
     f = item_dir / "2025-01-01-local-foobar.en.txt"
     f.write_text("content")

@@ -157,9 +157,12 @@ def lint_news_file(path: Path) -> list[Diagnostic]:  # noqa: C901
 
 def lint_repo(repo_path: Path, language: str = "en") -> list[Diagnostic]:
     """Lint all news items in a repository directory."""
+    from .parser import resolve_news_root
+
+    news_root = resolve_news_root(repo_path)
     all_diags: list[Diagnostic] = []
 
-    for entry in sorted(repo_path.iterdir()):
+    for entry in sorted(news_root.iterdir()):
         if not entry.is_dir():
             continue
         if not _ID_RE.match(entry.name):

@@ -2,7 +2,7 @@
 
 Running :func:`compile_news` on a GLEP 42 news repository will:
 
-1. Parse every news item in the repo root.
+1. Parse every news item (from ``metadata/news/`` or repo root).
 2. Write (or overwrite) a Markdown file per item in ``news/``.
 3. Update a fenced section in ``README.md`` with a chronological index.
 

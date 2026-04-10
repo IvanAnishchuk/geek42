@@ -7,7 +7,7 @@ read/unread tracking, compose and revise workflows, and a built-in
 news file linter with 15 diagnostic rules.}
 
 Name:           %{pypi_name}
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        GLEP 42 Gentoo news to static blog converter
 
@@ -53,6 +53,10 @@ Summary:        %{summary}
 %{_bindir}/geek42
 
 %changelog
+* Fri Apr 10 2026 geek42 contributors <noreply@congentoo.org> - 0.3.0-1
+- New upstream release.
+- Adds --directory / -C option to all commands.
+
 * Thu Apr 09 2026 geek42 contributors <noreply@congentoo.org> - 0.2.0-1
 - New upstream release.
 - Adds compose/revise/read-new commands.

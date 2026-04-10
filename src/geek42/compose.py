@@ -14,6 +14,7 @@ from pathlib import Path
 from .errors import EmptyTitleError, SlugDerivationError
 from .linter import Diagnostic, Severity, lint_news_file
 from .models import NewsSource
+from .parser import NEWS_SUBDIR
 
 _GIT = shutil.which("git")
 
@@ -139,6 +140,9 @@ def make_temp_copy(content: str, prefix: str = "geek42-") -> Path:
 def place_news_item(src: Path, repo_dir: Path, language: str = "en") -> Path:
     """Parse a composed file, derive its item ID, and place it in the repo.
 
+    Items are placed under ``metadata/news/`` (the standard portage
+    layout). The directory is created if it does not exist.
+
     :raises EmptyTitleError: The parsed file has an empty Title.
     :raises SlugDerivationError: A valid slug cannot be derived from the title.
     :returns: The final path under ``repo_dir``.
@@ -154,7 +158,8 @@ def place_news_item(src: Path, repo_dir: Path, language: str = "en") -> Path:
         raise SlugDerivationError(item.title)
 
     item_id = f"{item.posted.isoformat()}-{slug}"
-    target_dir = repo_dir / item_id
+    news_root = repo_dir / NEWS_SUBDIR
+    target_dir = news_root / item_id
     target_dir.mkdir(parents=True, exist_ok=True)
     target_file = target_dir / f"{item_id}.{language}.txt"
     shutil.copy2(src, target_file)
@@ -212,9 +217,12 @@ def find_item_file(
     :param root_dir: Base directory for local sources (default: cwd).
     :returns: The path to the news file, or ``None`` if no match.
     """
+    from .parser import resolve_news_root
+
     _root = (root_dir or Path(".")).resolve()
     for source in sources:
         repo_dir = _root if source.is_local else data_dir / "repos" / source.name
+        repo_dir = resolve_news_root(repo_dir)
         if not repo_dir.is_dir():
             continue
         # Exact match first

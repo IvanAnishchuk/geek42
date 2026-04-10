@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`--directory` / `-C` option** on all commands (`init`, `pull`,
+  `build`, `list`, `read`, `read-new`, `new`, `revise`). When given,
+  the config file, `data_dir`, and `output_dir` are resolved relative
+  to that directory, and local sources scan it instead of the current
+  working directory. `geek42 new -C <dir>` places the news item
+  directly in `<dir>`, bypassing source resolution — this fixes the
+  "source has not been pulled" error when running from inside a news
+  repo that only has a remote source configured.
+- **`metadata/news/` default layout**: news items are now stored
+  under `metadata/news/` (the standard portage repository layout).
+  `scan_repo`, `find_item_file`, `lint_repo`, and `compile_news`
+  auto-detect `metadata/news/` if present, falling back to the repo
+  root for dedicated news-only repos (e.g. `glep42-news-gentoo.git`).
+  `place_news_item` always writes to `metadata/news/`.
+- **`resolve_news_root`** helper and **`NEWS_SUBDIR`** constant
+  exported from the public API.
+
+## [0.3.0] - 2026-04-10
+
+### Added
+
 - **Local-first workflow**: the default source is now `url = "."` (the
   current directory). `geek42 init` creates a config for a local news
   blog; `geek42 new` and `geek42 revise` work directly in the repo

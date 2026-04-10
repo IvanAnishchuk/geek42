@@ -464,7 +464,11 @@ def test_revise_bumps_revision(
     # Verify revision was bumped in the actual file
     repo_dir = site_config.data_dir / "repos" / site_config.sources[0].name
     item_file = (
-        repo_dir / "2025-11-30-flexiblas-migration" / "2025-11-30-flexiblas-migration.en.txt"
+        repo_dir
+        / "metadata"
+        / "news"
+        / "2025-11-30-flexiblas-migration"
+        / "2025-11-30-flexiblas-migration.en.txt"
     )
     content = item_file.read_text()
     assert "Revision: 3" in content  # was 2 in fixture
@@ -503,11 +507,11 @@ def test_new_local_source(tmp_path: Path, news_repo: Path, monkeypatch: pytest.M
     assert result.exit_code == 0
     assert "Created" in result.output
 
-    # Item should be placed in the current directory, not .geek42/repos/
+    # Item should be placed in metadata/news/, not .geek42/repos/
     from datetime import date
 
     today = date.today().isoformat()
-    item_dir = news_repo / f"{today}-my-test-news"
+    item_dir = news_repo / "metadata" / "news" / f"{today}-my-test-news"
     assert item_dir.is_dir()
 
 

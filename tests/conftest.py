@@ -46,14 +46,17 @@ It has a Content-Type header.
 
 @pytest.fixture
 def news_repo(tmp_path: Path) -> Path:
-    """Create a mock GLEP 42 news repo with sample items."""
+    """Create a mock GLEP 42 news repo with sample items in metadata/news/."""
+    news_root = tmp_path / "metadata" / "news"
+    news_root.mkdir(parents=True)
+
     # Format 2.0 item
-    item1_dir = tmp_path / "2025-11-30-flexiblas-migration"
+    item1_dir = news_root / "2025-11-30-flexiblas-migration"
     item1_dir.mkdir()
     (item1_dir / "2025-11-30-flexiblas-migration.en.txt").write_text(SAMPLE_NEWS_FORMAT2)
 
     # Format 1.0 item
-    item2_dir = tmp_path / "2017-03-02-old-format"
+    item2_dir = news_root / "2017-03-02-old-format"
     item2_dir.mkdir()
     (item2_dir / "2017-03-02-old-format.en.txt").write_text(SAMPLE_NEWS_FORMAT1)
 

@@ -98,16 +98,22 @@ url = "."
 geek42 init              Create a default geek42.toml
 geek42 new               Create a new news item (opens $EDITOR)
 geek42 new -e nano       Use a specific editor
+geek42 new -C <dir>      Create a news item in a specific directory
 geek42 revise <id>       Revise an existing item (bump rev, open $EDITOR)
 geek42 lint <path>       Lint a news file or repository directory
 geek42 lint --strict .   Treat warnings as errors
 geek42 compile-blog      Compile Markdown files and update README index
 geek42 build --no-pull   Build static site from local items
 geek42 list              List news items in a Rich table
+geek42 list -C <dir>     List news items from a specific directory
 geek42 read <id>         Read a specific news item in the terminal
 geek42 pull              Clone or update remote news sources
 geek42 build             Pull remote sources and build the static site
 ```
+
+Most commands accept `--directory` / `-C` to operate on a directory
+other than the current one. Config, data, and output paths are resolved
+relative to that directory.
 
 ### Lint codes
 
@@ -128,6 +134,22 @@ geek42 build             Pull remote sources and build the static site
 | W004 | warning | Author not in `Name <email>` format |
 | W005 | warning | File name doesn't match directory name |
 | W006 | warning | Directory name doesn't match GLEP 42 pattern |
+
+## Repository Layout
+
+News items live under `metadata/news/` (standard portage layout):
+
+```
+my-blog/
+  metadata/news/
+    2025-11-30-flexiblas-migration/
+      2025-11-30-flexiblas-migration.en.txt
+    ...
+  geek42.toml
+```
+
+Dedicated news-only repos (like `glep42-news-gentoo.git`) that store
+items at the root are also supported — geek42 auto-detects the layout.
 
 ## Output Structure
 

@@ -15,6 +15,9 @@ _ID_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9+_-]+$")
 
 REQUIRED_HEADERS: tuple[str, ...] = ("Title", "Author", "Posted")
 
+#: Default subdirectory for news items inside a portage-style repository.
+NEWS_SUBDIR = Path("metadata") / "news"
+
 
 def parse_news_file(path: Path, source: str = "") -> NewsItem:
     """Parse a single GLEP 42 news file into a :class:`NewsItem`.
@@ -85,15 +88,29 @@ def parse_news_file(path: Path, source: str = "") -> NewsItem:
     )
 
 
+def resolve_news_root(repo_path: Path) -> Path:
+    """Return the directory containing news item directories.
+
+    Checks ``repo_path / metadata/news`` first (standard portage layout).
+    Falls back to ``repo_path`` itself (dedicated news-only repos like
+    ``glep42-news-gentoo.git``).
+    """
+    candidate = repo_path / NEWS_SUBDIR
+    return candidate if candidate.is_dir() else repo_path
+
+
 def scan_repo(repo_path: Path, source: str = "", language: str = "en") -> list[NewsItem]:
     """Scan a repository directory for all parseable news items.
 
-    Directories that do not match the GLEP 42 identifier pattern are
-    skipped silently. Malformed news files (raising :class:`ParseError`)
-    are also skipped so a single bad item does not break a build.
+    Looks in ``metadata/news/`` first, falling back to the repo root
+    for dedicated news repositories. Directories that do not match the
+    GLEP 42 identifier pattern are skipped silently. Malformed news
+    files (raising :class:`ParseError`) are also skipped so a single
+    bad item does not break a build.
     """
+    news_root = resolve_news_root(repo_path)
     items: list[NewsItem] = []
-    for entry in sorted(repo_path.iterdir()):
+    for entry in sorted(news_root.iterdir()):
         if not entry.is_dir() or not _ID_RE.match(entry.name):
             continue
         news_file = entry / f"{entry.name}.{language}.txt"
