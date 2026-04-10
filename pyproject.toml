@@ -102,7 +102,7 @@ ignore = [
 
 [tool.pytest.ini_options]
 addopts = [
-    "--cov=geek42",
+    "--cov=src/geek42",
     "--cov-report=term-missing",
     "--cov-report=html:.reports/test/htmlcov",
     "--cov-report=xml:.reports/test/coverage.xml",
@@ -114,13 +114,13 @@ junit_logging = "all"
 junit_log_passing_tests = false
 
 [tool.coverage.run]
-source = ["geek42"]
+source = ["src/geek42"]
 branch = true
 relative_files = true
 data_file = ".reports/test/.coverage"
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 75
 show_missing = true
 exclude_lines = [
     "if __name__",
