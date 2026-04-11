@@ -1,29 +1,21 @@
-"""Verify all supply-chain security artifacts for a geek42 release.
+"""Verify local distribution files against all supply-chain providers.
 
-This script checks five independent verification mechanisms:
+The script verifies files in dist/ against five independent mechanisms:
 
-1. SHA256 checksums       — basic integrity (SHA256SUMS.txt)
-2. Sigstore signatures    — keyless signing via OIDC (*.sigstore.json bundles)
-3. GitHub attestations    — build provenance stored in GitHub's attestation API
+1. SHA256 checksums       — release checksums from GitHub Release
+2. Sigstore signatures    — keyless OIDC signing bundles from GitHub Release
+3. GitHub attestations    — build provenance in GitHub's attestation API
 4. SLSA L3 provenance     — non-falsifiable provenance from an isolated builder
-5. PyPI attestations      — PEP 740 publish attestations from PyPI/TestPyPI
+5. PyPI attestations      — PEP 740 publish attestations from PyPI and TestPyPI
 
-Each mechanism proves something different:
-
-  SHA256       "The bytes haven't changed since the release."
-  Sigstore     "This artifact was signed by the release workflow."
-  GH Attests   "GitHub certifies this was built by this workflow at this commit."
-  SLSA L3      "An isolated, tamper-proof builder produced this from that source."
-  PyPI PEP740  "PyPI received this from the expected Trusted Publisher."
-
-Downloaded verification artifacts are saved to proofs/ (gitignored) with
-versioned filenames for easy inspection.
+If dist/ is empty, downloads artifacts there from PyPI/TestPyPI first.
+Proof artifacts (attestation JSON, provenance files, sigstore bundles)
+are cached in proofs/ — never duplicate copies of the distribution files.
 
 Requirements:
   - gh              (GitHub CLI, for attestation verify + release download)
   - sigstore        (uv tool run sigstore, for sigstore bundle verification)
   - slsa-verifier   (Go binary, for SLSA L3 provenance verification)
-  - pypi-attestations (uv tool run, for PEP 740 verification)
   - rich            (Python, for pretty output — already a project dependency)
 
 Usage:
@@ -39,7 +31,6 @@ import hashlib
 import json
 import subprocess
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -149,30 +140,6 @@ def explain(key: str) -> None:
     console.print(Panel(DESCRIPTIONS[key], border_style="dim"))
 
 
-def check_local_match(verified_path: Path, source: str = "remote") -> bool:
-    """Compare a verified remote artifact against the local dist/ copy.
-
-    Call this after every successful remote verification. Shows hashes
-    for both files. Returns True if there is a MISMATCH (caller should
-    count as failure).
-    """
-    local = REPO_ROOT / "dist" / verified_path.name
-    if not local.exists():
-        return False
-    local_hash = sha256(local)
-    remote_hash = sha256(verified_path)
-    if local_hash == remote_hash:
-        ok(f"dist/{verified_path.name} matches {source} ({remote_hash[:16]}...)")
-        return False
-    fail(
-        f"LOCAL MISMATCH: dist/{verified_path.name} differs from {source}!\n"
-        f"       local:  {local_hash}\n"
-        f"       {source}: {remote_hash}\n"
-        f"       [bold red]The file in dist/ is NOT the verified release.[/]"
-    )
-    return True
-
-
 # -- Collectors --------------------------------------------------------
 
 
@@ -187,26 +154,25 @@ def collect_local(version: str) -> dict[str, Path]:
     }
 
 
-def download_github_release(version: str, dest: Path) -> dict[str, Path]:
+def download_github_proofs(version: str) -> Path:
+    """Download GitHub Release proof files (sigstore, checksums, SBOM, provenance) to proofs/github/."""
+    gh_proofs = _ensure_proofs_dir() / "github"
+    gh_proofs.mkdir(exist_ok=True)
     tag = f"v{version}"
-    result = run(["gh", "release", "download", tag, "--repo", REPO_SLUG, "--dir", str(dest)])
+    result = run(["gh", "release", "download", tag, "--repo", REPO_SLUG, "--dir", str(gh_proofs)])
     if result.returncode != 0:
         console.print(f"  [yellow]GitHub Release {tag} not found or download failed[/]")
         if result.stderr:
             info(result.stderr.strip())
-        return {}
-    # Copy all release files to proofs/github/ for inspection
-    gh_proofs = _ensure_proofs_dir() / "github"
-    gh_proofs.mkdir(exist_ok=True)
-    for f in sorted(dest.iterdir()):
-        target = gh_proofs / f.name
-        if not target.exists():
-            target.write_bytes(f.read_bytes())
-    info(f"Release artifacts saved to proofs/github/")
-    return {f.name: f for f in sorted(dest.iterdir()) if is_dist_file(f.name)}
+    else:
+        info(f"Proof files saved to proofs/github/")
+    return gh_proofs
 
 
-def download_pypi(version: str, dest: Path) -> dict[str, Path]:
+def download_to_dist(version: str) -> dict[str, Path]:
+    """Download distribution files to dist/ from PyPI/TestPyPI."""
+    dist_dir = REPO_ROOT / "dist"
+    dist_dir.mkdir(exist_ok=True)
     for index_name, extra_args in [
         ("TestPyPI", ["--index-url", "https://test.pypi.org/simple/",
                        "--extra-index-url", "https://pypi.org/simple/"]),
@@ -214,26 +180,17 @@ def download_pypi(version: str, dest: Path) -> dict[str, Path]:
     ]:
         result = run(
             ["pip", "download", "--no-deps", *extra_args,
-             "--dest", str(dest), f"{PACKAGE_NAME}=={version}"]
+             "--dest", str(dist_dir), f"{PACKAGE_NAME}=={version}"]
         )
         if result.returncode == 0:
-            info(f"Downloaded from {index_name}")
+            info(f"Downloaded wheel from {index_name} to dist/")
+            # Also try sdist
+            run(["pip", "download", "--no-deps", "--no-binary", ":all:",
+                 *extra_args, "--dest", str(dist_dir), f"{PACKAGE_NAME}=={version}"])
             break
     else:
         console.print(f"  [yellow]Download failed for {PACKAGE_NAME}=={version}[/]")
-        return {}
-    run(["pip", "download", "--no-deps", "--no-binary", ":all:",
-         *extra_args, "--dest", str(dest), f"{PACKAGE_NAME}=={version}"])
-    # Copy downloaded artifacts to proofs/pypi/ for inspection
-    pypi_proofs = _ensure_proofs_dir() / "pypi"
-    pypi_proofs.mkdir(exist_ok=True)
-    for f in sorted(dest.iterdir()):
-        if is_dist_file(f.name):
-            target = pypi_proofs / f.name
-            if not target.exists():
-                target.write_bytes(f.read_bytes())
-    info(f"Artifacts saved to proofs/pypi/")
-    return {f.name: f for f in sorted(dest.iterdir()) if is_dist_file(f.name)}
+    return collect_local(version)
 
 
 # -- 1. SHA256 checksums ----------------------------------------------
@@ -588,42 +545,6 @@ def save_provenance_to_proofs(
     info(f"Saved to {out.relative_to(REPO_ROOT)}")
 
 
-# -- Cross-source comparison ------------------------------------------
-
-
-def compare_hashes(sources: dict[str, dict[str, str]]) -> bool:
-    all_names: set[str] = set()
-    for hashes in sources.values():
-        all_names.update(hashes)
-
-    all_match = True
-    table = Table(title="Cross-source Hash Comparison", expand=True)
-    table.add_column("Artifact", style="bold", overflow="fold")
-    for source in sources:
-        table.add_column(source)
-
-    for name in sorted(all_names):
-        row: list[str] = [name]
-        values: set[str] = set()
-        for source in sources:
-            h = sources[source].get(name, "")
-            row.append(h[:16] + "..." if h else "[dim]n/a[/]")
-            if h:
-                values.add(h)
-        if len(values) > 1:
-            all_match = False
-            row[0] = f"[red]{name}[/]"
-        table.add_row(*row)
-
-    console.print()
-    console.print(table)
-    if all_match:
-        ok("All hashes match across sources")
-    else:
-        fail("Hash mismatch detected between sources!")
-    return all_match
-
-
 # -- Main --------------------------------------------------------------
 
 
@@ -632,134 +553,90 @@ def main() -> int:
     console.print(Panel(f"Verifying supply-chain security for [bold]{PACKAGE_NAME} {version}[/]"))
 
     failures = 0
-    source_hashes: dict[str, dict[str, str]] = {}
 
-    # -- Local dist/ ---------------------------------------------------
-    header("Local dist/")
-    local = collect_local(version)
-    if local:
-        console.print(f"  Found {len(local)} artifact(s)")
-        local_sums = REPO_ROOT / "dist" / "SHA256SUMS.txt"
-        verify_checksums(local, local_sums if local_sums.exists() else None)
-        source_hashes["local"] = {n: sha256(p) for n, p in local.items()}
+    # -- Locate or download artifacts to dist/ -------------------------
+    header("Distribution files")
+    artifacts = collect_local(version)
+    if not artifacts:
+        info("No matching files in dist/, downloading...")
+        artifacts = download_to_dist(version)
+    if not artifacts:
+        console.print(Panel("[bold red]No artifacts to verify. Cannot continue.[/]"))
+        return 1
+    console.print(f"  Verifying {len(artifacts)} file(s) from dist/:")
+    for name, path in artifacts.items():
+        info(f"{name}: {sha256(path)}")
+
+    # -- Download proof files from GitHub Release ----------------------
+    header("Downloading proof files")
+    gh_proofs = download_github_proofs(version)
+
+    # -- 1. SHA256 checksums -------------------------------------------
+    header("1. SHA256 checksums")
+    explain("sha256")
+    gh_sums = gh_proofs / f"geek42-{version}-SHA256SUMS.txt"
+    if not gh_sums.exists():
+        gh_sums = gh_proofs / "SHA256SUMS.txt"
+    if gh_sums.exists():
+        verify_checksums(artifacts, gh_sums)
     else:
-        info("No local artifacts found in dist/")
+        info("No SHA256SUMS.txt found in GitHub Release")
 
-    with tempfile.TemporaryDirectory(prefix="verify-") as tmpdir:
-        tmp = Path(tmpdir)
+    # -- 2. Sigstore signatures ----------------------------------------
+    header("2. Sigstore signatures")
+    explain("sigstore")
+    for name, path in artifacts.items():
+        bundle = gh_proofs / f"{name}.sigstore.json"
+        if not bundle.exists():
+            bundle = gh_proofs / f"{name}.sigstore"
+        verify_sigstore(path, bundle, version)
 
-        # -- 1-3. GitHub Release (checksums + sigstore + attestations) --
-        header("1-3. GitHub Release")
-        gh_dir = tmp / "github"
-        gh_dir.mkdir()
-        gh_artifacts = download_github_release(version, gh_dir)
-        if gh_artifacts:
-            console.print(f"  Found {len(gh_artifacts)} artifact(s)")
-            for name, path in gh_artifacts.items():
-                info(f"{name}: {sha256(path)}")
+    # -- 3. GitHub attestations ----------------------------------------
+    header("3. GitHub attestations")
+    explain("gh_attestation")
+    attestation_shown = False
+    for name, path in artifacts.items():
+        att = verify_gh_attestation(path)
+        if att and not attestation_shown:
+            print_gh_attestation_details(att)
+            attestation_shown = True
 
-            # 1. SHA256 checksums
-            header("1. SHA256 checksums")
-            explain("sha256")
-            gh_sums = gh_dir / f"geek42-{version}-SHA256SUMS.txt"
-            if not gh_sums.exists():
-                gh_sums = gh_dir / "SHA256SUMS.txt"
-            verify_checksums(gh_artifacts, gh_sums)
-            source_hashes["github"] = {n: sha256(p) for n, p in gh_artifacts.items()}
-            for name, path in gh_artifacts.items():
-                if check_local_match(path, "GitHub Release"):
+    # -- 4. SLSA L3 provenance -----------------------------------------
+    header("4. SLSA L3 provenance")
+    explain("slsa_l3")
+    provenance = gh_proofs / f"geek42-v{version}-provenance.intoto.jsonl"
+    if not provenance.exists():
+        provenance = gh_proofs / "geek42-provenance.intoto.jsonl"
+    if provenance.exists():
+        for name, path in artifacts.items():
+            if not verify_slsa_provenance(path, provenance, version):
+                failures += 1
+            break  # show details once
+    else:
+        info("No SLSA provenance file found in GitHub Release")
+
+    # -- 5. PyPI / TestPyPI attestations (PEP 740) ---------------------
+    header("5. PyPI / TestPyPI attestations (PEP 740)")
+    explain("pypi_attestation")
+    for index_name, base_url in PYPI_INDEXES:
+        header(f"5.{PYPI_INDEXES.index((index_name, base_url)) + 1} {index_name}")
+
+        if index_name == "TestPyPI":
+            console.print(Panel(
+                "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]\n"
+                "Artifacts here are for testing only. Do not use TestPyPI\n"
+                "packages in production environments.",
+                border_style="yellow",
+            ))
+
+        for name, path in artifacts.items():
+            prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
+            if prov:
+                save_provenance_to_proofs(prov, name, index_name)
+                if not verify_pypi_attestation(path, prov, index_name):
                     failures += 1
-
-            # 2. Sigstore signatures
-            header("2. Sigstore signatures")
-            explain("sigstore")
-            for name, path in gh_artifacts.items():
-                bundle = gh_dir / f"{name}.sigstore.json"
-                if not bundle.exists():
-                    bundle = gh_dir / f"{name}.sigstore"
-                verify_sigstore(path, bundle, version)
-
-            # 3. GitHub attestations
-            header("3. GitHub attestations")
-            explain("gh_attestation")
-            attestation_shown = False
-            for name, path in gh_artifacts.items():
-                att = verify_gh_attestation(path)
-                if att and not attestation_shown:
-                    print_gh_attestation_details(att)
-                    attestation_shown = True
-
-            # 4. SLSA L3 provenance
-            # Try versioned filename first, fall back to unversioned
-            provenance = gh_dir / f"geek42-v{version}-provenance.intoto.jsonl"
-            if not provenance.exists():
-                provenance = gh_dir / "geek42-provenance.intoto.jsonl"
-            header("4. SLSA L3 provenance")
-            explain("slsa_l3")
-            if provenance.exists():
-                for name, path in gh_artifacts.items():
-                    if not verify_slsa_provenance(path, provenance, version):
-                        failures += 1
-                    break  # show details once
             else:
-                info("No provenance file found in release")
-                info("Looked for versioned and unversioned filenames.")
-        else:
-            info("No GitHub Release artifacts available")
-
-        # -- 5. PyPI / TestPyPI attestations (PEP 740) -----------------
-        header("5. PyPI / TestPyPI attestations (PEP 740)")
-        explain("pypi_attestation")
-
-        # Download artifacts from PyPI/TestPyPI first
-        pypi_dir = tmp / "pypi"
-        pypi_dir.mkdir()
-        pypi_artifacts = download_pypi(version, pypi_dir)
-        if pypi_artifacts:
-            console.print(f"  Found {len(pypi_artifacts)} artifact(s)")
-            source_hashes["pypi"] = {n: sha256(p) for n, p in pypi_artifacts.items()}
-            for name in sorted(pypi_artifacts):
-                info(f"{name}: {source_hashes['pypi'][name]}")
-            # Check PyPI artifacts against local dist/
-            for name, path in pypi_artifacts.items():
-                if check_local_match(path, "PyPI"):
-                    failures += 1
-        else:
-            info("No PyPI/TestPyPI artifacts available")
-
-        # Always check PEP 740 attestations on BOTH indexes
-        for index_name, base_url in PYPI_INDEXES:
-            header(f"5.{PYPI_INDEXES.index((index_name, base_url)) + 1} {index_name}")
-
-            if index_name == "TestPyPI":
-                console.print(Panel(
-                    "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]\n"
-                    "Artifacts here are for testing only. Do not use TestPyPI\n"
-                    "packages in production environments.",
-                    border_style="yellow",
-                ))
-
-            # Check attestations for each artifact we have (from any source)
-            artifacts_to_check = pypi_artifacts or gh_artifacts or {}
-            if not artifacts_to_check:
-                info(f"No artifacts available to check against {index_name}")
-                continue
-
-            for name in sorted(artifacts_to_check):
-                prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
-                if prov:
-                    path = artifacts_to_check[name]
-                    save_provenance_to_proofs(prov, name, index_name)
-                    if not verify_pypi_attestation(path, prov, index_name):
-                        failures += 1
-                else:
-                    info(f"{index_name}: no attestation for {name}")
-
-    # -- Cross-source comparison ---------------------------------------
-    if len(source_hashes) > 1:
-        header("Cross-source comparison")
-        if not compare_hashes(source_hashes):
-            failures += 1
+                info(f"{index_name}: no attestation for {name}")
 
     # -- Summary -------------------------------------------------------
     console.print()
