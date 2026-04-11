@@ -135,6 +135,13 @@ class GitNotFoundError(SystemDependencyError):
         super().__init__("git executable not found in PATH")
 
 
+class GematoNotFoundError(SystemDependencyError):
+    """The gemato executable is not on PATH."""
+
+    def __init__(self) -> None:
+        super().__init__("gemato not found in PATH (install with: pip install gemato)")
+
+
 class EditorFailedError(ComposeError):
     """The user's editor exited with a non-zero status."""
 

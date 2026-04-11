@@ -20,11 +20,13 @@ KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv ~x86"
 
 RDEPEND="
 	dev-vcs/git
+	app-portage/gemato
 	>=dev-python/pydantic-2.0[${PYTHON_USEDEP}]
 	>=dev-python/jinja2-3.1[${PYTHON_USEDEP}]
 	>=dev-python/typer-0.15[${PYTHON_USEDEP}]
 	>=dev-python/rich-13.0[${PYTHON_USEDEP}]
 	>=dev-python/markdown-3.5[${PYTHON_USEDEP}]
+	>=dev-python/gemato-20[${PYTHON_USEDEP}]
 "
 BDEPEND="
 	test? (

@@ -1,10 +1,10 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: geek42
-Upstream-Contact: geek42 contributors <ivan@agorism.org>
+Upstream-Contact: Ivan Anishchuk <ivan@agorism.org>
 Source: https://github.com/IvanAnishchuk/geek42
 
 Files: *
-Copyright: 2026 geek42 contributors
+Copyright: 2026 Ivan Anishchuk
 License: CC0-1.0
 
 License: CC0-1.0

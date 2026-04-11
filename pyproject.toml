@@ -1,11 +1,11 @@
 [project]
 name = "geek42"
-version = "0.3.0"
+version = "0.4.0"
 description = "Convert GLEP 42 Gentoo news repositories into static blogs"
 readme = "README.md"
 license = "CC0-1.0"
 requires-python = ">=3.13"
-authors = [{ name = "geek42 contributors" }]
+authors = [{ name = "Ivan Anishchuk", email = "ivan@agorism.org" }]
 keywords = ["gentoo", "glep42", "news", "static-site", "rss", "atom"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -26,6 +26,7 @@ dependencies = [
     "typer>=0.15",
     "rich>=13.0",
     "markdown>=3.5",
+    "gemato>=20",
 ]
 
 [project.urls]

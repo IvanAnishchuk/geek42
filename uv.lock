@@ -256,9 +256,10 @@ wheels = [
 
 [[package]]
 name = "geek42"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
+    { name = "gemato" },
     { name = "jinja2" },
     { name = "markdown" },
     { name = "pydantic" },
@@ -278,6 +279,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "gemato", specifier = ">=20" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "markdown", specifier = ">=3.5" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -293,6 +295,15 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.0" },
     { name = "ruff", specifier = ">=0.11" },
     { name = "ty" },
+]
+
+[[package]]
+name = "gemato"
+version = "20.12"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/25/74f1efe893ff14be58e43d1c8dc4cf06912e2fce929ab84463a750358c75/gemato-20.12.tar.gz", hash = "sha256:8fb8a83e63d9c46f4f722646d41e7ddf57d5c42fbe16a5ba8196b99f28cd943e", size = 94139, upload-time = "2026-01-10T14:44:19.081Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ba/1f/b94df121d32b3802260deb662c1ea0ac716923f47f31c7ffef78f8b4d1b8/gemato-20.12-py3-none-any.whl", hash = "sha256:d691da405d690127f50c9ad7c57e9b14ec8cdb52246f2008c1b29f96b30258f5", size = 51988, upload-time = "2026-01-10T14:44:17.822Z" },
 ]
 
 [[package]]
