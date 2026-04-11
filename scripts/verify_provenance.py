@@ -157,7 +157,10 @@ def download_github_proofs(version: str) -> Path:
     gh_proofs = _ensure_proofs_dir() / "github"
     gh_proofs.mkdir(exist_ok=True)
     tag = f"v{version}"
-    result = run(["gh", "release", "download", tag, "--repo", REPO_SLUG, "--dir", str(gh_proofs)])
+    result = run([
+        "gh", "release", "download", tag, "--repo", REPO_SLUG,
+        "--dir", str(gh_proofs), "--skip-existing",
+    ])
     if result.returncode != 0:
         console.print(f"  [yellow]GitHub Release {tag} not found or download failed[/]")
         if result.stderr:
@@ -532,7 +535,8 @@ def main() -> int:
     if not gh_sums.exists():
         gh_sums = gh_proofs / "SHA256SUMS.txt"
     if gh_sums.exists():
-        verify_checksums(artifacts, gh_sums)
+        if not verify_checksums(artifacts, gh_sums):
+            failures += 1
     else:
         info("No SHA256SUMS.txt found in GitHub Release")
 
@@ -543,7 +547,8 @@ def main() -> int:
         bundle = gh_proofs / f"{name}.sigstore.json"
         if not bundle.exists():
             bundle = gh_proofs / f"{name}.sigstore"
-        verify_sigstore(path, bundle, version)
+        if not verify_sigstore(path, bundle, version):
+            failures += 1
 
     # -- 3. GitHub attestations ----------------------------------------
     header("3. GitHub attestations")
@@ -551,6 +556,8 @@ def main() -> int:
     attestation_shown = False
     for name, path in artifacts.items():
         att = verify_gh_attestation(path)
+        if att is None:
+            failures += 1
         if att and not attestation_shown:
             print_gh_attestation_details(att)
             attestation_shown = True
