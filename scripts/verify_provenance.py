@@ -326,10 +326,24 @@ def print_gh_attestation_details(attestation: dict) -> None:
 # -- 4. SLSA L3 provenance --------------------------------------------
 
 
+def _find_slsa_verifier() -> str:
+    """Find slsa-verifier binary, checking common install locations."""
+    import shutil
+
+    path = shutil.which("slsa-verifier")
+    if path:
+        return path
+    go_bin = Path.home() / "go" / "bin" / "slsa-verifier"
+    if go_bin.exists():
+        return str(go_bin)
+    return "slsa-verifier"  # let it fail with a clear error
+
+
 def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bool:
     tag = f"v{version}"
+    verifier = _find_slsa_verifier()
     result = run([
-        "slsa-verifier", "verify-artifact",
+        verifier, "verify-artifact",
         "--provenance-path", str(provenance),
         "--source-uri", f"github.com/{REPO_SLUG}",
         "--source-tag", tag,
@@ -517,6 +531,11 @@ def main() -> int:
             # Verify GitHub attestations for PyPI artifacts too
             for name, path in pypi_artifacts.items():
                 verify_gh_attestation(path)
+            # Verify SLSA L3 provenance for PyPI artifacts (using GH Release provenance)
+            provenance = gh_dir / "geek42-provenance.intoto.jsonl"
+            if provenance.exists():
+                for name, path in pypi_artifacts.items():
+                    verify_slsa_provenance(path, provenance, version)
         else:
             info("No PyPI/TestPyPI artifacts available")
 
