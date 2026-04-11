@@ -128,15 +128,5 @@ branches:
 environments:
   - name: pypi
     wait_timer: 0
-    deployment_branch_policy:
-      protected_branches: false
-      custom_branch_policies: true
-      custom_branches:
-        - main
   - name: testpypi
     wait_timer: 0
-    deployment_branch_policy:
-      protected_branches: false
-      custom_branch_policies: true
-      custom_branches:
-        - main
