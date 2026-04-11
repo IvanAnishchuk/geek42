@@ -8,12 +8,13 @@ permissions: {}
 
 jobs:
   build:
-    name: Build + sign
+    name: Build + sign + attest
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,6 +24,11 @@ jobs:
 
       - name: Build
         run: uv build && ls -la dist/
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/geek42-*"
 
       - name: Sign with sigstore
         uses: sigstore/gh-action-sigstore-python@v3.3.0
