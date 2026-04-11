@@ -1,19 +1,31 @@
 # geek42
 
+<!-- build & packaging -->
+[![PyPI](https://img.shields.io/pypi/v/geek42)](https://pypi.org/project/geek42/)
+[![Python](https://img.shields.io/pypi/pyversions/geek42)](https://pypi.org/project/geek42/)
+[![Downloads](https://img.shields.io/pypi/dm/geek42)](https://pypi.org/project/geek42/)
 [![CI](https://github.com/IvanAnishchuk/geek42/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/ci.yml)
+[![Coverage](https://raw.githubusercontent.com/IvanAnishchuk/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/IvanAnishchuk/geek42/tree/python-coverage-comment-action-data)
+[![Release](https://img.shields.io/github/v/release/IvanAnishchuk/geek42)](https://github.com/IvanAnishchuk/geek42/releases/latest)
+
+<!-- security & quality -->
 [![CodeQL](https://github.com/IvanAnishchuk/geek42/actions/workflows/codeql.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/IvanAnishchuk/geek42/badge)](https://scorecard.dev/viewer/?uri=github.com/IvanAnishchuk/geek42)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12450/badge)](https://www.bestpractices.dev/projects/12450)
-[![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE.md)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-<!-- Uncomment after PyPI publish and first successful coverage run:
-[![PyPI](https://img.shields.io/pypi/v/geek42)](https://pypi.org/project/geek42/)
-[![Python](https://img.shields.io/pypi/pyversions/geek42)](https://pypi.org/project/geek42/)
-[![Coverage](https://raw.githubusercontent.com/IvanAnishchuk/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/IvanAnishchuk/geek42/tree/python-coverage-comment-action-data)
--->
+<!-- tooling & standards -->
+[![uv](https://img.shields.io/badge/uv-0.11.5-blue)](https://github.com/astral-sh/uv)
+[![ruff](https://img.shields.io/badge/ruff-0.15.10-blue)](https://github.com/astral-sh/ruff)
+[![ty](https://img.shields.io/badge/ty-0.0.29-blue)](https://github.com/astral-sh/ty)
+[![yamllint](https://img.shields.io/badge/yamllint-checked-blue)](https://github.com/adrienverge/yamllint)
+[![mdformat](https://img.shields.io/badge/mdformat-formatted-blue)](https://github.com/executablebooks/mdformat)
+[![SemVer](https://img.shields.io/badge/SemVer-2.0.0-blue)](https://semver.org)
+[![commits: conventional](https://img.shields.io/badge/commits-conventional-blue)](https://conventionalcommits.org)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![releases: immutable](https://img.shields.io/badge/releases-immutable-blue)](https://github.com/IvanAnishchuk/geek42/releases)
+[![attestations: verified](https://img.shields.io/badge/attestations-verified-blue)](https://github.com/IvanAnishchuk/geek42/attestations)
+[![SLOC](https://img.shields.io/badge/SLOC-~2.6k-informational)](src/geek42/)
+[![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE.md)
 
 Convert [GLEP 42](https://www.gentoo.org/glep/glep-0042.html) Gentoo news repositories into a static blog with RSS/Atom feeds, Markdown exports, and a terminal reader — no `eselect news` required.
 
