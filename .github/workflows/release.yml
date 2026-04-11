@@ -250,12 +250,12 @@ jobs:
           ' CHANGELOG.md > release-notes.md
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      - name: Create draft release with assets
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
         with:
           name: "geek42 ${{ steps.notes.outputs.version }}"
           body_path: release-notes.md
-          draft: false
+          draft: true
           prerelease: ${{ contains(github.ref_name, 'dev') || contains(github.ref_name, 'a') || contains(github.ref_name, 'b') || contains(github.ref_name, 'c') }}
           generate_release_notes: true
           files: |
@@ -265,3 +265,8 @@ jobs:
             release-dist/dist/SHA256SUMS.txt
             release-dist/dist/*.sigstore
             release-dist/geek42-provenance.intoto.jsonl
+
+      - name: Publish release
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false
+        env:
+          GH_TOKEN: ${{ github.token }}
