@@ -69,7 +69,7 @@ repos:
   # files are auto-regenerated when pyproject.toml or uv.lock changes.
   # --------------------------------------------------------------
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.5.11
+    rev: 0.11.6
     hooks:
       - id: uv-lock
 
