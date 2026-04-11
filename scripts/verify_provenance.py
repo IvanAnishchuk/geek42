@@ -195,13 +195,14 @@ def download_github_release(version: str, dest: Path) -> dict[str, Path]:
         if result.stderr:
             info(result.stderr.strip())
         return {}
-    # Copy all release files to proofs/ for inspection
-    proofs = _ensure_proofs_dir()
+    # Copy all release files to proofs/github/ for inspection
+    gh_proofs = _ensure_proofs_dir() / "github"
+    gh_proofs.mkdir(exist_ok=True)
     for f in sorted(dest.iterdir()):
-        target = proofs / f.name
+        target = gh_proofs / f.name
         if not target.exists():
             target.write_bytes(f.read_bytes())
-    info(f"Release artifacts saved to proofs/")
+    info(f"Release artifacts saved to proofs/github/")
     return {f.name: f for f in sorted(dest.iterdir()) if is_dist_file(f.name)}
 
 
@@ -223,14 +224,15 @@ def download_pypi(version: str, dest: Path) -> dict[str, Path]:
         return {}
     run(["pip", "download", "--no-deps", "--no-binary", ":all:",
          *extra_args, "--dest", str(dest), f"{PACKAGE_NAME}=={version}"])
-    # Copy downloaded artifacts to proofs/ for inspection
-    proofs = _ensure_proofs_dir()
+    # Copy downloaded artifacts to proofs/pypi/ for inspection
+    pypi_proofs = _ensure_proofs_dir() / "pypi"
+    pypi_proofs.mkdir(exist_ok=True)
     for f in sorted(dest.iterdir()):
         if is_dist_file(f.name):
-            target = proofs / f.name
+            target = pypi_proofs / f.name
             if not target.exists():
                 target.write_bytes(f.read_bytes())
-    info(f"Artifacts saved to proofs/")
+    info(f"Artifacts saved to proofs/pypi/")
     return {f.name: f for f in sorted(dest.iterdir()) if is_dist_file(f.name)}
 
 
@@ -321,9 +323,10 @@ def verify_gh_attestation(path: Path) -> dict | None:
     try:
         records = json.loads(result.stdout)
         if isinstance(records, list) and records:
-            # Save attestation JSON to proofs/
-            proofs = _ensure_proofs_dir()
-            att_file = proofs / f"{path.name}.gh-attestation.json"
+            # Save attestation JSON to proofs/github/
+            gh_proofs = _ensure_proofs_dir() / "github"
+            gh_proofs.mkdir(exist_ok=True)
+            att_file = gh_proofs / f"{path.name}.gh-attestation.json"
             att_file.write_text(json.dumps(records, indent=2))
             info(f"Saved to {att_file.relative_to(REPO_ROOT)}")
             return records[0]
@@ -577,9 +580,10 @@ def verify_pypi_attestation(
 def save_provenance_to_proofs(
     provenance: dict, filename: str, index_name: str,
 ) -> None:
-    proofs = _ensure_proofs_dir()
+    pypi_proofs = _ensure_proofs_dir() / "pypi"
+    pypi_proofs.mkdir(exist_ok=True)
     suffix = "testpypi-provenance" if index_name == "TestPyPI" else "provenance"
-    out = proofs / f"{filename}.{suffix}.json"
+    out = pypi_proofs / f"{filename}.{suffix}.json"
     out.write_text(json.dumps(provenance, indent=2))
     info(f"Saved to {out.relative_to(REPO_ROOT)}")
 
@@ -705,8 +709,11 @@ def main() -> int:
         else:
             info("No GitHub Release artifacts available")
 
-        # -- PyPI / TestPyPI -------------------------------------------
-        header("PyPI / TestPyPI")
+        # -- 5. PyPI / TestPyPI attestations (PEP 740) -----------------
+        header("5. PyPI / TestPyPI attestations (PEP 740)")
+        explain("pypi_attestation")
+
+        # Download artifacts from PyPI/TestPyPI first
         pypi_dir = tmp / "pypi"
         pypi_dir.mkdir()
         pypi_artifacts = download_pypi(version, pypi_dir)
@@ -715,16 +722,6 @@ def main() -> int:
             source_hashes["pypi"] = {n: sha256(p) for n, p in pypi_artifacts.items()}
             for name in sorted(pypi_artifacts):
                 info(f"{name}: {source_hashes['pypi'][name]}")
-            # Verify GitHub attestations for PyPI artifacts too
-            for name, path in pypi_artifacts.items():
-                verify_gh_attestation(path)
-            # Verify SLSA L3 provenance for PyPI artifacts (using GH Release provenance)
-            provenance = gh_dir / f"geek42-v{version}-provenance.intoto.jsonl"
-            if not provenance.exists():
-                provenance = gh_dir / "geek42-provenance.intoto.jsonl"
-            if provenance.exists():
-                for name, path in pypi_artifacts.items():
-                    verify_slsa_provenance(path, provenance, version)
             # Check PyPI artifacts against local dist/
             for name, path in pypi_artifacts.items():
                 if check_local_match(path, "PyPI"):
@@ -732,11 +729,7 @@ def main() -> int:
         else:
             info("No PyPI/TestPyPI artifacts available")
 
-        # -- 5. PyPI attestations (PEP 740) ----------------------------
-        header("5. PyPI attestations (PEP 740)")
-        explain("pypi_attestation")
-
-        # Always check BOTH indexes
+        # Always check PEP 740 attestations on BOTH indexes
         for index_name, base_url in PYPI_INDEXES:
             header(f"5.{PYPI_INDEXES.index((index_name, base_url)) + 1} {index_name}")
 
