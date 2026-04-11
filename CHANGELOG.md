@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2a1] - 2026-04-11
+
+### Changed
+
+- Switch to unified `actions/attest@v4.1.0` for build provenance and
+  SBOM attestations (replaces `attest-build-provenance` + `attest-sbom`).
+- Add `attestations: write` permission to publish jobs for PEP 740
+  publish attestations.
+- Route dev/rc version tags to TestPyPI instead of PyPI.
+- Enable all README badges (PyPI, coverage, release, tooling versions,
+  attestations).
+
 ## [0.4.1] - 2026-04-11
 
 ### Fixed
