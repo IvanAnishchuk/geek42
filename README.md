@@ -14,9 +14,9 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12450/badge)](https://www.bestpractices.dev/projects/12450)
 
 <!-- tooling & standards -->
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![ruff](https://img.shields.io/badge/ruff-%E2%89%A50.11-blue)](https://github.com/astral-sh/ruff)
-[![ty](https://img.shields.io/badge/ty-0.x-blue)](https://github.com/astral-sh/ty)
+[![uv](https://img.shields.io/badge/uv-0.11.5-blue)](https://github.com/astral-sh/uv)
+[![ruff](https://img.shields.io/badge/ruff-0.15.10-blue)](https://github.com/astral-sh/ruff)
+[![ty](https://img.shields.io/badge/ty-0.0.29-blue)](https://github.com/astral-sh/ty)
 [![yamllint](https://img.shields.io/badge/yamllint-checked-blue)](https://github.com/adrienverge/yamllint)
 [![mdformat](https://img.shields.io/badge/mdformat-formatted-blue)](https://github.com/executablebooks/mdformat)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-blue)](https://semver.org)
