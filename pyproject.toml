@@ -48,6 +48,7 @@ dev = [
     "pytest-cov>=6.0",
     "pip-audit>=2.7",
     "pre-commit>=4.0",
+    "pypi-attestations>=0.0.18",
 ]
 
 [build-system]

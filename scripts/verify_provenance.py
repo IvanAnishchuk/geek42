@@ -25,7 +25,6 @@ Usage:
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import subprocess
@@ -433,78 +432,58 @@ def fetch_pypi_provenance(
 def verify_pypi_attestation(
     path: Path, provenance: dict, index_name: str,
 ) -> bool:
-    """Decode and display PyPI attestation details. Optionally verify with pypi-attestations."""
+    """Verify PyPI PEP 740 attestation cryptographically."""
+    from pypi_attestations import Attestation, GitHubPublisher
+    from pypi_attestations import Distribution as AttestDist
+
     bundles = provenance.get("attestation_bundles", [])
     if not bundles:
         fail(f"No attestation bundles in {index_name} provenance")
         return False
 
     all_ok = True
-    predicate_type = "?"
-    subjects: list[dict] = []
+    dist = AttestDist.from_file(path)
+
     for bundle in bundles:
-        publisher = bundle.get("publisher", {})
+        publisher_data = bundle.get("publisher", {})
         attestations = bundle.get("attestations", [])
 
-        for att in attestations:
-            envelope = att.get("envelope", {})
-            stmt_b64 = envelope.get("statement", "")
-            if not stmt_b64:
-                fail("Empty statement in attestation")
+        publisher = GitHubPublisher(
+            repository=publisher_data.get("repository", ""),
+            workflow=publisher_data.get("workflow", ""),
+            environment=publisher_data.get("environment"),
+        )
+
+        for att_data in attestations:
+            att = Attestation.model_validate(att_data)
+            try:
+                predicate_type, predicate = att.verify(publisher, dist)
+                ok(f"{index_name}: cryptographic verification PASSED for {path.name}")
+            except Exception as exc:  # noqa: BLE001
+                fail(f"{index_name}: cryptographic verification FAILED for {path.name}")
+                fail(f"  {exc}")
                 all_ok = False
+                predicate_type = "?"
                 continue
 
-            stmt = json.loads(base64.b64decode(stmt_b64))
-            predicate_type = stmt.get("predicateType", "?")
-            subjects = stmt.get("subject", [])
+            # Display verified publisher and attestation details
+            table = Table(
+                title=f"{index_name} PEP 740 Attestation (verified)",
+                show_header=False, padding=(0, 2), expand=True,
+            )
+            table.add_column("Field", style="bold cyan", min_width=24, max_width=30)
+            table.add_column("Value", overflow="fold")
 
-            # Verify subject digest matches the artifact
-            artifact_hash = sha256(path)
-            subject_match = False
-            for subj in subjects:
-                if subj.get("digest", {}).get("sha256") == artifact_hash:
-                    subject_match = True
-                    break
+            table.add_row("Publisher kind", publisher_data.get("kind", "?"))
+            table.add_row("Repository", publisher_data.get("repository", "?"))
+            table.add_row("Workflow", publisher_data.get("workflow", "?"))
+            table.add_row("Environment", publisher_data.get("environment", "?"))
+            table.add_row("Predicate type", predicate_type)
+            table.add_row("Artifact", path.name)
+            table.add_row("SHA256", sha256(path))
 
-            if subject_match:
-                ok(f"{index_name} attestation: subject digest matches {path.name}")
-            else:
-                fail(f"{index_name} attestation: subject digest MISMATCH for {path.name}")
-                all_ok = False
-
-        # Display publisher and attestation details
-        table = Table(
-            title=f"{index_name} PEP 740 Attestation",
-            show_header=False, padding=(0, 2), expand=True,
-        )
-        table.add_column("Field", style="bold cyan", min_width=24, max_width=30)
-        table.add_column("Value", overflow="fold")
-
-        table.add_row("Publisher kind", publisher.get("kind", "?"))
-        table.add_row("Repository", publisher.get("repository", "?"))
-        table.add_row("Workflow", publisher.get("workflow", "?"))
-        table.add_row("Environment", publisher.get("environment", "?"))
-        table.add_row("Predicate type", predicate_type)
-        if subjects:
-            table.add_row("", "")
-            for subj in subjects:
-                digest = subj.get("digest", {}).get("sha256", "?")
-                table.add_row(subj.get("name", "?"), f"sha256:{digest}")
-
-        console.print()
-        console.print(table)
-
-    # Try cryptographic verification via pypi-attestations CLI
-    result = run([
-        "uv", "tool", "run", "--from", "pypi-attestations",
-        "python", "-m", "pypi_attestations",
-        "verify", str(path),
-    ])
-    if result.returncode == 0:
-        ok(f"pypi-attestations verify: {path.name}")
-    else:
-        info(f"pypi-attestations CLI verification not available or failed")
-        info("(this is expected — CLI verification is still maturing)")
+            console.print()
+            console.print(table)
 
     return all_ok
 
