@@ -263,7 +263,7 @@ jobs:
             release-dist/dist/geek42-*.tar.gz
             release-dist/dist/geek42-sbom.cdx.json
             release-dist/dist/SHA256SUMS.txt
-            release-dist/dist/*.sigstore
+            release-dist/dist/*.sigstore.json
             release-dist/geek42-provenance.intoto.jsonl
 
       - name: Publish release
