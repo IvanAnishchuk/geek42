@@ -42,7 +42,7 @@ from .renderer import body_to_html, news_to_markdown, write_markdown
 from .scaffold import scaffold
 from .tracker import ReadTracker
 
-__version__ = "0.4.2a4"
+__version__ = "0.4.2a5"
 
 __all__ = [
     "ComposeError",
