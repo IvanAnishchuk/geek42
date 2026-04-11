@@ -22,13 +22,10 @@ jobs:
     name: Build & attest
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # TODO: re-enable attestations: write once artifact attestations are
-    # enabled in repo settings (Settings > Actions > General).
-    # See: https://github.blog/security/supply-chain-security/configure-github-artifact-attestations-for-secure-cloud-native-delivery/
     permissions:
       contents: read
-      id-token: write      # OIDC for sigstore
-      # attestations: write  # actions/attest-* — disabled until repo setting is enabled
+      id-token: write
+      attestations: write
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
@@ -70,17 +67,16 @@ jobs:
           echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
           sha256sum geek42-*.whl geek42-*.tar.gz > SHA256SUMS.txt
 
-      # TODO: re-enable once attestations: write permission is available
-      # - name: Attest build provenance
-      #   uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
-      #   with:
-      #     subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
-      #
-      # - name: Attest SBOM
-      #   uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v1.4.1
-      #   with:
-      #     subject-path: "dist/geek42-*.whl"
-      #     sbom-path: "dist/geek42-sbom.cdx.json"
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v1.4.1
+        with:
+          subject-path: "dist/geek42-*.whl"
+          sbom-path: "dist/geek42-sbom.cdx.json"
 
       - name: Sign artifacts with sigstore
         uses: sigstore/gh-action-sigstore-python@04cffa1d795717b140764e8b640de88853c92acc # v3.3.0
@@ -98,21 +94,23 @@ jobs:
 
   # -------------------------------------------------------------------
   # SLSA Level 3 provenance generator (reusable workflow).
-  # Runs in an isolated environment so the provenance is
-  # non-falsifiable.
+  # TODO: temporarily disabled — causes startup_failure. Likely needs
+  # additional repo-level permissions or configuration for the
+  # slsa-framework reusable workflow. Re-enable once resolved.
+  # See: https://github.com/slsa-framework/slsa-github-generator
   # -------------------------------------------------------------------
-  provenance:
-    name: SLSA L3 provenance
-    needs: build
-    permissions:
-      contents: read
-      id-token: write
-      actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: ${{ needs.build.outputs.hashes }}
-      upload-assets: false
-      provenance-name: geek42-provenance.intoto.jsonl
+  # provenance:
+  #   name: SLSA L3 provenance
+  #   needs: build
+  #   permissions:
+  #     contents: read
+  #     id-token: write
+  #     actions: read
+  #   uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+  #   with:
+  #     base64-subjects: ${{ needs.build.outputs.hashes }}
+  #     upload-assets: false
+  #     provenance-name: geek42-provenance.intoto.jsonl
 
   # -------------------------------------------------------------------
   # Publish to PyPI via trusted publishing (OIDC, no password).
@@ -120,7 +118,7 @@ jobs:
   # -------------------------------------------------------------------
   publish-pypi:
     name: Publish to PyPI
-    needs: [build, provenance]
+    needs: build
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -194,11 +192,11 @@ jobs:
 
   # -------------------------------------------------------------------
   # Create GitHub Release with all artifacts (wheel, sdist, SBOM,
-  # sigstore bundles, provenance).
+  # sigstore bundles).
   # -------------------------------------------------------------------
   github-release:
     name: Create GitHub Release
-    needs: [build, provenance, publish-pypi]
+    needs: [build, publish-pypi]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -218,12 +216,6 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-dist
-          path: release-dist/
-
-      - name: Download SLSA provenance
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: geek42-provenance.intoto.jsonl
           path: release-dist/
 
       - name: Extract release notes from CHANGELOG
@@ -250,4 +242,3 @@ jobs:
             release-dist/dist/geek42-sbom.cdx.json
             release-dist/dist/SHA256SUMS.txt
             release-dist/dist/*.sigstore
-            release-dist/geek42-provenance.intoto.jsonl

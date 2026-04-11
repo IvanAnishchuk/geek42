@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-11
+
+### Fixed
+
+- Re-enable attestations (`attestations: write`) in release workflow
+  (confirmed working via dev-test branch).
+- Temporarily disable SLSA L3 provenance — the
+  `slsa-framework/slsa-github-generator` reusable workflow causes
+  `startup_failure`. Will investigate and re-enable separately.
+- Remove SLSA provenance from publish/release dependency chain so
+  releases can proceed.
+
 ## [0.4.0] - 2026-04-10
 
 ### Added
