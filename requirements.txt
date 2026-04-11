@@ -16,6 +16,10 @@ colorama==0.4.6 ; sys_platform == 'win32' \
     --hash=sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44 \
     --hash=sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6
     # via click
+gemato==20.12 \
+    --hash=sha256:8fb8a83e63d9c46f4f722646d41e7ddf57d5c42fbe16a5ba8196b99f28cd943e \
+    --hash=sha256:d691da405d690127f50c9ad7c57e9b14ec8cdb52246f2008c1b29f96b30258f5
+    # via geek42
 jinja2==3.1.6 \
     --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
