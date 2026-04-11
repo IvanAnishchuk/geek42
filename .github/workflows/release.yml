@@ -68,12 +68,12 @@ jobs:
           sha256sum geek42-*.whl geek42-*.tar.gz > SHA256SUMS.txt
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
 
       - name: Attest SBOM
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v1.4.1
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: "dist/geek42-*.whl"
           sbom-path: "dist/geek42-sbom.cdx.json"
@@ -94,9 +94,9 @@ jobs:
 
   # -------------------------------------------------------------------
   # SLSA Level 3 provenance generator (reusable workflow).
-  # TODO: temporarily disabled — causes startup_failure. Likely needs
-  # additional repo-level permissions or configuration for the
-  # slsa-framework reusable workflow. Re-enable once resolved.
+  # TODO: causes startup_failure — needs investigation.
+  # Build provenance is handled by actions/attest in the build job
+  # (same approach as slsa-battleground).
   # See: https://github.com/slsa-framework/slsa-github-generator
   # -------------------------------------------------------------------
   # provenance:
