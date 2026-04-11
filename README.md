@@ -20,9 +20,10 @@
 [![yamllint](https://img.shields.io/badge/yamllint-checked-blue)](https://github.com/adrienverge/yamllint)
 [![mdformat](https://img.shields.io/badge/mdformat-formatted-blue)](https://github.com/executablebooks/mdformat)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-blue)](https://semver.org)
-[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+[![commits: conventional](https://img.shields.io/badge/commits-conventional-blue)](https://conventionalcommits.org)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![Immutable Releases](https://img.shields.io/badge/releases-immutable-blue)](https://github.com/IvanAnishchuk/geek42/releases)
+[![releases: immutable](https://img.shields.io/badge/releases-immutable-blue)](https://github.com/IvanAnishchuk/geek42/releases)
+[![attestations: verified](https://img.shields.io/badge/attestations-verified-blue)](https://github.com/IvanAnishchuk/geek42/attestations)
 [![SLOC](https://img.shields.io/badge/SLOC-~2.6k-informational)](src/geek42/)
 [![License: CC0-1.0](https://img.shields.io/badge/license-CC0--1.0-lightgrey)](LICENSE.md)
 
