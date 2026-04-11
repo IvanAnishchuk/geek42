@@ -153,7 +153,10 @@ def main() -> int:  # noqa: C901
     code, out = run_capture(
         [
             "uv",
+            "tool",
             "run",
+            "--from",
+            "cyclonedx-bom",
             "cyclonedx-py",
             "requirements",
             str(PROD_REQ),
@@ -175,7 +178,10 @@ def main() -> int:  # noqa: C901
     code, out = run_capture(
         [
             "uv",
+            "tool",
             "run",
+            "--from",
+            "cyclonedx-bom",
             "cyclonedx-py",
             "requirements",
             str(DEV_REQ),

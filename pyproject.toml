@@ -46,7 +46,6 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=6.0",
     "pip-audit>=2.7",
-    "cyclonedx-bom>=4.5",
     "pre-commit>=4.0",
 ]
 
