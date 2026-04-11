@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-10
+
 ### Added
 
 - **`--directory` / `-C` option** on all commands (`init`, `pull`,
@@ -32,19 +34,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`geek42 deploy-status`** — checks GitHub Pages deployment and
   latest CI run status on main (requires `gh` CLI).
 - **`geek42 init` full scaffold** — now creates a complete news
-  repository with `metadata/news/`, `.pre-commit-config.yaml`,
-  `.github/workflows/ci.yml`, `pyproject.toml` (dev deps),
-  `README.md` (with index markers), `.gitignore`, and
-  `metadata/layout.conf`. Use `--bare` for the old config-only
-  behaviour. Accepts `--title`.
-- **`geek42 sign`** — generates a gemato-compatible `Manifest`
-  with BLAKE2B + SHA512 checksums for all news files. Pass
-  `--key KEY_ID` to clear-sign with gpg.
-- **`geek42 verify`** — checks Manifest checksums (and gpg
-  signature if present).
+  repository matching Gentoo overlay conventions: `metadata/news/`,
+  `.pre-commit-config.yaml` (text hygiene, yamllint, mdformat,
+  gemato-sign, geek42 lint/compile-blog), `.github/workflows/`
+  (lint, manifest verification, deploy), `.github/dependabot.yml`,
+  `.yamllint.yml`, `pyproject.toml` (dev deps), `README.md` (with
+  index markers), `.gitignore`, `metadata/layout.conf`. Use `--bare`
+  for config-only mode. Accepts `--title`.
+- **`geek42 sign`** — regenerates the gemato Manifest tree using
+  `gemato create/update --profile ebuild` (same hierarchical
+  structure as the Gentoo portage tree). Signs with `--key` or
+  `signing_key` from `geek42.toml`.
+- **`geek42 verify`** — verifies the Manifest tree via `gemato
+  verify` (with `--require-signed-manifest` when
+  `metadata/key.asc` is present).
+- **`signing_key`** optional field in `SiteConfig` / `geek42.toml`.
 - **`scaffold` module** (`scaffold.py`) with the full template set.
 - **`manifest` module** (`manifest.py`) with `generate_manifest`
-  and `verify_manifest` functions exported from the public API.
+  and `verify_manifest` (delegates to gemato).
+- **`GematoNotFoundError`** exception (gemato is required for
+  Manifest operations).
+- **Testing policy** (`docs/testing-policy.md`), **style guide**
+  (`docs/style-guide.md`), **user guide** (`docs/user-guide.md`),
+  **OpenSSF Best Practices answers**
+  (`docs/openssf-best-practices.md`), **release setup checklist**
+  (`docs/release-setup.md`).
+
+### Changed
+
+- **`cyclonedx-bom` moved to `uv tool run`** — no longer a dev
+  dependency, avoiding chardet version conflicts.
 
 ## [0.3.0] - 2026-04-10
 
