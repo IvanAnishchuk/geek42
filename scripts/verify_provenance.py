@@ -648,8 +648,8 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="verify-") as tmpdir:
         tmp = Path(tmpdir)
 
-        # -- GitHub Release --------------------------------------------
-        header("GitHub Release")
+        # -- 1-3. GitHub Release (checksums + sigstore + attestations) --
+        header("1-3. GitHub Release")
         gh_dir = tmp / "github"
         gh_dir.mkdir()
         gh_artifacts = download_github_release(version, gh_dir)
@@ -661,7 +661,6 @@ def main() -> int:
             # 1. SHA256 checksums
             header("1. SHA256 checksums")
             explain("sha256")
-            # Try versioned filename first, fall back to unversioned
             gh_sums = gh_dir / f"geek42-{version}-SHA256SUMS.txt"
             if not gh_sums.exists():
                 gh_sums = gh_dir / "SHA256SUMS.txt"
@@ -675,7 +674,6 @@ def main() -> int:
             header("2. Sigstore signatures")
             explain("sigstore")
             for name, path in gh_artifacts.items():
-                # Try both .sigstore.json and .sigstore extensions
                 bundle = gh_dir / f"{name}.sigstore.json"
                 if not bundle.exists():
                     bundle = gh_dir / f"{name}.sigstore"
