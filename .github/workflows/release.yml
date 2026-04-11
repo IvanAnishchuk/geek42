@@ -75,10 +75,15 @@ jobs:
           subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
 
       - name: Attest SBOM
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "sbom_path=dist/geek42-${VERSION}-sbom.cdx.json" >> "$GITHUB_ENV"
+
+      - name: Attest SBOM (upload)
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: "dist/geek42-*.whl"
-          sbom-path: "dist/geek42-*-sbom.cdx.json"
+          sbom-path: "${{ env.sbom_path }}"
 
       - name: Sign artifacts with sigstore
         uses: sigstore/gh-action-sigstore-python@04cffa1d795717b140764e8b640de88853c92acc # v3.3.0
