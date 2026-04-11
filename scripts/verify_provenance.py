@@ -171,6 +171,13 @@ def download_github_release(version: str, dest: Path) -> dict[str, Path]:
         if result.stderr:
             info(result.stderr.strip())
         return {}
+    # Copy all release files to proofs/ for inspection
+    proofs = _ensure_proofs_dir()
+    for f in sorted(dest.iterdir()):
+        target = proofs / f.name
+        if not target.exists():
+            target.write_bytes(f.read_bytes())
+    info(f"Release artifacts saved to proofs/")
     return {f.name: f for f in sorted(dest.iterdir()) if is_dist_file(f.name)}
 
 
@@ -192,6 +199,14 @@ def download_pypi(version: str, dest: Path) -> dict[str, Path]:
         return {}
     run(["pip", "download", "--no-deps", "--no-binary", ":all:",
          *extra_args, "--dest", str(dest), f"{PACKAGE_NAME}=={version}"])
+    # Copy downloaded artifacts to proofs/ for inspection
+    proofs = _ensure_proofs_dir()
+    for f in sorted(dest.iterdir()):
+        if is_dist_file(f.name):
+            target = proofs / f.name
+            if not target.exists():
+                target.write_bytes(f.read_bytes())
+    info(f"Artifacts saved to proofs/")
     return {f.name: f for f in sorted(dest.iterdir()) if is_dist_file(f.name)}
 
 
@@ -282,6 +297,11 @@ def verify_gh_attestation(path: Path) -> dict | None:
     try:
         records = json.loads(result.stdout)
         if isinstance(records, list) and records:
+            # Save attestation JSON to proofs/
+            proofs = _ensure_proofs_dir()
+            att_file = proofs / f"{path.name}.gh-attestation.json"
+            att_file.write_text(json.dumps(records, indent=2))
+            info(f"Saved to {att_file.relative_to(REPO_ROOT)}")
             return records[0]
     except json.JSONDecodeError:
         pass
