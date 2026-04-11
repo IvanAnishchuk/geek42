@@ -17,6 +17,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from .errors import GematoNotFoundError
+
 _HASHES = "BLAKE2B SHA512"
 _COMPRESS_WATERMARK = "999999999"
 
@@ -25,8 +27,7 @@ def _gemato() -> str:
     """Return the absolute path to ``gemato``."""
     path = shutil.which("gemato")
     if path is None:
-        msg = "gemato not found in PATH (it is a project dependency — try: uv sync)"
-        raise RuntimeError(msg)
+        raise GematoNotFoundError
     return path
 
 

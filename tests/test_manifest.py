@@ -223,8 +223,8 @@ def test_gemato_verify_matches_gemato_create(tmp_path: Path) -> None:
 
 
 def test_gemato_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import geek42.manifest as mod
+    from geek42.errors import GematoNotFoundError
 
-    monkeypatch.setattr(mod, "_gemato", lambda: (_ for _ in ()).throw(RuntimeError("no gemato")))
-    with pytest.raises(RuntimeError, match="no gemato"):
+    monkeypatch.setattr("shutil.which", lambda _cmd: None)
+    with pytest.raises(GematoNotFoundError):
         generate_manifest(tmp_path)
