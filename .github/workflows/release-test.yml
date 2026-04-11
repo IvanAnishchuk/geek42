@@ -25,7 +25,7 @@ jobs:
         run: uv build && ls -la dist/
 
       - name: Sign with sigstore
-        uses: sigstore/gh-action-sigstore-python@v3
+        uses: sigstore/gh-action-sigstore-python@v3.3.0
         with:
           inputs: ./dist/geek42-*.whl ./dist/geek42-*.tar.gz
 
