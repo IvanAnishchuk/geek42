@@ -55,7 +55,7 @@ RUN uv sync --frozen --no-dev
 FROM python:${PYTHON_VERSION}-${DEBIAN_SUITE} AS runtime
 
 # OCI image labels (https://github.com/opencontainers/image-spec/blob/main/annotations.md)
-ARG VERSION=0.2.0
+ARG VERSION=0.4.2a2
 ARG REVISION=unknown
 ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="geek42" \
