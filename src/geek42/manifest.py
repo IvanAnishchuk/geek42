@@ -1,7 +1,7 @@
 """Gemato-compatible Manifest generation and verification.
 
-Delegates to ``gemato`` using the same flags as the Gentoo overlay
-workflow::
+Delegates to ``gemato`` (a project dependency) using the same flags
+as the Gentoo overlay workflow::
 
     gemato update --sign --profile ebuild \\
         --hashes "BLAKE2B SHA512" --timestamp \\
@@ -17,25 +17,17 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .errors import Geek42Error
-
-_GEMATO = shutil.which("gemato")
-
 _HASHES = "BLAKE2B SHA512"
 _COMPRESS_WATERMARK = "999999999"
 
 
-class GematoNotFoundError(Geek42Error):
-    """The gemato executable is not on PATH."""
-
-    def __init__(self) -> None:
-        super().__init__("gemato not found in PATH; install with: uv tool install gemato")
-
-
-def _require_gemato() -> str:
-    if _GEMATO is None:
-        raise GematoNotFoundError
-    return _GEMATO
+def _gemato() -> str:
+    """Return the absolute path to ``gemato``."""
+    path = shutil.which("gemato")
+    if path is None:
+        msg = "gemato not found in PATH (it is a project dependency — try: uv sync)"
+        raise RuntimeError(msg)
+    return path
 
 
 # -- public API ---------------------------------------------------------------
@@ -55,7 +47,7 @@ def generate_manifest(root: Path, *, signing_key: str = "") -> bool:
 
     When *signing_key* is non-empty the top-level Manifest is signed.
     """
-    gemato = _require_gemato()
+    gemato = _gemato()
     mf = manifest_path(root)
 
     # First run needs "create"; subsequent runs use "update"
@@ -91,7 +83,7 @@ def verify_manifest(root: Path, *, key_file: str = "metadata/key.asc") -> list[s
     If ``metadata/key.asc`` exists, signature verification is required.
     Returns a list of error strings (empty = OK).
     """
-    gemato = _require_gemato()
+    gemato = _gemato()
     args = [gemato, "verify"]
 
     key_path = root / key_file

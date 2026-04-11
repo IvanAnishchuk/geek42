@@ -26,6 +26,7 @@ dependencies = [
     "typer>=0.15",
     "rich>=13.0",
     "markdown>=3.5",
+    "gemato>=20",
 ]
 
 [project.urls]

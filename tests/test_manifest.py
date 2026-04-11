@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from geek42.manifest import (
-    GematoNotFoundError,
     generate_manifest,
     manifest_path,
     verify_manifest,
@@ -226,6 +225,6 @@ def test_gemato_verify_matches_gemato_create(tmp_path: Path) -> None:
 def test_gemato_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import geek42.manifest as mod
 
-    monkeypatch.setattr(mod, "_GEMATO", None)
-    with pytest.raises(GematoNotFoundError):
+    monkeypatch.setattr(mod, "_gemato", lambda: (_ for _ in ()).throw(RuntimeError("no gemato")))
+    with pytest.raises(RuntimeError, match="no gemato"):
         generate_manifest(tmp_path)
