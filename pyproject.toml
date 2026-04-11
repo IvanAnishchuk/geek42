@@ -1,6 +1,6 @@
 [project]
 name = "geek42"
-version = "0.4.2a1"
+version = "0.4.2a2"
 description = "Convert GLEP 42 Gentoo news repositories into static blogs"
 readme = "README.md"
 license = "CC0-1.0"
