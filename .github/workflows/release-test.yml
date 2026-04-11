@@ -15,8 +15,6 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,17 +25,23 @@ jobs:
       - name: Build
         run: uv build && ls -la dist/
 
-      - name: Compute hashes
-        id: hash
+      - name: Generate SBOM
         run: |
-          cd dist
-          HASHES=$(sha256sum geek42-*.whl geek42-*.tar.gz | base64 -w0)
-          echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
+          uv export --format requirements-txt --no-emit-project > requirements-release.txt
+          uv tool run --from cyclonedx-bom cyclonedx-py requirements requirements-release.txt \
+            --output-format json \
+            --output-file dist/geek42-sbom.cdx.json
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: "dist/geek42-*"
+          subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v1
+        with:
+          subject-path: "dist/geek42-*.whl"
+          sbom-path: "dist/geek42-sbom.cdx.json"
 
       - name: Sign with sigstore
         uses: sigstore/gh-action-sigstore-python@v3.3.0
@@ -50,15 +54,53 @@ jobs:
           name: test-dist
           path: dist/
 
-  provenance:
-    name: SLSA L3 provenance
+  # NOTE: SLSA provenance removed — causes startup_failure.
+  # TODO: investigate slsa-framework/slsa-github-generator
+  # reusable workflow requirements.
+
+  publish-pypi:
+    name: Publish to PyPI
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v0.1')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/geek42/
     permissions:
-      contents: read
       id-token: write
-      actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-    with:
-      base64-subjects: ${{ needs.build.outputs.hashes }}
-      upload-assets: false
-      provenance-name: geek42-provenance.intoto.jsonl
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+          verbose: true
+
+  github-release:
+    name: Create GitHub Release
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v0.1')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-dist
+          path: dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            dist/geek42-*.whl
+            dist/geek42-*.tar.gz
+            dist/geek42-sbom.cdx.json
+            dist/*.sigstore
