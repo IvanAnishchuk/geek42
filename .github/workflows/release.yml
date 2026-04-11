@@ -94,23 +94,21 @@ jobs:
 
   # -------------------------------------------------------------------
   # SLSA Level 3 provenance generator (reusable workflow).
-  # TODO: causes startup_failure — needs investigation.
-  # Build provenance is handled by actions/attest in the build job
-  # (same approach as slsa-battleground).
-  # See: https://github.com/slsa-framework/slsa-github-generator
+  # Requires contents: write even with upload-assets: false due to
+  # static permission validation (slsa-github-generator#2044).
   # -------------------------------------------------------------------
-  # provenance:
-  #   name: SLSA L3 provenance
-  #   needs: build
-  #   permissions:
-  #     contents: read
-  #     id-token: write
-  #     actions: read
-  #   uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-  #   with:
-  #     base64-subjects: ${{ needs.build.outputs.hashes }}
-  #     upload-assets: false
-  #     provenance-name: geek42-provenance.intoto.jsonl
+  provenance:
+    name: SLSA L3 provenance
+    needs: build
+    permissions:
+      contents: write    # upload-assets job inside reusable workflow requires write
+      id-token: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: false
+      provenance-name: geek42-provenance.intoto.jsonl
 
   # -------------------------------------------------------------------
   # Publish to PyPI via trusted publishing (OIDC, no password).
