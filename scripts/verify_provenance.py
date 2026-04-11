@@ -1,6 +1,6 @@
 """Verify local distribution files against all supply-chain providers.
 
-The script verifies files in dist/ against five independent mechanisms:
+Verifies files in dist/ against five independent proof providers:
 
 1. SHA256 checksums       — release checksums from GitHub Release
 2. Sigstore signatures    — keyless OIDC signing bundles from GitHub Release
@@ -8,9 +8,8 @@ The script verifies files in dist/ against five independent mechanisms:
 4. SLSA L3 provenance     — non-falsifiable provenance from an isolated builder
 5. PyPI attestations      — PEP 740 publish attestations from PyPI and TestPyPI
 
-If dist/ is empty, downloads artifacts there from PyPI/TestPyPI first.
-Proof artifacts (attestation JSON, provenance files, sigstore bundles)
-are cached in proofs/ — never duplicate copies of the distribution files.
+Files must already exist in dist/ (build with 'uv build' or download with
+'pip download'). Proof artifacts are cached in proofs/{github,pypi}/.
 
 Requirements:
   - gh              (GitHub CLI, for attestation verify + release download)
@@ -167,30 +166,6 @@ def download_github_proofs(version: str) -> Path:
     else:
         info(f"Proof files saved to proofs/github/")
     return gh_proofs
-
-
-def download_to_dist(version: str) -> dict[str, Path]:
-    """Download distribution files to dist/ from PyPI/TestPyPI."""
-    dist_dir = REPO_ROOT / "dist"
-    dist_dir.mkdir(exist_ok=True)
-    for index_name, extra_args in [
-        ("TestPyPI", ["--index-url", "https://test.pypi.org/simple/",
-                       "--extra-index-url", "https://pypi.org/simple/"]),
-        ("PyPI", []),
-    ]:
-        result = run(
-            ["pip", "download", "--no-deps", *extra_args,
-             "--dest", str(dist_dir), f"{PACKAGE_NAME}=={version}"]
-        )
-        if result.returncode == 0:
-            info(f"Downloaded wheel from {index_name} to dist/")
-            # Also try sdist
-            run(["pip", "download", "--no-deps", "--no-binary", ":all:",
-                 *extra_args, "--dest", str(dist_dir), f"{PACKAGE_NAME}=={version}"])
-            break
-    else:
-        console.print(f"  [yellow]Download failed for {PACKAGE_NAME}=={version}[/]")
-    return collect_local(version)
 
 
 # -- 1. SHA256 checksums ----------------------------------------------
@@ -554,14 +529,14 @@ def main() -> int:
 
     failures = 0
 
-    # -- Locate or download artifacts to dist/ -------------------------
+    # -- Locate artifacts in dist/ -------------------------------------
     header("Distribution files")
     artifacts = collect_local(version)
     if not artifacts:
-        info("No matching files in dist/, downloading...")
-        artifacts = download_to_dist(version)
-    if not artifacts:
-        console.print(Panel("[bold red]No artifacts to verify. Cannot continue.[/]"))
+        console.print(Panel(
+            f"[bold red]No files matching version {version} found in dist/[/]\n"
+            "Build with 'uv build' or download with 'pip download' first.",
+        ))
         return 1
     console.print(f"  Verifying {len(artifacts)} file(s) from dist/:")
     for name, path in artifacts.items():
