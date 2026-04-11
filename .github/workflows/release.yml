@@ -94,23 +94,21 @@ jobs:
 
   # -------------------------------------------------------------------
   # SLSA Level 3 provenance generator (reusable workflow).
-  # TODO: causes startup_failure — needs investigation.
-  # Build provenance is handled by actions/attest in the build job
-  # (same approach as slsa-battleground).
-  # See: https://github.com/slsa-framework/slsa-github-generator
+  # Requires contents: write even with upload-assets: false due to
+  # static permission validation (slsa-github-generator#2044).
   # -------------------------------------------------------------------
-  # provenance:
-  #   name: SLSA L3 provenance
-  #   needs: build
-  #   permissions:
-  #     contents: read
-  #     id-token: write
-  #     actions: read
-  #   uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-  #   with:
-  #     base64-subjects: ${{ needs.build.outputs.hashes }}
-  #     upload-assets: false
-  #     provenance-name: geek42-provenance.intoto.jsonl
+  provenance:
+    name: SLSA L3 provenance
+    needs: build
+    permissions:
+      contents: write    # upload-assets job inside reusable workflow requires write
+      id-token: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: false
+      provenance-name: geek42-provenance.intoto.jsonl
 
   # -------------------------------------------------------------------
   # Publish to PyPI via trusted publishing (OIDC, no password).
@@ -208,11 +206,12 @@ jobs:
   # -------------------------------------------------------------------
   github-release:
     name: Create GitHub Release
-    needs: [build, publish-pypi, publish-testpypi]
+    needs: [build, provenance, publish-pypi, publish-testpypi]
     if: >-
       always()
       && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
       && needs.build.result == 'success'
+      && needs.provenance.result == 'success'
       && (needs.publish-pypi.result == 'success' || needs.publish-pypi.result == 'skipped')
       && (needs.publish-testpypi.result == 'success' || needs.publish-testpypi.result == 'skipped')
     runs-on: ubuntu-latest
@@ -233,6 +232,12 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-dist
+          path: release-dist/
+
+      - name: Download SLSA provenance
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: geek42-provenance.intoto.jsonl
           path: release-dist/
 
       - name: Extract release notes from CHANGELOG
@@ -259,3 +264,4 @@ jobs:
             release-dist/dist/geek42-sbom.cdx.json
             release-dist/dist/SHA256SUMS.txt
             release-dist/dist/*.sigstore
+            release-dist/geek42-provenance.intoto.jsonl
