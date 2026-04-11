@@ -22,13 +22,10 @@ jobs:
     name: Build & attest
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # TODO: re-enable attestations: write once artifact attestations are
-    # enabled in repo settings (Settings > Actions > General).
-    # See: https://github.blog/security/supply-chain-security/configure-github-artifact-attestations-for-secure-cloud-native-delivery/
     permissions:
       contents: read
       id-token: write      # OIDC for sigstore
-      # attestations: write  # actions/attest-* — disabled until repo setting is enabled
+      attestations: write  # actions/attest-build-provenance & attest-sbom
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
@@ -70,17 +67,16 @@ jobs:
           echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
           sha256sum geek42-*.whl geek42-*.tar.gz > SHA256SUMS.txt
 
-      # TODO: re-enable once attestations: write permission is available
-      # - name: Attest build provenance
-      #   uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
-      #   with:
-      #     subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
-      #
-      # - name: Attest SBOM
-      #   uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v1.4.1
-      #   with:
-      #     subject-path: "dist/geek42-*.whl"
-      #     sbom-path: "dist/geek42-sbom.cdx.json"
+      - name: Attest build provenance
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: "dist/geek42-*.whl,dist/geek42-*.tar.gz"
+
+      - name: Attest SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: "dist/geek42-*.whl"
+          sbom-path: "dist/geek42-sbom.cdx.json"
 
       - name: Sign artifacts with sigstore
         uses: sigstore/gh-action-sigstore-python@04cffa1d795717b140764e8b640de88853c92acc # v3.3.0
