@@ -149,6 +149,30 @@ def explain(key: str) -> None:
     console.print(Panel(DESCRIPTIONS[key], border_style="dim"))
 
 
+def check_local_match(verified_path: Path, source: str = "remote") -> bool:
+    """Compare a verified remote artifact against the local dist/ copy.
+
+    Call this after every successful remote verification. Shows hashes
+    for both files. Returns True if there is a MISMATCH (caller should
+    count as failure).
+    """
+    local = REPO_ROOT / "dist" / verified_path.name
+    if not local.exists():
+        return False
+    local_hash = sha256(local)
+    remote_hash = sha256(verified_path)
+    if local_hash == remote_hash:
+        ok(f"dist/{verified_path.name} matches {source} ({remote_hash[:16]}...)")
+        return False
+    fail(
+        f"LOCAL MISMATCH: dist/{verified_path.name} differs from {source}!\n"
+        f"       local:  {local_hash}\n"
+        f"       {source}: {remote_hash}\n"
+        f"       [bold red]The file in dist/ is NOT the verified release.[/]"
+    )
+    return True
+
+
 # -- Collectors --------------------------------------------------------
 
 
@@ -627,13 +651,21 @@ def main() -> int:
         gh_artifacts = download_github_release(version, gh_dir)
         if gh_artifacts:
             console.print(f"  Found {len(gh_artifacts)} artifact(s)")
+            for name, path in gh_artifacts.items():
+                info(f"{name}: {sha256(path)}")
 
             # 1. SHA256 checksums
             header("1. SHA256 checksums")
             explain("sha256")
-            gh_sums = gh_dir / "SHA256SUMS.txt"
+            # Try versioned filename first, fall back to unversioned
+            gh_sums = gh_dir / f"geek42-{version}-SHA256SUMS.txt"
+            if not gh_sums.exists():
+                gh_sums = gh_dir / "SHA256SUMS.txt"
             verify_checksums(gh_artifacts, gh_sums)
             source_hashes["github"] = {n: sha256(p) for n, p in gh_artifacts.items()}
+            for name, path in gh_artifacts.items():
+                if check_local_match(path, "GitHub Release"):
+                    failures += 1
 
             # 2. Sigstore signatures
             header("2. Sigstore signatures")
@@ -656,7 +688,10 @@ def main() -> int:
                     attestation_shown = True
 
             # 4. SLSA L3 provenance
-            provenance = gh_dir / "geek42-provenance.intoto.jsonl"
+            # Try versioned filename first, fall back to unversioned
+            provenance = gh_dir / f"geek42-v{version}-provenance.intoto.jsonl"
+            if not provenance.exists():
+                provenance = gh_dir / "geek42-provenance.intoto.jsonl"
             header("4. SLSA L3 provenance")
             explain("slsa_l3")
             if provenance.exists():
@@ -665,8 +700,8 @@ def main() -> int:
                         failures += 1
                     break  # show details once
             else:
-                info("No provenance file in release (geek42-provenance.intoto.jsonl)")
-                info("The provenance may be in the workflow artifacts instead.")
+                info("No provenance file found in release")
+                info("Looked for versioned and unversioned filenames.")
         else:
             info("No GitHub Release artifacts available")
 
@@ -684,10 +719,16 @@ def main() -> int:
             for name, path in pypi_artifacts.items():
                 verify_gh_attestation(path)
             # Verify SLSA L3 provenance for PyPI artifacts (using GH Release provenance)
-            provenance = gh_dir / "geek42-provenance.intoto.jsonl"
+            provenance = gh_dir / f"geek42-v{version}-provenance.intoto.jsonl"
+            if not provenance.exists():
+                provenance = gh_dir / "geek42-provenance.intoto.jsonl"
             if provenance.exists():
                 for name, path in pypi_artifacts.items():
                     verify_slsa_provenance(path, provenance, version)
+            # Check PyPI artifacts against local dist/
+            for name, path in pypi_artifacts.items():
+                if check_local_match(path, "PyPI"):
+                    failures += 1
         else:
             info("No PyPI/TestPyPI artifacts available")
 

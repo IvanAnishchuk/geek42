@@ -53,19 +53,21 @@ jobs:
 
       - name: Generate SBOM (CycloneDX)
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           uv export --format requirements-txt --no-emit-project > requirements-release.txt
           uv tool run --from cyclonedx-bom cyclonedx-py requirements requirements-release.txt \
             --output-format json \
-            --output-file dist/geek42-sbom.cdx.json
+            --output-file "dist/geek42-${VERSION}-sbom.cdx.json"
           ls -la dist/
 
       - name: Compute artifact hashes
         id: hash
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           cd dist
           HASHES=$(sha256sum geek42-*.whl geek42-*.tar.gz | base64 -w0)
           echo "hashes=${HASHES}" >> "$GITHUB_OUTPUT"
-          sha256sum geek42-*.whl geek42-*.tar.gz > SHA256SUMS.txt
+          sha256sum geek42-*.whl geek42-*.tar.gz > "geek42-${VERSION}-SHA256SUMS.txt"
 
       - name: Attest build provenance
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
@@ -76,7 +78,7 @@ jobs:
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: "dist/geek42-*.whl"
-          sbom-path: "dist/geek42-sbom.cdx.json"
+          sbom-path: "dist/geek42-*-sbom.cdx.json"
 
       - name: Sign artifacts with sigstore
         uses: sigstore/gh-action-sigstore-python@04cffa1d795717b140764e8b640de88853c92acc # v3.3.0
@@ -108,7 +110,7 @@ jobs:
     with:
       base64-subjects: ${{ needs.build.outputs.hashes }}
       upload-assets: false
-      provenance-name: geek42-provenance.intoto.jsonl
+      provenance-name: geek42-${{ github.ref_name }}-provenance.intoto.jsonl
 
   # -------------------------------------------------------------------
   # Publish to PyPI via trusted publishing (OIDC, no password).
@@ -237,7 +239,7 @@ jobs:
       - name: Download SLSA provenance
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: geek42-provenance.intoto.jsonl
+          name: geek42-${{ github.ref_name }}-provenance.intoto.jsonl
           path: release-dist/
 
       - name: Extract release notes from CHANGELOG
@@ -261,10 +263,10 @@ jobs:
           files: |
             release-dist/dist/geek42-*.whl
             release-dist/dist/geek42-*.tar.gz
-            release-dist/dist/geek42-sbom.cdx.json
-            release-dist/dist/SHA256SUMS.txt
+            release-dist/dist/geek42-*-sbom.cdx.json
+            release-dist/dist/geek42-*-SHA256SUMS.txt
             release-dist/dist/*.sigstore.json
-            release-dist/geek42-provenance.intoto.jsonl
+            release-dist/geek42-*-provenance.intoto.jsonl
 
       - name: Publish release
         run: gh release edit "$GITHUB_REF_NAME" --draft=false
