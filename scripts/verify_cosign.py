@@ -1,9 +1,12 @@
 """Verify local distribution files using cosign.
 
 Verifies files in dist/ against all five proof providers using cosign
-as the only external tool. GitHub attestations and PyPI PEP 740
-attestations contain standard sigstore bundles inside wrapper formats;
-this script extracts them for cosign verification.
+for cryptographic verification. Also requires gh CLI for downloading
+proof files (if not already present in proofs/github/).
+
+GitHub attestations and PyPI PEP 740 attestations contain standard
+sigstore bundles inside wrapper formats; this script extracts them
+for cosign verification.
 
 1. SHA256 checksums       — manual comparison
 2. Sigstore signatures    — cosign verify-blob

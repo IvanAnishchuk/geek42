@@ -1,8 +1,8 @@
-"""Verify local distribution files using pure Python only.
+"""Verify local distribution files using Python libraries.
 
-No external tools required — uses sigstore and pypi-attestations
-Python libraries for all cryptographic verification. This is the
-most portable verification script: works anywhere Python runs.
+Uses sigstore and pypi-attestations for cryptographic verification.
+Requires gh CLI only for downloading proof files (if not already
+present in proofs/github/).
 
 Verifies:
 1. SHA256 checksums       — manual comparison
