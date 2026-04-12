@@ -53,7 +53,7 @@ Summary:        %{summary}
 %{_bindir}/geek42
 
 %changelog
-* Sat Apr 12 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a8-1
+* Sun Apr 12 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a8-1
 - Pre-release: pypi-attestations CLI, trust anchors, AI reviewers,
   dependency-review allowlist.
 
