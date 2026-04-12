@@ -165,7 +165,7 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
     if result.returncode != 0:
         fail(f"cosign verify-blob: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr:
+        if result.stderr and result.stderr.strip():
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
 
@@ -201,7 +201,7 @@ def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
     if result.returncode != 0:
         fail(f"cosign SLSA L3: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr:
+        if result.stderr and result.stderr.strip():
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
 
@@ -252,7 +252,7 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
     if result.returncode != 0:
         fail(f"cosign GH attestation: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr:
+        if result.stderr and result.stderr.strip():
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
 
