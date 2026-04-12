@@ -136,14 +136,15 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
             str(path),
         ])
 
+    artifact_hash = sha256(path)
     if result.returncode != 0:
         fail(f"cosign verify-blob: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
         if result.stderr:
-            for line in result.stderr.strip().splitlines():
-                fail(f"  {line}")
+            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
 
-    ok(f"cosign verify-blob: {path.name}")
+    ok(f"cosign verify-blob: {path.name} ({artifact_hash})")
     info(f"  identity: {identity}")
     return True
 
@@ -164,14 +165,15 @@ def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
         "--bundle", str(provenance),
         str(path),
     ])
+    artifact_hash = sha256(path)
     if result.returncode != 0:
-        fail(f"cosign verify-blob-attestation: {path.name}")
+        fail(f"cosign SLSA L3: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
         if result.stderr:
-            for line in result.stderr.strip().splitlines():
-                fail(f"  {line}")
+            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
 
-    ok(f"cosign verify-blob-attestation: {path.name} (SLSA L3)")
+    ok(f"cosign SLSA L3: {path.name} ({artifact_hash})")
     return True
 
 
@@ -209,14 +211,15 @@ def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
         "--bundle", str(extracted),
         str(path),
     ])
+    artifact_hash = sha256(path)
     if result.returncode != 0:
         fail(f"cosign GH attestation: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
         if result.stderr:
-            for line in result.stderr.strip().splitlines():
-                fail(f"  {line}")
+            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
 
-    ok(f"cosign GH attestation: {path.name}")
+    ok(f"cosign GH attestation: {path.name} ({artifact_hash})")
     info(f"  identity: {identity}")
     return True
 
@@ -273,15 +276,16 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
                 "--bundle", str(extracted),
                 str(path),
             ])
+            artifact_hash = sha256(path)
             if result.returncode != 0:
                 fail(f"cosign {index_name} PEP 740: {path.name}")
+                fail(f"  artifact: {artifact_hash}")
                 if result.stderr:
-                    for line in result.stderr.strip().splitlines():
-                        fail(f"  {line}")
+                    fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
                 all_ok = False
             else:
                 publisher = bundle_data.get("publisher", {})
-                ok(f"cosign {index_name} PEP 740: {path.name}")
+                ok(f"cosign {index_name} PEP 740: {path.name} ({artifact_hash})")
                 info(f"  publisher: {publisher.get('repository', '?')}")
                 info(f"  workflow: {publisher.get('workflow', '?')}")
                 info(f"  environment: {publisher.get('environment', '?')}")
