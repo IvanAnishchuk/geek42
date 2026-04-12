@@ -38,7 +38,8 @@ When bumping version, update ALL of:
 - Signed commits and signed tags required
 - Run `uv run pre-commit run --all-files` before pushing
 - Merge commits only (no squash, no rebase)
-- Never bypass required CI checks or reviews
+- Owners may use `--admin` to bypass review requirement for their own PRs
+- Never use `--admin` to bypass required CI checks
 
 ## Review process
 

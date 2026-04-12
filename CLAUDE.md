@@ -58,7 +58,9 @@ uv run scripts/verify_pure.py 0.4.2a7
 - **Always use merge commits** when merging PRs (no squash, no rebase).
 - **Always run pre-commit before pushing.**
 - **Never amend published commits.** Create new commits to fix issues.
-- **Never bypass required checks.** Do not use `--admin` to skip CI or reviews.
+- **`--admin` merge:** Owners may use `--admin` to bypass the review
+  requirement when committing and merging their own work. Never use
+  `--admin` to bypass required CI checks — all status checks must pass.
 
 ## Version management
 
@@ -98,7 +100,7 @@ uv run python scripts/regen_requirements.py
 3. Update `CHANGELOG.md`
 4. Run `uv lock` + `uv run python scripts/regen_requirements.py`
 5. Commit, push, create PR
-6. Wait for CI and reviews, then merge
+6. Wait for CI, address review comments, merge (`--admin` OK for owner's own PRs)
 7. Create signed tag: `git tag -s v{version} -m "Release v{version}"`
 8. Push tag: `git push origin v{version}`
 
