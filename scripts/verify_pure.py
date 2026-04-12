@@ -158,11 +158,13 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         identity = policy.Identity(identity=identity_str, issuer=OIDC_ISSUER)
         verifier.verify_artifact(path.read_bytes(), bundle, identity)
     except Exception as exc:  # noqa: BLE001
+        artifact_hash = sha256(path)
         fail(f"sigstore verify: {path.name}")
-        fail(f"  {exc}")
+        fail(f"  artifact: {artifact_hash}")
+        fail(f"  error: {exc}")
         return False
 
-    ok(f"sigstore verify: {path.name}")
+    ok(f"sigstore verify: {path.name} ({sha256(path)})")
 
     # Extract certificate details for display
     try:
@@ -226,7 +228,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
         fail(f"SLSA L3 provenance: could not verify subject match: {exc}")
         return False
 
-    ok(f"SLSA L3 provenance verified: {path.name}")
+    ok(f"SLSA L3 provenance verified: {path.name} ({artifact_hash})")
 
     # Decode and display provenance details
     try:
@@ -305,11 +307,14 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 
         for att_data in bundle.get("attestations", []):
             att = Attestation.model_validate(att_data)
+            artifact_hash = sha256(path)
             try:
                 predicate_type, _ = att.verify(publisher, dist)
-                ok(f"{index_name}: verified {path.name}")
+                ok(f"{index_name}: {path.name} ({artifact_hash})")
             except Exception as exc:  # noqa: BLE001
-                fail(f"{index_name}: {path.name} — {exc}")
+                fail(f"{index_name}: {path.name}")
+                fail(f"  artifact: {artifact_hash}")
+                fail(f"  error: {exc}")
                 all_ok = False
                 continue
 
@@ -428,12 +433,13 @@ def main() -> int:
             stmt = json.loads(base64.b64decode(dsse["payload"]))
             subject_hashes = {s["digest"]["sha256"] for s in stmt.get("subject", [])}
             if artifact_hash not in subject_hashes:
-                fail(f"GH attestation: {name} — artifact hash not in subjects")
+                fail(f"GH attestation: {name}")
                 fail(f"  artifact: {artifact_hash}")
+                fail(f"  expected: {subject_hashes}")
                 failures += 1
                 continue
 
-            ok(f"GH attestation verified: {name}")
+            ok(f"GH attestation verified: {name} ({artifact_hash})")
         except Exception as exc:  # noqa: BLE001
             fail(f"GH attestation: {name} — {exc}")
             failures += 1

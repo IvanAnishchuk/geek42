@@ -238,10 +238,14 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
         "--bundle", str(bundle),
         str(path),
     ])
+    artifact_hash = sha256(path)
     if result.returncode != 0:
-        fail(f"sigstore verify: {result.stderr.strip()}")
+        fail(f"sigstore verify: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
+        if result.stderr:
+            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
-    ok(f"sigstore verify: {path.name}")
+    ok(f"sigstore verify: {path.name} ({artifact_hash})")
     return True
 
 
@@ -249,11 +253,15 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
 
 
 def verify_gh_attestation(path: Path) -> dict | None:
+    artifact_hash = sha256(path)
     result = run(["gh", "attestation", "verify", str(path), "--repo", REPO_SLUG, "--format", "json"])
     if result.returncode != 0:
-        fail(f"gh attestation verify: {result.stderr.strip()}")
+        fail(f"gh attestation verify: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
+        if result.stderr:
+            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return None
-    ok(f"gh attestation verify: {path.name}")
+    ok(f"gh attestation verify: {path.name} ({artifact_hash})")
     try:
         records = json.loads(result.stdout)
         if isinstance(records, list) and records:
@@ -348,10 +356,14 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
         "--print-provenance",
         str(artifact),
     ])
+    artifact_hash = sha256(artifact)
     if result.returncode != 0:
-        fail(f"slsa-verifier: {result.stderr.strip()}")
+        fail(f"slsa-verifier: {artifact.name}")
+        fail(f"  artifact: {artifact_hash}")
+        if result.stderr:
+            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
-    ok(f"slsa-verifier: {artifact.name}")
+    ok(f"slsa-verifier: {artifact.name} ({artifact_hash})")
 
     for line in result.stdout.splitlines():
         try:
@@ -459,12 +471,14 @@ def verify_pypi_attestation(
 
         for att_data in attestations:
             att = Attestation.model_validate(att_data)
+            artifact_hash = sha256(path)
             try:
                 predicate_type, predicate = att.verify(publisher, dist)
-                ok(f"{index_name}: cryptographic verification PASSED for {path.name}")
+                ok(f"{index_name}: {path.name} ({artifact_hash})")
             except Exception as exc:  # noqa: BLE001
-                fail(f"{index_name}: cryptographic verification FAILED for {path.name}")
-                fail(f"  {exc}")
+                fail(f"{index_name}: {path.name}")
+                fail(f"  artifact: {artifact_hash}")
+                fail(f"  error: {exc}")
                 all_ok = False
                 predicate_type = "?"
                 continue
