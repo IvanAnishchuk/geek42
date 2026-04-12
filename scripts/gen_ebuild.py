@@ -58,9 +58,17 @@ def main() -> int:
 
     output_dir = REPO_ROOT / "dist" / "gentoo" / "dev-python" / "geek42"
     output_dir.mkdir(parents=True, exist_ok=True)
+
     output = output_dir / f"geek42-{gentoo_version}.ebuild"
     shutil.copy2(TEMPLATE, output)
     print(f"Generated {output.relative_to(REPO_ROOT)}")
+
+    # Copy metadata.xml for overlay use
+    metadata = EBUILD_DIR / "metadata.xml"
+    if metadata.exists():
+        shutil.copy2(metadata, output_dir / "metadata.xml")
+        print(f"  Copied  {metadata.name}")
+
     print(f"  PEP 440: {version}")
     print(f"  Gentoo:  {gentoo_version}")
     return 0
