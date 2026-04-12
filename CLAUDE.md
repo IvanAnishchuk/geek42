@@ -54,6 +54,7 @@ uv run scripts/verify_pure.py 0.4.2a7
 
 - **Never push directly to main.** Always create a PR branch and merge.
 - **Never delete tags or force-push.** Versions and releases are immutable.
+- **All commits must be signed.** Configure GPG, SSH, or gitsign (see CONTRIBUTING.md).
 - **Always use signed tags:** `git tag -s`, never `-a` or lightweight.
 - **Always use merge commits** when merging PRs (no squash, no rebase).
 - **Always run pre-commit before pushing.**
