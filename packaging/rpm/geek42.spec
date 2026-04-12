@@ -7,7 +7,7 @@ read/unread tracking, compose and revise workflows, and a built-in
 news file linter with 15 diagnostic rules.}
 
 Name:           %{pypi_name}
-Version:        0.4.2~a7
+Version:        0.4.2~a8
 Release:        1%{?dist}
 Summary:        GLEP 42 Gentoo news to static blog converter
 
@@ -53,6 +53,10 @@ Summary:        %{summary}
 %{_bindir}/geek42
 
 %changelog
+* Sun Apr 12 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a8-1
+- Pre-release: pypi-attestations CLI, trust anchors, AI reviewers,
+  dependency-review allowlist.
+
 * Sat Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a7-1
 - Pre-release: SLSA L3 provenance, PEP 740 attestations, versioned proofs.
 
