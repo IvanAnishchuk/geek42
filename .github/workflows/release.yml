@@ -101,8 +101,8 @@ jobs:
 
   # -------------------------------------------------------------------
   # SLSA Level 3 provenance generator (reusable workflow).
-  # Requires contents: write even with upload-assets: false due to
-  # static permission validation (slsa-github-generator#2044).
+  # upload-assets: true uploads provenance directly to the GitHub Release.
+  # private-repository: true works around false-positive private repo detection.
   # -------------------------------------------------------------------
   provenance:
     name: SLSA L3 provenance
@@ -114,7 +114,8 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       base64-subjects: ${{ needs.build.outputs.hashes }}
-      upload-assets: false
+      upload-assets: true
+      private-repository: true
       provenance-name: geek42-${{ github.ref_name }}-provenance.intoto.jsonl
 
   # -------------------------------------------------------------------
@@ -241,12 +242,6 @@ jobs:
           name: release-dist
           path: release-dist/
 
-      - name: Download SLSA provenance
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: geek42-${{ github.ref_name }}-provenance.intoto.jsonl
-          path: release-dist/
-
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
@@ -271,7 +266,6 @@ jobs:
             release-dist/dist/geek42-*-sbom.cdx.json
             release-dist/dist/geek42-*-SHA256SUMS.txt
             release-dist/dist/*.sigstore.json
-            release-dist/geek42-*-provenance.intoto.jsonl
 
       - name: Publish release
         run: gh release edit "$GITHUB_REF_NAME" --draft=false
