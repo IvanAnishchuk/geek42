@@ -5,9 +5,9 @@ checksums, SLSA provenance) from a GitHub Release. Distribution
 files go to dist/, proof files to proofs/github/.
 
 Usage:
-    uv run scripts/download_release.py [VERSION]
-    uv run scripts/download_release.py 0.4.2a7
-    uv run scripts/download_release.py          # auto-detects from __init__.py
+    uv run python scripts/download_release.py [VERSION]
+    uv run python scripts/download_release.py 0.4.2a7
+    uv run python scripts/download_release.py          # auto-detects from __init__.py
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ def main() -> int:
     for f in proof_files:
         print(f"  {f.name}")
 
-    print(f"\nVerify with: uv run scripts/verify_provenance.py {version}")
+    print(f"\nVerify with: uv run python scripts/verify_provenance.py {version}")
     return 0
 
 

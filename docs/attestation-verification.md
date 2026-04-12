@@ -22,18 +22,23 @@ providers are verified by each script using different toolchains:
 | Script | Dependencies | Best for |
 |--------|-------------|----------|
 | `verify_provenance.py` | gh, sigstore CLI, slsa-verifier, pypi-attestations | Most verbose, original tools |
-| `verify_cosign.py` | cosign | Single Go binary, no Python deps needed |
-| `verify_pure.py` | sigstore + pypi-attestations (Python) | No external tools, runs anywhere |
+| `verify_cosign.py` | cosign, gh (for proof download) | Single verification binary |
+| `verify_pure.py` | sigstore + pypi-attestations (Python), gh (for proof download) | Minimal external tools |
+
+`gh` is required by all scripts for downloading proof files.
+`verify_provenance.py` also uses `gh attestation verify` during verification.
+For `verify_cosign.py` and `verify_pure.py`, `gh` is only needed if proofs
+are not already in `proofs/github/` (e.g., from `download_release.py`).
 
 **Quick start:**
 ```sh
 # Download release artifacts + proof files
-uv run scripts/download_release.py 0.4.2a7
+uv run python scripts/download_release.py 0.4.2a7
 
 # Verify with any of the three scripts
-uv run scripts/verify_provenance.py 0.4.2a7
-uv run scripts/verify_cosign.py 0.4.2a7
-uv run scripts/verify_pure.py 0.4.2a7
+uv run python scripts/verify_provenance.py 0.4.2a7
+uv run python scripts/verify_cosign.py 0.4.2a7
+uv run python scripts/verify_pure.py 0.4.2a7
 ```
 
 ### Key finding: bundle format interoperability
@@ -60,8 +65,8 @@ extracting the inner bundles:
 ### Individual tool verification
 
 ```sh
-# Download release (dist files to dist/, proofs to proofs/)
-uv run scripts/download_release.py 0.4.2a7
+# Download release (dist files to dist/, proofs to proofs/github/)
+uv run python scripts/download_release.py 0.4.2a7
 
 # Sigstore bundle (cosign)
 cosign verify-blob \

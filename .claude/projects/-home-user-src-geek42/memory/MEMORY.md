@@ -1,1 +1,0 @@
-- [uv.lock must be committed](feedback_uv_lock.md) — never gitignore lock files, they ensure reproducible builds

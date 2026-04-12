@@ -80,10 +80,9 @@ Enable:
     - `Review dependency changes`
 - [x] **Require conversation resolution before merging**
 - [x] **Require signed commits**
-- [x] **Require linear history**
-- [x] **Do not allow bypassing the above settings**
+- [ ] ~~Require linear history~~ (disabled — we use merge commits)
+- [ ] ~~Do not allow bypassing the above settings~~ (disabled — owners use `--admin` to bypass review requirement for their own PRs; CI checks still required)
 - [x] **Restrict who can push to matching branches** (optional, for higher tiers)
-- [x] **Include administrators**
 
 Do NOT allow:
 

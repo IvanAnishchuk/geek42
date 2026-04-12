@@ -1,8 +1,8 @@
-"""Verify local distribution files using pure Python only.
+"""Verify local distribution files using Python libraries.
 
-No external tools required — uses sigstore and pypi-attestations
-Python libraries for all cryptographic verification. This is the
-most portable verification script: works anywhere Python runs.
+Uses sigstore and pypi-attestations for cryptographic verification.
+Requires gh CLI only for downloading proof files (if not already
+present in proofs/github/).
 
 Verifies:
 1. SHA256 checksums       — manual comparison
@@ -16,9 +16,9 @@ Requirements (Python packages, all in dev dependencies):
   - rich
 
 Usage:
-    uv run scripts/verify_pure.py [VERSION]
-    uv run scripts/verify_pure.py 0.4.2a7
-    uv run scripts/verify_pure.py          # auto-detects from __init__.py
+    uv run python scripts/verify_pure.py [VERSION]
+    uv run python scripts/verify_pure.py 0.4.2a7
+    uv run python scripts/verify_pure.py          # auto-detects from __init__.py
 """
 
 from __future__ import annotations
@@ -360,8 +360,8 @@ def main() -> int:
     version = get_version()
     console.print(
         Panel(
-            f"Verifying [bold]{PACKAGE_NAME} {version}[/] with pure Python\n"
-            f"[dim]No external tools — uses sigstore + pypi-attestations libraries[/]"
+            f"Verifying [bold]{PACKAGE_NAME} {version}[/] with Python libraries\n"
+            f"[dim]Uses sigstore + pypi-attestations; gh needed for proof download[/]"
         )
     )
 
@@ -374,7 +374,7 @@ def main() -> int:
         console.print(
             Panel(
                 f"[bold red]No files matching version {version} found in dist/[/]\n"
-                "Download with: uv run scripts/download_release.py " + version,
+                "Download with: uv run python scripts/download_release.py " + version,
             )
         )
         return 1
