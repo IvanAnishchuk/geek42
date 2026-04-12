@@ -17,6 +17,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - Replace versioned ebuilds with single `-9999` live ebuild that
   supports both git and PyPI via PV conditional. Add `gen_ebuild.py`
   script to generate versioned copies at release time (#55).
+- Add Gemini Code Assist and CodeRabbit as PR reviewers with
+  repo-level configuration (#46).
 
 ## [0.4.2a7] - 2026-04-12
 

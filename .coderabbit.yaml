@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: assertive
+
+  instructions: |
+    This is a Python 3.13+ CLI tool using uv, hatchling, typer, rich, pydantic.
+    Ruff for linting (line-length 100), ty for type checking, pytest with 75%
+    coverage floor. Conventional Commits required. No shell scripts or Makefiles.
+    All subprocess calls must use list args (no shell=True). Every noqa must
+    document why. Every PR must update CHANGELOG.md under [Unreleased]. Versions
+    follow PEP 440 (not SemVer). Supply-chain security: SLSA L3, sigstore,
+    PEP 740 attestations. All workflow actions pinned by SHA.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    incremental_reviews: true
+
+  request_changes_workflow: false
+  high_level_summary: true
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: false
+  poem: false
+  review_status: true
+  commit_status: true
+  fail_commit_status: false
+  abort_on_close: true
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+
+  path_filters:
+    - "!**/*.lock"
+    - "!requirements*.txt"
+
+  path_instructions:
+    - path: "src/**"
+      instructions: "Check for narrow exception types, no bare Exception catches, validated URLs, documented noqa."
+    - path: "scripts/**"
+      instructions: "Verify subprocess calls use list args. Check trust anchors are derived from pyproject.toml."
+    - path: ".github/workflows/**"
+      instructions: "All actions must be pinned by SHA with a version comment."
+
+  tools:
+    enabled: true
+    ruff:
+      enabled: true
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+
+chat:
+  auto_reply: true
