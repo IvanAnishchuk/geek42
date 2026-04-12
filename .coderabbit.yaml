@@ -7,7 +7,8 @@ reviews:
   instructions: |
     This is a Python 3.13+ CLI tool using uv, hatchling, typer, rich, pydantic.
     Ruff for linting (line-length 100), ty for type checking, pytest with 75%
-    coverage floor. Conventional Commits required. No shell scripts or Makefiles.
+    coverage floor. Conventional Commits required. Prefer Python scripts over
+    shell scripts or Makefiles for tooling.
     All subprocess calls must use list args (no shell=True). Every noqa must
     document why. Every PR must update CHANGELOG.md under [Unreleased]. Versions
     follow PEP 440 (not SemVer). Supply-chain security: SLSA L3, sigstore,

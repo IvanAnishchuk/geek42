@@ -56,3 +56,5 @@ When reviewing PRs:
 - Reply with linked issue number or reason before resolving conversations
 - After changes are made, re-review before approving
 - Verify that CHANGELOG.md is updated for user-visible changes
+
+This applies to all reviewers: Copilot, Gemini Code Assist, CodeRabbit, and humans.

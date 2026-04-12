@@ -7,7 +7,7 @@
 - ty for type checking
 - pytest with 75% coverage floor
 - uv as package manager (never raw pip)
-- No shell scripts or Makefiles — Python scripts only
+- No checked-in shell scripts or Makefiles — prefer Python scripts for tooling
 
 ## Code conventions
 
