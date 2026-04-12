@@ -53,28 +53,16 @@ Summary:        %{summary}
 %{_bindir}/geek42
 
 %changelog
+* Sat Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a7-1
+- Pre-release: SLSA L3 provenance, PEP 740 attestations, versioned proofs.
+
+* Sat Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.1-1
+- Fix release workflow, re-enable attestations.
+
 * Fri Apr 10 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.0-1
 - New upstream release.
 - Adds commit/push/sign/verify/deploy-status commands.
 - Full newsrepo scaffold with gemato Manifests.
-
-* Fri Apr 10 2026 Ivan Anishchuk <ivan@agorism.org> - 0.3.0-1
-- New upstream release.
-- Adds --directory / -C option to all commands.
-
-* Thu Apr 09 2026 Ivan Anishchuk <ivan@agorism.org> - 0.2.0-1
-- New upstream release.
-- Adds compose/revise/read-new commands.
-- Full supply-chain security hardening.
-
-* Fri Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a7-1
-- Pre-release: SLSA L3 provenance, PEP 740 attestations, versioned proofs.
-
-* Fri Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.1-1
-- Fix release workflow, re-enable attestations.
-
-* Fri Apr 10 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.0-1
-- New upstream release with commit/push/sign/verify/deploy-status commands.
 
 * Fri Apr 10 2026 Ivan Anishchuk <ivan@agorism.org> - 0.3.0-1
 - Adds --directory / -C option to all commands.

@@ -6,14 +6,14 @@ geek42 (0.4.2~a7-1) unstable; urgency=medium
   * Versioned proof filenames.
   * See CHANGELOG.md for details.
 
- -- Ivan Anishchuk <ivan@agorism.org>  Fri, 11 Apr 2026 00:00:00 +0000
+ -- Ivan Anishchuk <ivan@agorism.org>  Sat, 11 Apr 2026 00:00:00 +0000
 
 geek42 (0.4.1-1) unstable; urgency=medium
 
   * Fix release workflow, re-enable attestations.
   * See CHANGELOG.md for details.
 
- -- Ivan Anishchuk <ivan@agorism.org>  Fri, 11 Apr 2026 00:00:00 +0000
+ -- Ivan Anishchuk <ivan@agorism.org>  Sat, 11 Apr 2026 00:00:00 +0000
 
 geek42 (0.4.0-1) unstable; urgency=medium
 
