@@ -48,7 +48,7 @@ uv run scripts/verify_pure.py 0.4.2a7
 - pytest with coverage (75% floor)
 - Conventional Commits enforced by pre-commit hook
 - All CI checks must pass before merge (see .github/workflows/ci.yml)
-- No Makefiles, no shell scripts — all tooling is Python + uv
+- No checked-in shell scripts or Makefiles — prefer Python scripts for tooling
 
 ## Critical workflow rules
 
@@ -127,8 +127,8 @@ Proof files: `proofs/{github,pypi}/`. Distribution files: `dist/`.
 
 After creating a PR:
 
-1. **Request Copilot review** on every PR (it's configured as a reviewer).
-2. **Triage every Copilot comment**, including low-confidence hidden ones.
+1. **Request AI reviews** on every PR (Copilot, Gemini Code Assist, etc.).
+2. **Triage every review comment**, including low-confidence hidden ones.
    Expand "Show hidden" to see all comments — don't skip them.
 3. **For each actionable comment:**
    - Fix it in the PR if small, OR

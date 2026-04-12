@@ -12,7 +12,7 @@ pydantic. Converts GLEP 42 Gentoo news repos into static blogs.
 - **Type checking:** ty
 - **Testing:** pytest with 75% coverage floor
 - **Package manager:** uv (never raw pip)
-- **No shell scripts or Makefiles** — all tooling is Python
+- No checked-in shell scripts or Makefiles — prefer Python scripts for tooling
 
 ## Version locations
 
