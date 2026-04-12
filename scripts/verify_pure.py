@@ -393,8 +393,53 @@ def main() -> int:
             failures += 1
         break  # verify once
 
-    # -- 4. PyPI / TestPyPI attestations (PEP 740) ---------------------
-    header("4. PyPI / TestPyPI attestations (pypi-attestations library)")
+    # -- 4. GitHub attestations (sigstore Python) -----------------------
+    header("4. GitHub attestations (Python sigstore library)")
+    for name, path in artifacts.items():
+        att_file = gh_proofs / f"{name}.gh-attestation.json"
+        if not att_file.exists():
+            info(f"No GH attestation file for {name}")
+            continue
+        try:
+            data = json.loads(att_file.read_text())
+            if not isinstance(data, list) or not data:
+                info(f"Empty GH attestation for {name}")
+                continue
+            bundle_json = json.dumps(data[0]["attestation"]["bundle"]).encode()
+
+            from sigstore.models import Bundle
+            from sigstore.verify import Verifier, policy
+
+            bundle = Bundle.from_json(bundle_json)
+            verifier = Verifier.production()
+            identity = policy.Identity(
+                identity=(
+                    f"https://github.com/{REPO_SLUG}"
+                    f"/.github/workflows/release.yml@refs/tags/v{version}"
+                ),
+                issuer=OIDC_ISSUER,
+            )
+            verifier.verify_dsse(bundle, identity)
+
+            # verify_dsse checks signature but NOT artifact digest match
+            artifact_hash = sha256(path)
+            att_bundle = data[0]["attestation"]["bundle"]
+            dsse = att_bundle.get("dsseEnvelope", {})
+            stmt = json.loads(base64.b64decode(dsse["payload"]))
+            subject_hashes = {s["digest"]["sha256"] for s in stmt.get("subject", [])}
+            if artifact_hash not in subject_hashes:
+                fail(f"GH attestation: {name} — artifact hash not in subjects")
+                fail(f"  artifact: {artifact_hash}")
+                failures += 1
+                continue
+
+            ok(f"GH attestation verified: {name}")
+        except Exception as exc:  # noqa: BLE001
+            fail(f"GH attestation: {name} — {exc}")
+            failures += 1
+
+    # -- 5. PyPI / TestPyPI attestations (PEP 740) ---------------------
+    header("5. PyPI / TestPyPI attestations (pypi-attestations library)")
     pypi_proofs = _ensure_proofs_dir() / "pypi"
     pypi_proofs.mkdir(exist_ok=True)
     for index_name, base_url in PYPI_INDEXES:

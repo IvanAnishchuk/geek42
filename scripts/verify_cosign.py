@@ -1,20 +1,19 @@
-"""Verify local distribution files using cosign only.
+"""Verify local distribution files using cosign.
 
-Alternative to verify_provenance.py that uses a single tool (cosign)
-instead of gh, sigstore, slsa-verifier, and pypi-attestations. Useful
-when cosign is the only verification tool available.
+Verifies files in dist/ against all five proof providers using cosign
+as the only external tool. GitHub attestations and PyPI PEP 740
+attestations contain standard sigstore bundles inside wrapper formats;
+this script extracts them for cosign verification.
 
-Cosign can verify:
-1. Sigstore signatures  — cosign verify-blob with *.sigstore.json bundles
-2. SLSA L3 provenance   — cosign verify-blob-attestation with *.intoto.jsonl
-3. SHA256 checksums      — manual comparison (no cosign needed)
-
-What cosign cannot verify (use verify_provenance.py instead):
-- GitHub attestations (stored in GitHub's API, not as bundles)
-- PyPI PEP 740 attestations (stored in PyPI's Integrity API)
+1. SHA256 checksums       — manual comparison
+2. Sigstore signatures    — cosign verify-blob
+3. GitHub attestations    — cosign verify-blob-attestation (extracted bundle)
+4. SLSA L3 provenance     — cosign verify-blob-attestation
+5. PyPI attestations      — cosign verify-blob-attestation (restructured bundle)
 
 Requirements:
-  - cosign  (Go binary from sigstore — brew install cosign, go install, or distro package)
+  - cosign  (Go binary from sigstore)
+  - gh      (GitHub CLI, only for downloading proof files)
 
 Usage:
     uv run scripts/verify_cosign.py [VERSION]
@@ -25,8 +24,11 @@ Usage:
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from rich.console import Console
@@ -41,6 +43,10 @@ REPO_SLUG = f"{REPO_OWNER}/{REPO_NAME}"
 PACKAGE_NAME = "geek42"
 DIST_EXTENSIONS = (".whl", ".tar.gz")
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+PYPI_INDEXES = [
+    ("PyPI", "https://pypi.org"),
+    ("TestPyPI", "https://test.pypi.org"),
+]
 
 
 # -- Helpers -----------------------------------------------------------
@@ -169,6 +175,120 @@ def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
     return True
 
 
+def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
+    """Verify GitHub attestation by extracting the sigstore bundle and using cosign."""
+    if not att_file.exists():
+        info(f"No GH attestation file for {path.name}")
+        return True
+
+    try:
+        data = json.loads(att_file.read_text())
+        if not isinstance(data, list) or not data:
+            info(f"Empty or invalid GH attestation for {path.name}")
+            return True
+        bundle_json = json.dumps(data[0]["attestation"]["bundle"])
+    except (json.JSONDecodeError, KeyError) as exc:
+        fail(f"Could not parse GH attestation: {exc}")
+        return False
+
+    # Save extracted bundle to proofs/ for inspection
+    proofs = REPO_ROOT / "proofs" / "github"
+    proofs.mkdir(parents=True, exist_ok=True)
+    extracted = proofs / f"{path.name}.gh-attestation-bundle.json"
+    extracted.write_text(bundle_json)
+
+    identity = (
+        f"https://github.com/{REPO_SLUG}"
+        f"/.github/workflows/release.yml@refs/tags/v{version}"
+    )
+    result = run([
+        "cosign", "verify-blob-attestation",
+        "--certificate-oidc-issuer", OIDC_ISSUER,
+        "--certificate-identity", identity,
+        "--type", "slsaprovenance",
+        "--bundle", str(extracted),
+        str(path),
+    ])
+    if result.returncode != 0:
+        fail(f"cosign GH attestation: {path.name}")
+        if result.stderr:
+            for line in result.stderr.strip().splitlines():
+                fail(f"  {line}")
+        return False
+
+    ok(f"cosign GH attestation: {path.name}")
+    info(f"  identity: {identity}")
+    return True
+
+
+def fetch_pypi_provenance(
+    package: str, version: str, filename: str, base_url: str,
+) -> dict | None:
+    url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
+    try:
+        req = urllib.request.Request(url)  # noqa: S310
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
+            return json.loads(resp.read())
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
+        return None
+
+
+def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bool:
+    """Verify PyPI PEP 740 attestation by restructuring into a cosign-compatible bundle."""
+    bundles = provenance.get("attestation_bundles", [])
+    if not bundles:
+        fail(f"No attestation bundles in {index_name} provenance")
+        return False
+
+    all_ok = True
+    for bundle_data in bundles:
+        for att in bundle_data.get("attestations", []):
+            vm = att.get("verification_material", {})
+            # Restructure PEP 740 format into a sigstore bundle cosign understands
+            cosign_bundle = {
+                "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+                "verificationMaterial": {
+                    "certificate": {"rawBytes": vm["certificate"]},
+                    "tlogEntries": vm["transparency_entries"],
+                    "timestampVerificationData": {},
+                },
+                "dsseEnvelope": {
+                    "payload": att["envelope"]["statement"],
+                    "payloadType": "application/vnd.in-toto+json",
+                    "signatures": [{"sig": att["envelope"]["signature"]}],
+                },
+            }
+
+            # Save restructured bundle to proofs/pypi/ for inspection
+            pypi_proofs = REPO_ROOT / "proofs" / "pypi"
+            pypi_proofs.mkdir(parents=True, exist_ok=True)
+            extracted = pypi_proofs / f"{path.name}.{index_name.lower()}-cosign-bundle.json"
+            extracted.write_text(json.dumps(cosign_bundle, indent=2))
+
+            result = run([
+                "cosign", "verify-blob-attestation",
+                "--certificate-oidc-issuer", OIDC_ISSUER,
+                "--certificate-identity-regexp", f"https://github.com/{REPO_SLUG}/",
+                "--type", "https://docs.pypi.org/attestations/publish/v1",
+                "--bundle", str(extracted),
+                str(path),
+            ])
+            if result.returncode != 0:
+                fail(f"cosign {index_name} PEP 740: {path.name}")
+                if result.stderr:
+                    for line in result.stderr.strip().splitlines():
+                        fail(f"  {line}")
+                all_ok = False
+            else:
+                publisher = bundle_data.get("publisher", {})
+                ok(f"cosign {index_name} PEP 740: {path.name}")
+                info(f"  publisher: {publisher.get('repository', '?')}")
+                info(f"  workflow: {publisher.get('workflow', '?')}")
+                info(f"  environment: {publisher.get('environment', '?')}")
+
+    return all_ok
+
+
 def verify_checksums(artifacts: dict[str, Path], sums_file: Path) -> bool:
     """Verify SHA256 checksums against SHA256SUMS.txt."""
     if not sums_file.exists():
@@ -280,6 +400,42 @@ def main() -> int:
         if not verify_slsa_attestation(path, provenance):
             failures += 1
         break  # provenance covers all subjects, verify once
+
+    # -- 4. GitHub attestations (cosign verify-blob-attestation) --------
+    header("4. GitHub attestations (cosign verify-blob-attestation)")
+    console.print(Panel(
+        "[bold]GitHub attestations[/] contain standard sigstore DSSE\n"
+        "bundles. This script extracts the bundle from the gh attestation\n"
+        "JSON wrapper and verifies it with cosign.",
+        border_style="dim",
+    ))
+    for name, path in artifacts.items():
+        att_file = gh_proofs / f"{name}.gh-attestation.json"
+        if not verify_gh_attestation(path, att_file, version):
+            failures += 1
+
+    # -- 5. PyPI / TestPyPI attestations (cosign) ----------------------
+    header("5. PyPI / TestPyPI attestations (cosign)")
+    console.print(Panel(
+        "[bold]PyPI PEP 740 attestations[/] use a different JSON format\n"
+        "but contain the same sigstore primitives (certificate + Rekor\n"
+        "entry + DSSE envelope). This script restructures them into\n"
+        "cosign-compatible bundles for verification.",
+        border_style="dim",
+    ))
+    for index_name, base_url in PYPI_INDEXES:
+        if index_name == "TestPyPI":
+            console.print(Panel(
+                "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]",
+                border_style="yellow",
+            ))
+        for name, path in artifacts.items():
+            prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
+            if prov:
+                if not verify_pypi_attestation(path, prov, index_name):
+                    failures += 1
+            else:
+                info(f"{index_name}: no attestation for {name}")
 
     # -- Summary -------------------------------------------------------
     console.print()
