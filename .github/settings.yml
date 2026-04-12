@@ -113,7 +113,7 @@ branches:
           - CodeQL (python)
           - Secret scan
           - Review dependency changes
-      enforce_admins: true
+      enforce_admins: false  # owners use --admin to bypass review requirement
       required_linear_history: false
       allow_force_pushes: false
       allow_deletions: false

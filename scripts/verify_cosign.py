@@ -365,7 +365,7 @@ def main() -> int:
     console.print(
         Panel(
             f"Verifying [bold]{PACKAGE_NAME} {version}[/] with cosign\n"
-            f"[dim]Only requires cosign — no gh, sigstore, or slsa-verifier needed[/]"
+            f"[dim]Uses cosign for verification; gh needed for proof download[/]"
         )
     )
 

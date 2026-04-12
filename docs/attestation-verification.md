@@ -25,9 +25,10 @@ providers are verified by each script using different toolchains:
 | `verify_cosign.py` | cosign, gh (for proof download) | Single verification binary |
 | `verify_pure.py` | sigstore + pypi-attestations (Python), gh (for proof download) | Minimal external tools |
 
-All scripts require `gh` to download proof files. If proofs are already
-in `proofs/github/` (e.g., from `download_release.py`), `gh` is not needed
-at verification time.
+`gh` is required by all scripts for downloading proof files.
+`verify_provenance.py` also uses `gh attestation verify` during verification.
+For `verify_cosign.py` and `verify_pure.py`, `gh` is only needed if proofs
+are not already in `proofs/github/` (e.g., from `download_release.py`).
 
 **Quick start:**
 ```sh

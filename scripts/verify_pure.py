@@ -360,8 +360,8 @@ def main() -> int:
     version = get_version()
     console.print(
         Panel(
-            f"Verifying [bold]{PACKAGE_NAME} {version}[/] with pure Python\n"
-            f"[dim]No external tools — uses sigstore + pypi-attestations libraries[/]"
+            f"Verifying [bold]{PACKAGE_NAME} {version}[/] with Python libraries\n"
+            f"[dim]Uses sigstore + pypi-attestations; gh needed for proof download[/]"
         )
     )
 
