@@ -22,6 +22,7 @@ pydantic. Converts GLEP 42 Gentoo news repos into static blogs.
 - Every noqa comment must document why it's necessary
 - Supply-chain: SLSA L3, sigstore, PEP 740 attestations on every release
 - All actions in workflows pinned by SHA with version comment
+  (exception: slsa-github-generator pinned by tag, see release.yml)
 
 ## Changelog
 

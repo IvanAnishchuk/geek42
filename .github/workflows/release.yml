@@ -103,9 +103,10 @@ jobs:
   # SLSA Level 3 provenance generator (reusable workflow).
   # Pinned by tag, NOT SHA. The generator's generate-builder.sh
   # requires refs/tags/vX.Y.Z to fetch its pre-built binary — commit
-  # SHAs cause "Invalid ref" (exit 2). Tag pinning is acceptable here
-  # because the reusable workflow IS the trust boundary (the caller
-  # cannot tamper with it regardless of the ref format).
+  # SHAs cause "Invalid ref" (exit 2). This is an accepted exception
+  # to the SHA-pinning policy: tags can be retargeted upstream, but
+  # the reusable workflow runs in an isolated environment the caller
+  # cannot tamper with, and SLSA provenance is independently verifiable.
   # Requires contents: write even with upload-assets: false due to
   # static permission validation (slsa-github-generator#2044).
   # -------------------------------------------------------------------
