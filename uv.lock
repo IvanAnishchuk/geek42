@@ -376,7 +376,7 @@ wheels = [
 
 [[package]]
 name = "geek42"
-version = "0.4.2a8"
+version = "0.4.2a9"
 source = { editable = "." }
 dependencies = [
     { name = "gemato" },
