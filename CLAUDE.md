@@ -71,12 +71,11 @@ Version must be updated in ALL of these files simultaneously:
 - `Dockerfile` (`ARG VERSION=...`)
 - `packaging/debian/changelog` (new entry)
 - `packaging/rpm/geek42.spec` (`Version:` + `%changelog`)
-- `packaging/gentoo/app-text/geek42/geek42-{ver}.ebuild` (new file)
-
 After updating `pyproject.toml`, always run:
 ```bash
 uv lock
 uv run python scripts/regen_requirements.py
+uv run python scripts/gen_ebuild.py          # generates versioned ebuild from -9999 template
 ```
 
 ### PEP 440 version format
