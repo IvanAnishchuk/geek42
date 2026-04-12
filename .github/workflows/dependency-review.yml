@@ -30,10 +30,10 @@ jobs:
           fail-on-severity: moderate
           comment-summary-in-pr: always
           allow-licenses: >-
-            WTFPL,
             0BSD,
             CC0-1.0,
             Unlicense,
+            WTFPL-2.0,
             MIT,
             ISC,
             Apache-2.0,
