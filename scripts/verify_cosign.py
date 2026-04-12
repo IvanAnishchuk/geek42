@@ -68,7 +68,7 @@ def sha256(path: Path) -> str:
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603 — args are list literals, no shell
 
 
 def is_dist_file(name: str) -> bool:
@@ -252,8 +252,10 @@ def fetch_pypi_provenance(
     base_url: str,
 ) -> dict | None:
     url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
+    if not url.startswith(("https://pypi.org/", "https://test.pypi.org/")):
+        return None
     try:
-        req = urllib.request.Request(url)  # noqa: S310
+        req = urllib.request.Request(url)  # noqa: S310 — URL validated above
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             return json.loads(resp.read())
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):

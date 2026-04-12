@@ -143,6 +143,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         info(f"No sigstore bundle for {path.name}")
         return True
 
+    import sigstore.errors
     from sigstore.models import Bundle
     from sigstore.verify import Verifier, policy
 
@@ -155,7 +156,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         verifier = Verifier.production()
         identity = policy.Identity(identity=identity_str, issuer=OIDC_ISSUER)
         verifier.verify_artifact(path.read_bytes(), bundle, identity)
-    except Exception as exc:  # noqa: BLE001
+    except (sigstore.errors.VerificationError, ValueError, OSError) as exc:
         artifact_hash = sha256(path)
         fail(f"sigstore verify: {path.name}")
         fail(f"  artifact: {artifact_hash}")
@@ -165,17 +166,20 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
     ok(f"sigstore verify: {path.name} ({sha256(path)})")
 
     try:
-        from cryptography.x509 import UniformResourceIdentifier
+        from typing import cast
+
+        from cryptography.x509 import SubjectAlternativeName, UniformResourceIdentifier
         from cryptography.x509.oid import ExtensionOID
 
         cert = bundle.signing_certificate
         san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-        sans = san_ext.value.get_values_for_type(UniformResourceIdentifier)
+        san_val = cast(SubjectAlternativeName, san_ext.value)
+        sans = san_val.get_values_for_type(UniformResourceIdentifier)
         if sans:
             info(f"  signed by: {sans[0]}")
         info(f"  issuer: {cert.issuer.rfc4514_string()}")
         info(f"  trust root: {OIDC_ISSUER}")
-    except Exception:  # noqa: BLE001
+    except (ImportError, ValueError, KeyError):
         info(f"  trust root: {OIDC_ISSUER}")
 
     return True
@@ -189,6 +193,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
         info("No SLSA provenance file found")
         return True
 
+    import sigstore.errors
     from sigstore.models import Bundle
     from sigstore.verify import Verifier, policy
 
@@ -201,7 +206,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
             issuer=OIDC_ISSUER,
         )
         verifier.verify_dsse(bundle, identity)
-    except Exception as exc:  # noqa: BLE001
+    except (sigstore.errors.VerificationError, ValueError, OSError) as exc:
         fail(f"SLSA L3 provenance: {path.name}")
         fail(f"  {exc}")
         return False
@@ -220,7 +225,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
             fail(f"  artifact: {artifact_hash}")
             fail(f"  subjects: {subject_hashes}")
             return False
-    except Exception as exc:  # noqa: BLE001
+    except (KeyError, json.JSONDecodeError) as exc:
         fail(f"SLSA L3 provenance: could not verify subject match: {exc}")
         return False
 
@@ -264,7 +269,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
 
             console.print()
             console.print(table)
-    except Exception as exc:  # noqa: BLE001
+    except (KeyError, json.JSONDecodeError) as exc:
         info(f"  (could not display provenance details: {exc})")
 
     return True
@@ -280,8 +285,10 @@ def fetch_pypi_provenance(
     base_url: str,
 ) -> dict | None:
     url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
+    if not url.startswith(("https://pypi.org/", "https://test.pypi.org/")):
+        return None
     try:
-        req = urllib.request.Request(url)  # noqa: S310
+        req = urllib.request.Request(url)  # noqa: S310 — URL validated above
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             return json.loads(resp.read())
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
@@ -289,7 +296,7 @@ def fetch_pypi_provenance(
 
 
 def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bool:
-    from pypi_attestations import Attestation, GitHubPublisher
+    from pypi_attestations import Attestation, AttestationError, GitHubPublisher
     from pypi_attestations import Distribution as AttestDist
 
     bundles = provenance.get("attestation_bundles", [])
@@ -319,7 +326,7 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
                 info(f"  signed by: {repo}/{wf}")
                 info(f"  environment: {publisher_data.get('environment', '?')}")
                 info(f"  trust root: {OIDC_ISSUER}")
-            except Exception as exc:  # noqa: BLE001
+            except (AttestationError, ValueError) as exc:
                 fail(f"{index_name}: {path.name}")
                 fail(f"  artifact: {artifact_hash}")
                 fail(f"  error: {exc}")
@@ -382,7 +389,7 @@ def main() -> int:
         gh_proofs.mkdir(parents=True, exist_ok=True)
         tag = f"v{version}"
         gh = shutil.which("gh") or "gh"
-        subprocess.run(  # noqa: S603
+        subprocess.run(  # noqa: S603 — args are list literals, no shell
             [
                 gh,
                 "release",
@@ -425,6 +432,8 @@ def main() -> int:
         break  # verify once
 
     # -- 4. GitHub attestations (sigstore Python) -----------------------
+    import sigstore.errors
+
     header("4. GitHub attestations (Python sigstore library)")
     for name, path in artifacts.items():
         att_file = gh_proofs / f"{name}.gh-attestation.json"
@@ -468,7 +477,12 @@ def main() -> int:
             ok(f"GH attestation verified: {name} ({artifact_hash})")
             info(f"  signed by: release.yml@refs/tags/v{version}")
             info(f"  trust root: {OIDC_ISSUER}")
-        except Exception as exc:  # noqa: BLE001
+        except (
+            sigstore.errors.VerificationError,
+            KeyError,
+            json.JSONDecodeError,
+            ValueError,
+        ) as exc:
             fail(f"GH attestation: {name} — {exc}")
             failures += 1
 

@@ -53,7 +53,7 @@ def file_sha256(path: Path) -> str:
 
 def run_capture(cmd: list[str]) -> tuple[int, str]:
     """Run a command, capture combined stdout+stderr, return (exit, text)."""
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # noqa: S603 — args are list literals, no shell
         cmd,
         capture_output=True,
         text=True,

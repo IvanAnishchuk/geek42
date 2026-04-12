@@ -523,7 +523,7 @@ def _git(
     git = shutil.which("git")
     if git is None:
         raise GitNotFoundError
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(  # noqa: S603 — args are list literals, no shell
         [git, "-C", str(root), *args],
         text=True,
         capture_output=capture_output,
@@ -673,7 +673,7 @@ def deploy_status(
     root = (directory or Path(".")).resolve()
 
     def _gh(args: list[str]) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(  # noqa: S603
+        return subprocess.run(  # noqa: S603 — args are list literals, no shell
             [gh, *args], capture_output=True, text=True, check=False, cwd=str(root)
         )
 

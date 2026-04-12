@@ -47,7 +47,7 @@ def main() -> int:
 
     # Download everything to a single temp location, then sort
     gh = shutil.which("gh") or "gh"
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # noqa: S603 — args are list literals, no shell
         [
             gh,
             "release",

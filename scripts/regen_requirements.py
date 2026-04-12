@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def run(cmd: list[str], *, description: str) -> None:
     console.print(f"[bold blue]→[/] {description}")
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # noqa: S603 — args are list literals, no shell
         cmd,
         cwd=REPO_ROOT,
         capture_output=True,
