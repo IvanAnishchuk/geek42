@@ -308,8 +308,9 @@ def verify_pypi_attestation(
     index_name: str,
 ) -> bool:
     """Verify PyPI PEP 740 attestation using cosign + pypi-attestations inspect."""
-    pypi_proofs = REPO_ROOT / "proofs" / "pypi"
-    pypi_proofs.mkdir(parents=True, exist_ok=True)
+    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+    proofs_dir = REPO_ROOT / "proofs" / index_dir
+    proofs_dir.mkdir(parents=True, exist_ok=True)
 
     bundles = provenance.get("attestation_bundles", [])
     if not bundles:
@@ -322,17 +323,13 @@ def verify_pypi_attestation(
 
         for att in bundle_data.get("attestations", []):
             # Use pre-extracted cosign bundle or restructure inline
-            cosign_suffix = (
-                "testpypi-cosign-bundle" if index_name == "TestPyPI" else "cosign-bundle"
-            )
-            bundle_file = pypi_proofs / f"{path.name}.{cosign_suffix}.json"
+            bundle_file = proofs_dir / f"{path.name}.cosign-bundle.json"
             if not bundle_file.exists():
                 cosign_bundle = _restructure_pep740_to_cosign(att)
                 bundle_file.write_text(json.dumps(cosign_bundle, indent=2))
 
             # Also extract .publish.attestation for inspect
-            att_suffix = "testpypi" if index_name == "TestPyPI" else "pypi"
-            att_file = pypi_proofs / f"{path.name}.{att_suffix}-attestation.json"
+            att_file = proofs_dir / f"{path.name}.publish.attestation"
             if not att_file.exists():
                 att_file.write_text(json.dumps(att))
 

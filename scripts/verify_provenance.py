@@ -28,8 +28,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 import urllib.error
 import urllib.parse
@@ -520,16 +522,12 @@ def extract_attestation_file(
     if not attestations:
         return None
 
-    # Save next to the artifact for CLI consumption
-    att_file = path.parent / f"{path.name}.publish.attestation"
+    # Save to proofs/{index}/ directory
+    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+    proofs_dir = _ensure_proofs_dir() / index_dir
+    proofs_dir.mkdir(exist_ok=True)
+    att_file = proofs_dir / f"{path.name}.publish.attestation"
     att_file.write_text(json.dumps(attestations[0]))
-
-    # Also save to proofs/pypi/ for archival
-    pypi_proofs = _ensure_proofs_dir() / "pypi"
-    pypi_proofs.mkdir(exist_ok=True)
-    suffix = "testpypi" if index_name == "TestPyPI" else "pypi"
-    proof_att = pypi_proofs / f"{path.name}.{suffix}-attestation.json"
-    proof_att.write_text(json.dumps(attestations[0]))
 
     return att_file
 
@@ -570,27 +568,41 @@ def verify_pypi_attestation(
     # Inspect attestation details (unverified display)
     inspect_attestation(att_file)
 
-    # Build identity from publisher data
+    # Use local trust anchors for identity — never relax to provenance publisher data
     publisher_data = bundles[0].get("publisher", {})
-    repo = publisher_data.get("repository", REPO_SLUG)
-    workflow = publisher_data.get("workflow", RELEASE_WORKFLOW)
     identity = (
-        f"https://github.com/{repo}/.github/workflows/{workflow}@refs/tags/{TAG_PREFIX}{version}"
+        f"https://github.com/{REPO_SLUG}"
+        f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
     )
 
+    # Warn if publisher data doesn't match trust anchors
+    pub_repo = publisher_data.get("repository", "")
+    pub_wf = publisher_data.get("workflow", "")
+    if pub_repo and pub_repo != REPO_SLUG:
+        fail(f"Publisher repo mismatch: {pub_repo} != {REPO_SLUG}")
+    if pub_wf and pub_wf != RELEASE_WORKFLOW:
+        fail(f"Publisher workflow mismatch: {pub_wf} != {RELEASE_WORKFLOW}")
+
     # Verify with pypi-attestations CLI
-    result = run(
-        [
-            "uv",
-            "run",
-            "pypi-attestations",
-            "verify",
-            "attestation",
-            "--identity",
-            identity,
-            str(path),
-        ]
-    )
+    # CLI expects {artifact}.publish.attestation next to the artifact,
+    # so copy both into a temporary directory for verification
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        tmp_artifact = tmp / path.name
+        shutil.copy2(path, tmp_artifact)
+        shutil.copy2(att_file, tmp / f"{path.name}.publish.attestation")
+        result = run(
+            [
+                "uv",
+                "run",
+                "pypi-attestations",
+                "verify",
+                "attestation",
+                "--identity",
+                identity,
+                str(tmp_artifact),
+            ]
+        )
 
     artifact_hash = sha256(path)
     if result.returncode != 0:
@@ -602,7 +614,7 @@ def verify_pypi_attestation(
 
     ok(f"{index_name}: {path.name} ({artifact_hash})")
     info("  verified by: pypi-attestations verify attestation")
-    info(f"  signed by: {repo}/{workflow}")
+    info(f"  signed by: {pub_repo}/{pub_wf}")
     info(f"  environment: {publisher_data.get('environment', '?')}")
     info(f"  trust root: {OIDC_ISSUER}")
 
@@ -633,10 +645,10 @@ def save_provenance_to_proofs(
     filename: str,
     index_name: str,
 ) -> None:
-    pypi_proofs = _ensure_proofs_dir() / "pypi"
-    pypi_proofs.mkdir(exist_ok=True)
-    suffix = "testpypi-provenance" if index_name == "TestPyPI" else "provenance"
-    out = pypi_proofs / f"{filename}.{suffix}.json"
+    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+    proofs_dir = _ensure_proofs_dir() / index_dir
+    proofs_dir.mkdir(exist_ok=True)
+    out = proofs_dir / f"{filename}.provenance.json"
     out.write_text(json.dumps(provenance, indent=2))
     info(f"Saved to {out.relative_to(REPO_ROOT)}")
 

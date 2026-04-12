@@ -506,8 +506,6 @@ def main() -> int:
 
     # -- 5. PyPI / TestPyPI attestations (PEP 740) ---------------------
     header("5. PyPI / TestPyPI attestations (pypi-attestations library)")
-    pypi_proofs = _ensure_proofs_dir() / "pypi"
-    pypi_proofs.mkdir(exist_ok=True)
     for index_name, base_url in PYPI_INDEXES:
         if index_name == "TestPyPI":
             console.print(
@@ -516,10 +514,13 @@ def main() -> int:
                     border_style="yellow",
                 )
             )
+        index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+        proofs_dir = _ensure_proofs_dir() / index_dir
+        proofs_dir.mkdir(exist_ok=True)
         for name, path in artifacts.items():
             prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
             if prov:
-                out = pypi_proofs / f"{name}.{index_name.lower()}-provenance.json"
+                out = proofs_dir / f"{name}.provenance.json"
                 out.write_text(json.dumps(prov, indent=2))
                 if not verify_pypi_attestation(path, prov, index_name):
                     failures += 1

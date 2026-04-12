@@ -54,11 +54,10 @@ TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
 
 DIST_DIR = REPO_ROOT / "dist"
 PROOFS_DIR = REPO_ROOT / "proofs" / "github"
-PYPI_PROOFS_DIR = REPO_ROOT / "proofs" / "pypi"
 
 PYPI_INDEXES = [
-    ("PyPI", "https://pypi.org"),
-    ("TestPyPI", "https://test.pypi.org"),
+    ("pypi", "https://pypi.org"),
+    ("testpypi", "https://test.pypi.org"),
 ]
 
 
@@ -184,8 +183,14 @@ def fetch_pypi_provenance(
 
 
 def extract_pypi_proofs(version: str) -> None:
-    """Fetch PyPI/TestPyPI provenance and extract all proof formats."""
+    """Fetch PyPI/TestPyPI provenance and extract all proof formats.
+
+    Each index gets its own directory: proofs/pypi/, proofs/testpypi/.
+    """
     for index_name, base_url in PYPI_INDEXES:
+        proofs_dir = REPO_ROOT / "proofs" / index_name
+        proofs_dir.mkdir(parents=True, exist_ok=True)
+
         for f in sorted(DIST_DIR.iterdir()):
             if not is_dist_file(f.name):
                 continue
@@ -196,8 +201,7 @@ def extract_pypi_proofs(version: str) -> None:
                 continue
 
             # Save raw provenance
-            suffix = "testpypi-provenance" if index_name == "TestPyPI" else "provenance"
-            prov_file = PYPI_PROOFS_DIR / f"{f.name}.{suffix}.json"
+            prov_file = proofs_dir / f"{f.name}.provenance.json"
             prov_file.write_text(json.dumps(prov, indent=2))
             print(f"  {index_name}: {f.name} — provenance saved")
 
@@ -212,12 +216,8 @@ def extract_pypi_proofs(version: str) -> None:
                 att = attestations[0]
 
                 # Extract individual PEP 740 attestation for pypi-attestations CLI
-                att_suffix = "testpypi" if index_name == "TestPyPI" else "pypi"
-                att_file = PYPI_PROOFS_DIR / f"{f.name}.{att_suffix}-attestation.json"
+                att_file = proofs_dir / f"{f.name}.publish.attestation"
                 att_file.write_text(json.dumps(att))
-                # Also place in dist/ for pypi-attestations CLI discovery
-                dist_att = DIST_DIR / f"{f.name}.publish.attestation"
-                dist_att.write_text(json.dumps(att))
                 print(f"  {index_name}: {f.name} — .publish.attestation extracted")
 
                 # Restructure into cosign-compatible bundle
@@ -235,10 +235,7 @@ def extract_pypi_proofs(version: str) -> None:
                         "signatures": [{"sig": att["envelope"]["signature"]}],
                     },
                 }
-                cosign_suffix = (
-                    "testpypi-cosign-bundle" if index_name == "TestPyPI" else "cosign-bundle"
-                )
-                cosign_file = PYPI_PROOFS_DIR / f"{f.name}.{cosign_suffix}.json"
+                cosign_file = proofs_dir / f"{f.name}.cosign-bundle.json"
                 cosign_file.write_text(json.dumps(cosign_bundle, indent=2))
                 print(f"  {index_name}: {f.name} — cosign bundle extracted")
 
@@ -252,7 +249,6 @@ def main() -> int:
 
     DIST_DIR.mkdir(exist_ok=True)
     PROOFS_DIR.mkdir(parents=True, exist_ok=True)
-    PYPI_PROOFS_DIR.mkdir(parents=True, exist_ok=True)
 
     # 1. GitHub Release
     print(f"Downloading {tag} from {REPO_SLUG}...")
@@ -270,9 +266,6 @@ def main() -> int:
     # Summary
     dist_files = [f for f in sorted(DIST_DIR.iterdir()) if f.is_file()]
     gh_files = [f for f in sorted(PROOFS_DIR.iterdir()) if f.is_file() and f.name != ".gitignore"]
-    pypi_files = [
-        f for f in sorted(PYPI_PROOFS_DIR.iterdir()) if f.is_file() and f.name != ".gitignore"
-    ]
 
     print(f"\ndist/ ({len(dist_files)} files):")
     for f in dist_files:
@@ -282,9 +275,15 @@ def main() -> int:
     for f in gh_files:
         print(f"  {f.name}")
 
-    print(f"\nproofs/pypi/ ({len(pypi_files)} files):")
-    for f in pypi_files:
-        print(f"  {f.name}")
+    for index_name, _base_url in PYPI_INDEXES:
+        proofs_dir = REPO_ROOT / "proofs" / index_name
+        if proofs_dir.is_dir():
+            files = [
+                f for f in sorted(proofs_dir.iterdir()) if f.is_file() and f.name != ".gitignore"
+            ]
+            print(f"\nproofs/{index_name}/ ({len(files)} files):")
+            for f in files:
+                print(f"  {f.name}")
 
     print(f"\nVerify with: uv run python scripts/verify_provenance.py {version}")
     return 0
