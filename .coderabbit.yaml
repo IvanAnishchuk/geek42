@@ -4,7 +4,7 @@ language: en-US
 reviews:
   profile: assertive
 
-  instructions: |
+  high_level_summary_instructions: |
     This is a Python 3.13+ CLI tool using uv, hatchling, typer, rich, pydantic.
     Ruff for linting (line-length 100), ty for type checking, pytest with 75%
     coverage floor. Conventional Commits required. Prefer Python scripts over
@@ -17,7 +17,7 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-    incremental_reviews: true
+    auto_incremental_review: true
 
   request_changes_workflow: false
   high_level_summary: true
@@ -47,7 +47,6 @@ reviews:
       instructions: "All actions must be pinned by SHA with a version comment."
 
   tools:
-    enabled: true
     ruff:
       enabled: true
     shellcheck:
