@@ -117,10 +117,11 @@ Every release produces:
 - `geek42-v{ver}-provenance.intoto.jsonl` — SLSA L3 provenance
 - PEP 740 attestations — automatic via trusted publishing
 
-Three verification scripts with full parity:
+Three verification scripts with full parity (all require `gh` for
+downloading proofs via `download_release.py`):
 - `verify_provenance.py` — gh + sigstore CLI + slsa-verifier + pypi-attestations
-- `verify_cosign.py` — cosign only
-- `verify_pure.py` — Python libraries only (no external tools)
+- `verify_cosign.py` — cosign + gh (for proof download)
+- `verify_pure.py` — sigstore + pypi-attestations Python libs + gh (for proof download)
 
 Proof files: `proofs/{github,pypi}/`. Distribution files: `dist/`.
 
