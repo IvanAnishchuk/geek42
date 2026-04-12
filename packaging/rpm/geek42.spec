@@ -7,7 +7,7 @@ read/unread tracking, compose and revise workflows, and a built-in
 news file linter with 15 diagnostic rules.}
 
 Name:           %{pypi_name}
-Version:        0.4.0
+Version:        0.4.2~a7
 Release:        1%{?dist}
 Summary:        GLEP 42 Gentoo news to static blog converter
 
@@ -66,6 +66,21 @@ Summary:        %{summary}
 - New upstream release.
 - Adds compose/revise/read-new commands.
 - Full supply-chain security hardening.
+
+* Fri Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a7-1
+- Pre-release: SLSA L3 provenance, PEP 740 attestations, versioned proofs.
+
+* Fri Apr 11 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.1-1
+- Fix release workflow, re-enable attestations.
+
+* Fri Apr 10 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.0-1
+- New upstream release with commit/push/sign/verify/deploy-status commands.
+
+* Fri Apr 10 2026 Ivan Anishchuk <ivan@agorism.org> - 0.3.0-1
+- Adds --directory / -C option to all commands.
+
+* Thu Apr 09 2026 Ivan Anishchuk <ivan@agorism.org> - 0.2.0-1
+- Adds compose/revise/read-new commands, supply-chain security hardening.
 
 * Thu Apr 09 2026 Ivan Anishchuk <ivan@agorism.org> - 0.1.0-1
 - Initial release.

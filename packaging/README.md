@@ -7,7 +7,7 @@ distribution:
 | Path | Target | Tool |
 |------|--------|------|
 | `debian/` | Debian / Ubuntu `.deb` | `dpkg-buildpackage` / `sbuild` |
-| `rpm/geek42.spec` | Fedora / RHEL / openSUSE `.rpm` | `rpmbuild` / `mock` |
+| `rpm/geek42.spec` | CentOS / RHEL / Fedora `.rpm` | `rpmbuild` / `mock` |
 | `gentoo/app-text/geek42/` | Gentoo ebuild | `pkgdev manifest` + overlay |
 | `../Dockerfile` | OCI container image | `docker build` / `podman build` |
 
@@ -30,7 +30,7 @@ dpkg-buildpackage -us -uc -b
 The resulting `.deb` lands in the parent directory. Install with:
 
 ```sh
-sudo dpkg -i ../geek42_0.2.0-1_all.deb
+sudo dpkg -i ../geek42_0.4.2~a7-1_all.deb
 ```
 
 ### Maintainer notes
@@ -42,7 +42,7 @@ sudo dpkg -i ../geek42_0.2.0-1_all.deb
 
 ---
 
-## Fedora / RHEL / openSUSE
+## CentOS / RHEL / Fedora
 
 The `rpm/geek42.spec` file follows the
 [Fedora Python packaging guidelines](https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/)
@@ -56,7 +56,7 @@ rpmbuild -bs packaging/rpm/geek42.spec \
 
 # Or using mock for a clean chroot build
 mock --buildsrpm --spec packaging/rpm/geek42.spec --sources $PWD
-mock --rebuild build/geek42-0.2.0-1.fc*.src.rpm
+mock --rebuild build/geek42-0.4.2~a7-1.*.src.rpm
 ```
 
 ### Maintainer notes
@@ -69,8 +69,8 @@ mock --rebuild build/geek42-0.2.0-1.fc*.src.rpm
 
 ## Gentoo
 
-The ebuild at `gentoo/app-text/geek42/geek42-0.2.0.ebuild` is ready
-to be dropped into any Gentoo overlay.
+The ebuilds at `gentoo/app-text/geek42/` are ready to be dropped
+into any Gentoo overlay.
 
 ```sh
 # Assuming you have a personal overlay at /var/db/repos/myoverlay
@@ -103,10 +103,10 @@ See [`../Dockerfile`](../Dockerfile) in the repo root.
 ```sh
 # Build
 docker build \
-    --build-arg VERSION=0.2.0 \
+    --build-arg VERSION=0.4.2a7 \
     --build-arg REVISION=$(git rev-parse HEAD) \
     --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-    -t geek42:0.2.0 -t geek42:latest .
+    -t geek42:0.4.2a7 -t geek42:latest .
 
 # Run (mounts current dir as /work inside the container)
 docker run --rm -v "$PWD:/work" geek42:latest --help
