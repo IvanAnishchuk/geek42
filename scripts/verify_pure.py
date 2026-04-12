@@ -208,6 +208,24 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
         fail(f"  {exc}")
         return False
 
+    # verify_dsse checks the signature but NOT that the artifact matches
+    # the provenance subjects. We must check that ourselves.
+    artifact_hash = sha256(path)
+    try:
+        raw = json.loads(provenance_path.read_text())
+        env = raw.get("dsseEnvelope", {})
+        stmt = json.loads(base64.b64decode(env["payload"]))
+        subjects = stmt.get("subject", [])
+        subject_hashes = {s["digest"]["sha256"] for s in subjects}
+        if artifact_hash not in subject_hashes:
+            fail(f"SLSA L3 provenance: artifact hash not in provenance subjects")
+            fail(f"  artifact: {artifact_hash}")
+            fail(f"  subjects: {subject_hashes}")
+            return False
+    except Exception as exc:  # noqa: BLE001
+        fail(f"SLSA L3 provenance: could not verify subject match: {exc}")
+        return False
+
     ok(f"SLSA L3 provenance verified: {path.name}")
 
     # Decode and display provenance details
