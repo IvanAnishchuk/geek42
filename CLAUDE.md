@@ -58,6 +58,7 @@ uv run scripts/verify_pure.py 0.4.2a7
 - **Always use merge commits** when merging PRs (no squash, no rebase).
 - **Always run pre-commit before pushing.**
 - **Never amend published commits.** Create new commits to fix issues.
+- **Never bypass required checks.** Do not use `--admin` to skip CI or reviews.
 
 ## Version management
 
@@ -97,7 +98,7 @@ uv run python scripts/regen_requirements.py
 3. Update `CHANGELOG.md`
 4. Run `uv lock` + `uv run python scripts/regen_requirements.py`
 5. Commit, push, create PR
-6. Wait for CI, merge (with `--admin` if needed for testing)
+6. Wait for CI and reviews, then merge
 7. Create signed tag: `git tag -s v{version} -m "Release v{version}"`
 8. Push tag: `git push origin v{version}`
 
@@ -119,6 +120,26 @@ Three verification scripts with full parity:
 - `verify_pure.py` — Python libraries only (no external tools)
 
 Proof files: `proofs/{github,pypi}/`. Distribution files: `dist/`.
+
+## Pull request review process
+
+After creating a PR:
+
+1. **Request Copilot review** on every PR (it's configured as a reviewer).
+2. **Triage every Copilot comment**, including low-confidence hidden ones.
+   Expand "Show hidden" to see all comments — don't skip them.
+3. **For each actionable comment:**
+   - Fix it in the PR if small, OR
+   - Create a GitHub issue for it and link the issue in a reply before
+     resolving the conversation.
+4. **Never dismiss review comments** without explicit owner confirmation.
+   Reply with the reason or linked issue before resolving.
+5. **For non-actionable comments:** reply with why it's not applicable,
+   get owner confirmation, then resolve.
+6. **After addressing comments**, request a new review and wait for it
+   to complete before merging. Repeat until all comments are resolved.
+
+This applies to all reviewers: Copilot, Gemini Code Assist, Codex, and humans.
 
 ## Code quality
 

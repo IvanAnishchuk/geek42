@@ -38,3 +38,13 @@ When bumping version, update ALL of:
 - Signed commits and signed tags required
 - Run `uv run pre-commit run --all-files` before pushing
 - Merge commits only (no squash, no rebase)
+- Never bypass required CI checks or reviews
+
+## Review process
+
+When reviewing PRs:
+- Triage every comment, including low-confidence hidden ones
+- For actionable findings: fix in the PR or create a GitHub issue and link it
+- Never dismiss comments without explicit owner confirmation
+- Reply with linked issue number or reason before resolving conversations
+- After changes are made, re-review before approving
