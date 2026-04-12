@@ -65,7 +65,7 @@ extracting the inner bundles:
 ### Individual tool verification
 
 ```sh
-# Download release (dist files to dist/, proofs to proofs/)
+# Download release (dist files to dist/, proofs to proofs/github/)
 uv run python scripts/download_release.py 0.4.2a7
 
 # Sigstore bundle (cosign)
