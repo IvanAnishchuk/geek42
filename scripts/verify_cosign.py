@@ -80,9 +80,7 @@ def collect_local(version: str) -> dict[str, Path]:
     if not dist_dir.is_dir():
         return {}
     return {
-        f.name: f
-        for f in sorted(dist_dir.iterdir())
-        if is_dist_file(f.name) and version in f.name
+        f.name: f for f in sorted(dist_dir.iterdir()) if is_dist_file(f.name) and version in f.name
     }
 
 
@@ -114,27 +112,36 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
         return True  # not a failure, just not available
 
     # Use exact identity for the specific tag
-    identity = (
-        f"https://github.com/{REPO_SLUG}"
-        f"/.github/workflows/release.yml@refs/tags/v{version}"
-    )
+    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
 
-    result = run([
-        "cosign", "verify-blob",
-        "--certificate-oidc-issuer", OIDC_ISSUER,
-        "--certificate-identity", identity,
-        "--bundle", str(bundle),
-        str(path),
-    ])
+    result = run(
+        [
+            "cosign",
+            "verify-blob",
+            "--certificate-oidc-issuer",
+            OIDC_ISSUER,
+            "--certificate-identity",
+            identity,
+            "--bundle",
+            str(bundle),
+            str(path),
+        ]
+    )
     if result.returncode != 0:
         # Try with regexp fallback
-        result = run([
-            "cosign", "verify-blob",
-            "--certificate-oidc-issuer", OIDC_ISSUER,
-            "--certificate-identity-regexp", f"https://github.com/{REPO_SLUG}/",
-            "--bundle", str(bundle),
-            str(path),
-        ])
+        result = run(
+            [
+                "cosign",
+                "verify-blob",
+                "--certificate-oidc-issuer",
+                OIDC_ISSUER,
+                "--certificate-identity-regexp",
+                f"https://github.com/{REPO_SLUG}/",
+                "--bundle",
+                str(bundle),
+                str(path),
+            ]
+        )
 
     artifact_hash = sha256(path)
     if result.returncode != 0:
@@ -153,19 +160,25 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
 def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
     """Verify SLSA L3 provenance using cosign verify-blob-attestation."""
     if not provenance.exists():
-        info(f"No SLSA provenance file found")
+        info("No SLSA provenance file found")
         return True  # not a failure, just not available
 
     # SLSA provenance is signed by the slsa-framework generator, not our workflow
-    result = run([
-        "cosign", "verify-blob-attestation",
-        "--certificate-oidc-issuer", OIDC_ISSUER,
-        "--certificate-identity-regexp",
-        "https://github.com/slsa-framework/slsa-github-generator/",
-        "--type", "slsaprovenance",
-        "--bundle", str(provenance),
-        str(path),
-    ])
+    result = run(
+        [
+            "cosign",
+            "verify-blob-attestation",
+            "--certificate-oidc-issuer",
+            OIDC_ISSUER,
+            "--certificate-identity-regexp",
+            "https://github.com/slsa-framework/slsa-github-generator/",
+            "--type",
+            "slsaprovenance",
+            "--bundle",
+            str(provenance),
+            str(path),
+        ]
+    )
     artifact_hash = sha256(path)
     if result.returncode != 0:
         fail(f"cosign SLSA L3: {path.name}")
@@ -202,18 +215,22 @@ def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
     extracted = proofs / f"{path.name}.gh-attestation-bundle.json"
     extracted.write_text(bundle_json)
 
-    identity = (
-        f"https://github.com/{REPO_SLUG}"
-        f"/.github/workflows/release.yml@refs/tags/v{version}"
+    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
+    result = run(
+        [
+            "cosign",
+            "verify-blob-attestation",
+            "--certificate-oidc-issuer",
+            OIDC_ISSUER,
+            "--certificate-identity",
+            identity,
+            "--type",
+            "slsaprovenance",
+            "--bundle",
+            str(extracted),
+            str(path),
+        ]
     )
-    result = run([
-        "cosign", "verify-blob-attestation",
-        "--certificate-oidc-issuer", OIDC_ISSUER,
-        "--certificate-identity", identity,
-        "--type", "slsaprovenance",
-        "--bundle", str(extracted),
-        str(path),
-    ])
     artifact_hash = sha256(path)
     if result.returncode != 0:
         fail(f"cosign GH attestation: {path.name}")
@@ -229,7 +246,10 @@ def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
 
 
 def fetch_pypi_provenance(
-    package: str, version: str, filename: str, base_url: str,
+    package: str,
+    version: str,
+    filename: str,
+    base_url: str,
 ) -> dict | None:
     url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
     try:
@@ -272,14 +292,21 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
             extracted = pypi_proofs / f"{path.name}.{index_name.lower()}-cosign-bundle.json"
             extracted.write_text(json.dumps(cosign_bundle, indent=2))
 
-            result = run([
-                "cosign", "verify-blob-attestation",
-                "--certificate-oidc-issuer", OIDC_ISSUER,
-                "--certificate-identity-regexp", f"https://github.com/{REPO_SLUG}/",
-                "--type", "https://docs.pypi.org/attestations/publish/v1",
-                "--bundle", str(extracted),
-                str(path),
-            ])
+            result = run(
+                [
+                    "cosign",
+                    "verify-blob-attestation",
+                    "--certificate-oidc-issuer",
+                    OIDC_ISSUER,
+                    "--certificate-identity-regexp",
+                    f"https://github.com/{REPO_SLUG}/",
+                    "--type",
+                    "https://docs.pypi.org/attestations/publish/v1",
+                    "--bundle",
+                    str(extracted),
+                    str(path),
+                ]
+            )
             artifact_hash = sha256(path)
             if result.returncode != 0:
                 fail(f"cosign {index_name} PEP 740: {path.name}")
@@ -289,8 +316,10 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
                 all_ok = False
             else:
                 publisher = bundle_data.get("publisher", {})
+                repo = publisher.get("repository", "?")
+                wf = publisher.get("workflow", "?")
                 ok(f"cosign {index_name} PEP 740: {path.name} ({artifact_hash})")
-                info(f"  signed by: {publisher.get('repository', '?')}/{publisher.get('workflow', '?')}")
+                info(f"  signed by: {repo}/{wf}")
                 info(f"  environment: {publisher.get('environment', '?')}")
                 info(f"  trust root: {OIDC_ISSUER}")
 
@@ -328,15 +357,21 @@ def verify_checksums(artifacts: dict[str, Path], sums_file: Path) -> bool:
 
 def main() -> int:
     version = get_version()
-    console.print(Panel(
-        f"Verifying [bold]{PACKAGE_NAME} {version}[/] with cosign\n"
-        f"[dim]Only requires cosign — no gh, sigstore, or slsa-verifier needed[/]"
-    ))
+    console.print(
+        Panel(
+            f"Verifying [bold]{PACKAGE_NAME} {version}[/] with cosign\n"
+            f"[dim]Only requires cosign — no gh, sigstore, or slsa-verifier needed[/]"
+        )
+    )
 
     # Check cosign is available
     result = run(["cosign", "version"])
     if result.returncode != 0:
-        console.print(Panel("[bold red]cosign not found. Install from https://docs.sigstore.dev/cosign/system_config/installation/[/]"))
+        console.print(
+            Panel(
+                "[bold red]cosign not found. Install from https://docs.sigstore.dev/cosign/system_config/installation/[/]"
+            )
+        )
         return 1
 
     failures = 0
@@ -345,10 +380,12 @@ def main() -> int:
     header("Distribution files")
     artifacts = collect_local(version)
     if not artifacts:
-        console.print(Panel(
-            f"[bold red]No files matching version {version} found in dist/[/]\n"
-            "Download with: uv run scripts/download_release.py " + version,
-        ))
+        console.print(
+            Panel(
+                f"[bold red]No files matching version {version} found in dist/[/]\n"
+                "Download with: uv run scripts/download_release.py " + version,
+            )
+        )
         return 1
     console.print(f"  Verifying {len(artifacts)} file(s) from dist/:")
     for name, path in artifacts.items():
@@ -360,12 +397,23 @@ def main() -> int:
         header("Downloading proof files")
         gh_proofs.mkdir(parents=True, exist_ok=True)
         tag = f"v{version}"
-        result = run([
-            "gh", "release", "download", tag, "--repo", REPO_SLUG,
-            "--dir", str(gh_proofs), "--skip-existing",
-        ])
+        result = run(
+            [
+                "gh",
+                "release",
+                "download",
+                tag,
+                "--repo",
+                REPO_SLUG,
+                "--dir",
+                str(gh_proofs),
+                "--skip-existing",
+            ]
+        )
         if result.returncode != 0:
-            console.print(f"  [yellow]Could not download proof files (gh release download failed)[/]")
+            console.print(
+                "  [yellow]Could not download proof files (gh release download failed)[/]"
+            )
             info("Continuing with whatever is in proofs/github/")
 
     # -- 1. SHA256 checksums -------------------------------------------
@@ -378,14 +426,16 @@ def main() -> int:
 
     # -- 2. Sigstore signatures (cosign verify-blob) -------------------
     header("2. Sigstore signatures (cosign verify-blob)")
-    console.print(Panel(
-        "[bold]cosign verify-blob[/] verifies the sigstore bundle attached\n"
-        "to each artifact. It checks the Sigstore signature, certificate\n"
-        "chain (Fulcio), and Rekor transparency log inclusion — all in\n"
-        "one command. The certificate identity must match the release\n"
-        "workflow that produced the artifact.",
-        border_style="dim",
-    ))
+    console.print(
+        Panel(
+            "[bold]cosign verify-blob[/] verifies the sigstore bundle attached\n"
+            "to each artifact. It checks the Sigstore signature, certificate\n"
+            "chain (Fulcio), and Rekor transparency log inclusion — all in\n"
+            "one command. The certificate identity must match the release\n"
+            "workflow that produced the artifact.",
+            border_style="dim",
+        )
+    )
     for name, path in artifacts.items():
         bundle = gh_proofs / f"{name}.sigstore.json"
         if not verify_sigstore_blob(path, bundle, version):
@@ -393,30 +443,34 @@ def main() -> int:
 
     # -- 3. SLSA L3 provenance (cosign verify-blob-attestation) --------
     header("3. SLSA L3 provenance (cosign verify-blob-attestation)")
-    console.print(Panel(
-        "[bold]cosign verify-blob-attestation[/] verifies the SLSA L3\n"
-        "provenance statement. Unlike sigstore bundles (signed by the\n"
-        "release workflow), SLSA provenance is signed by the isolated\n"
-        "slsa-github-generator — a tamper-proof builder the caller\n"
-        "cannot control.",
-        border_style="dim",
-    ))
+    console.print(
+        Panel(
+            "[bold]cosign verify-blob-attestation[/] verifies the SLSA L3\n"
+            "provenance statement. Unlike sigstore bundles (signed by the\n"
+            "release workflow), SLSA provenance is signed by the isolated\n"
+            "slsa-github-generator — a tamper-proof builder the caller\n"
+            "cannot control.",
+            border_style="dim",
+        )
+    )
     provenance = gh_proofs / f"geek42-v{version}-provenance.intoto.jsonl"
     if not provenance.exists():
         provenance = gh_proofs / "geek42-provenance.intoto.jsonl"
-    for name, path in artifacts.items():
+    for _name, path in artifacts.items():
         if not verify_slsa_attestation(path, provenance):
             failures += 1
         break  # provenance covers all subjects, verify once
 
     # -- 4. GitHub attestations (cosign verify-blob-attestation) --------
     header("4. GitHub attestations (cosign verify-blob-attestation)")
-    console.print(Panel(
-        "[bold]GitHub attestations[/] contain standard sigstore DSSE\n"
-        "bundles. This script extracts the bundle from the gh attestation\n"
-        "JSON wrapper and verifies it with cosign.",
-        border_style="dim",
-    ))
+    console.print(
+        Panel(
+            "[bold]GitHub attestations[/] contain standard sigstore DSSE\n"
+            "bundles. This script extracts the bundle from the gh attestation\n"
+            "JSON wrapper and verifies it with cosign.",
+            border_style="dim",
+        )
+    )
     for name, path in artifacts.items():
         att_file = gh_proofs / f"{name}.gh-attestation.json"
         if not verify_gh_attestation(path, att_file, version):
@@ -424,19 +478,23 @@ def main() -> int:
 
     # -- 5. PyPI / TestPyPI attestations (cosign) ----------------------
     header("5. PyPI / TestPyPI attestations (cosign)")
-    console.print(Panel(
-        "[bold]PyPI PEP 740 attestations[/] use a different JSON format\n"
-        "but contain the same sigstore primitives (certificate + Rekor\n"
-        "entry + DSSE envelope). This script restructures them into\n"
-        "cosign-compatible bundles for verification.",
-        border_style="dim",
-    ))
+    console.print(
+        Panel(
+            "[bold]PyPI PEP 740 attestations[/] use a different JSON format\n"
+            "but contain the same sigstore primitives (certificate + Rekor\n"
+            "entry + DSSE envelope). This script restructures them into\n"
+            "cosign-compatible bundles for verification.",
+            border_style="dim",
+        )
+    )
     for index_name, base_url in PYPI_INDEXES:
         if index_name == "TestPyPI":
-            console.print(Panel(
-                "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]",
-                border_style="yellow",
-            ))
+            console.print(
+                Panel(
+                    "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]",
+                    border_style="yellow",
+                )
+            )
         for name, path in artifacts.items():
             prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
             if prov:

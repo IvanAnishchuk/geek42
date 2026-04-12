@@ -146,27 +146,37 @@ def collect_local(version: str) -> dict[str, Path]:
     if not dist_dir.is_dir():
         return {}
     return {
-        f.name: f
-        for f in sorted(dist_dir.iterdir())
-        if is_dist_file(f.name) and version in f.name
+        f.name: f for f in sorted(dist_dir.iterdir()) if is_dist_file(f.name) and version in f.name
     }
 
 
 def download_github_proofs(version: str) -> Path:
-    """Download GitHub Release proof files (sigstore, checksums, SBOM, provenance) to proofs/github/."""
+    """Download GitHub Release proof files to proofs/github/.
+
+    Includes sigstore bundles, checksums, SBOM, and SLSA provenance.
+    """
     gh_proofs = _ensure_proofs_dir() / "github"
     gh_proofs.mkdir(exist_ok=True)
     tag = f"v{version}"
-    result = run([
-        "gh", "release", "download", tag, "--repo", REPO_SLUG,
-        "--dir", str(gh_proofs), "--skip-existing",
-    ])
+    result = run(
+        [
+            "gh",
+            "release",
+            "download",
+            tag,
+            "--repo",
+            REPO_SLUG,
+            "--dir",
+            str(gh_proofs),
+            "--skip-existing",
+        ]
+    )
     if result.returncode != 0:
         console.print(f"  [yellow]GitHub Release {tag} not found or download failed[/]")
         if result.stderr:
             info(result.stderr.strip())
     else:
-        info(f"Proof files saved to proofs/github/")
+        info("Proof files saved to proofs/github/")
     return gh_proofs
 
 
@@ -226,18 +236,25 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
 
     san = _extract_san_from_bundle(bundle)
     if not san:
-        san = (
-            f"https://github.com/{REPO_SLUG}"
-            f"/.github/workflows/release.yml@refs/tags/v{version}"
-        )
+        san = f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
 
-    result = run([
-        "uv", "tool", "run", "sigstore", "verify", "identity",
-        "--cert-identity", san,
-        "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
-        "--bundle", str(bundle),
-        str(path),
-    ])
+    result = run(
+        [
+            "uv",
+            "tool",
+            "run",
+            "sigstore",
+            "verify",
+            "identity",
+            "--cert-identity",
+            san,
+            "--cert-oidc-issuer",
+            "https://token.actions.githubusercontent.com",
+            "--bundle",
+            str(bundle),
+            str(path),
+        ]
+    )
     artifact_hash = sha256(path)
     if result.returncode != 0:
         fail(f"sigstore verify: {path.name}")
@@ -247,7 +264,7 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
         return False
     ok(f"sigstore verify: {path.name} ({artifact_hash})")
     info(f"  signed by: {san}")
-    info(f"  trust root: https://token.actions.githubusercontent.com")
+    info("  trust root: https://token.actions.githubusercontent.com")
     return True
 
 
@@ -256,7 +273,9 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
 
 def verify_gh_attestation(path: Path) -> dict | None:
     artifact_hash = sha256(path)
-    result = run(["gh", "attestation", "verify", str(path), "--repo", REPO_SLUG, "--format", "json"])
+    result = run(
+        ["gh", "attestation", "verify", str(path), "--repo", REPO_SLUG, "--format", "json"]
+    )
     if result.returncode != 0:
         fail(f"gh attestation verify: {path.name}")
         fail(f"  artifact: {artifact_hash}")
@@ -351,14 +370,20 @@ def _find_slsa_verifier() -> str:
 def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bool:
     tag = f"v{version}"
     verifier = _find_slsa_verifier()
-    result = run([
-        verifier, "verify-artifact",
-        "--provenance-path", str(provenance),
-        "--source-uri", f"github.com/{REPO_SLUG}",
-        "--source-tag", tag,
-        "--print-provenance",
-        str(artifact),
-    ])
+    result = run(
+        [
+            verifier,
+            "verify-artifact",
+            "--provenance-path",
+            str(provenance),
+            "--source-uri",
+            f"github.com/{REPO_SLUG}",
+            "--source-tag",
+            tag,
+            "--print-provenance",
+            str(artifact),
+        ]
+    )
     artifact_hash = sha256(artifact)
     if result.returncode != 0:
         fail(f"slsa-verifier: {artifact.name}")
@@ -410,7 +435,9 @@ def print_slsa_provenance(data: dict) -> None:
     if materials:
         table.add_row("", "")
         for m in materials:
-            table.add_row("Material", f"{m.get('uri', '?')}  sha1:{m.get('digest', {}).get('sha1', '?')}")
+            table.add_row(
+                "Material", f"{m.get('uri', '?')}  sha1:{m.get('digest', {}).get('sha1', '?')}"
+            )
 
     subjects = data.get("subject", [])
     if subjects:
@@ -438,7 +465,10 @@ def _ensure_proofs_dir() -> Path:
 
 
 def fetch_pypi_provenance(
-    package: str, version: str, filename: str, base_url: str,
+    package: str,
+    version: str,
+    filename: str,
+    base_url: str,
 ) -> dict | None:
     url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
     try:
@@ -450,7 +480,9 @@ def fetch_pypi_provenance(
 
 
 def verify_pypi_attestation(
-    path: Path, provenance: dict, index_name: str,
+    path: Path,
+    provenance: dict,
+    index_name: str,
 ) -> bool:
     """Verify PyPI PEP 740 attestation cryptographically."""
     from pypi_attestations import Attestation, GitHubPublisher
@@ -479,8 +511,10 @@ def verify_pypi_attestation(
             artifact_hash = sha256(path)
             try:
                 predicate_type, predicate = att.verify(publisher, dist)
+                repo = publisher_data.get("repository", "?")
+                wf = publisher_data.get("workflow", "?")
                 ok(f"{index_name}: {path.name} ({artifact_hash})")
-                info(f"  signed by: {publisher_data.get('repository', '?')}/{publisher_data.get('workflow', '?')}")
+                info(f"  signed by: {repo}/{wf}")
                 info(f"  environment: {publisher_data.get('environment', '?')}")
                 info("  trust root: https://token.actions.githubusercontent.com")
             except Exception as exc:  # noqa: BLE001
@@ -494,7 +528,9 @@ def verify_pypi_attestation(
             # Display verified publisher and attestation details
             table = Table(
                 title=f"{index_name} PEP 740 Attestation (verified)",
-                show_header=False, padding=(0, 2), expand=True,
+                show_header=False,
+                padding=(0, 2),
+                expand=True,
             )
             table.add_column("Field", style="bold cyan", min_width=24, max_width=30)
             table.add_column("Value", overflow="fold")
@@ -514,7 +550,9 @@ def verify_pypi_attestation(
 
 
 def save_provenance_to_proofs(
-    provenance: dict, filename: str, index_name: str,
+    provenance: dict,
+    filename: str,
+    index_name: str,
 ) -> None:
     pypi_proofs = _ensure_proofs_dir() / "pypi"
     pypi_proofs.mkdir(exist_ok=True)
@@ -537,10 +575,12 @@ def main() -> int:
     header("Distribution files")
     artifacts = collect_local(version)
     if not artifacts:
-        console.print(Panel(
-            f"[bold red]No files matching version {version} found in dist/[/]\n"
-            "Build with 'uv build' or download with 'pip download' first.",
-        ))
+        console.print(
+            Panel(
+                f"[bold red]No files matching version {version} found in dist/[/]\n"
+                "Build with 'uv build' or download with 'pip download' first.",
+            )
+        )
         return 1
     console.print(f"  Verifying {len(artifacts)} file(s) from dist/:")
     for name, path in artifacts.items():
@@ -576,7 +616,7 @@ def main() -> int:
     header("3. GitHub attestations")
     explain("gh_attestation")
     attestation_shown = False
-    for name, path in artifacts.items():
+    for _name, path in artifacts.items():
         att = verify_gh_attestation(path)
         if att is None:
             failures += 1
@@ -591,7 +631,7 @@ def main() -> int:
     if not provenance.exists():
         provenance = gh_proofs / "geek42-provenance.intoto.jsonl"
     if provenance.exists():
-        for name, path in artifacts.items():
+        for _name, path in artifacts.items():
             if not verify_slsa_provenance(path, provenance, version):
                 failures += 1
             break  # show details once
@@ -605,12 +645,14 @@ def main() -> int:
         header(f"5.{PYPI_INDEXES.index((index_name, base_url)) + 1} {index_name}")
 
         if index_name == "TestPyPI":
-            console.print(Panel(
-                "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]\n"
-                "Artifacts here are for testing only. Do not use TestPyPI\n"
-                "packages in production environments.",
-                border_style="yellow",
-            ))
+            console.print(
+                Panel(
+                    "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]\n"
+                    "Artifacts here are for testing only. Do not use TestPyPI\n"
+                    "packages in production environments.",
+                    border_style="yellow",
+                )
+            )
 
         for name, path in artifacts.items():
             prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
