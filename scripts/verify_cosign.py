@@ -30,7 +30,9 @@ import hashlib
 import json
 import subprocess
 import sys
+import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -40,12 +42,30 @@ from rich.panel import Panel
 console = Console()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-REPO_OWNER = "IvanAnishchuk"
-REPO_NAME = "geek42"
-REPO_SLUG = f"{REPO_OWNER}/{REPO_NAME}"
-PACKAGE_NAME = "geek42"
 DIST_EXTENSIONS = (".whl", ".tar.gz")
-OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+
+# Known CI providers and their OIDC issuers
+KNOWN_HOSTS = {
+    "github.com": "https://token.actions.githubusercontent.com",
+}
+
+# -- Trust anchors (derived from pyproject.toml) ---------------------------
+
+_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+PACKAGE_NAME = _pyproject["project"]["name"]
+_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+_repo_host = _repo_url.hostname
+if _repo_host not in KNOWN_HOSTS:
+    console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
+    console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
+    sys.exit(1)
+REPO_SLUG = _repo_url.path.strip("/")
+OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
+
+# Release conventions — update these if your project uses different values
+RELEASE_WORKFLOW = "release.yml"
+TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+
 PYPI_INDEXES = [
     ("PyPI", "https://pypi.org"),
     ("TestPyPI", "https://test.pypi.org"),
@@ -115,7 +135,7 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
         return True  # not a failure, just not available
 
     # Use exact identity for the specific tag
-    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
+    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
 
     result = run(
         [
@@ -196,29 +216,28 @@ def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
     return True
 
 
-def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
-    """Verify GitHub attestation by extracting the sigstore bundle and using cosign."""
-    if not att_file.exists():
-        info(f"No GH attestation file for {path.name}")
-        return True
+def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
+    """Verify GitHub attestation using pre-extracted or inline-extracted bundle."""
+    bundle_file = gh_proofs / f"{path.name}.gh-attestation-bundle.json"
 
-    try:
-        data = json.loads(att_file.read_text())
-        if not isinstance(data, list) or not data:
-            info(f"Empty or invalid GH attestation for {path.name}")
+    # If pre-extracted bundle doesn't exist, try extracting from attestation JSON
+    if not bundle_file.exists():
+        att_file = gh_proofs / f"{path.name}.gh-attestation.json"
+        if not att_file.exists():
+            info(f"No GH attestation file for {path.name}")
             return True
-        bundle_json = json.dumps(data[0]["attestation"]["bundle"])
-    except (json.JSONDecodeError, KeyError) as exc:
-        fail(f"Could not parse GH attestation: {exc}")
-        return False
+        try:
+            data = json.loads(att_file.read_text())
+            if not isinstance(data, list) or not data:
+                info(f"Empty or invalid GH attestation for {path.name}")
+                return True
+            bundle_json = json.dumps(data[0]["attestation"]["bundle"])
+            bundle_file.write_text(bundle_json)
+        except (json.JSONDecodeError, KeyError) as exc:
+            fail(f"Could not parse GH attestation: {exc}")
+            return False
 
-    # Save extracted bundle to proofs/ for inspection
-    proofs = REPO_ROOT / "proofs" / "github"
-    proofs.mkdir(parents=True, exist_ok=True)
-    extracted = proofs / f"{path.name}.gh-attestation-bundle.json"
-    extracted.write_text(bundle_json)
-
-    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
+    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
     result = run(
         [
             "cosign",
@@ -230,7 +249,7 @@ def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
             "--type",
             "slsaprovenance",
             "--bundle",
-            str(extracted),
+            str(bundle_file),
             str(path),
         ]
     )
@@ -265,8 +284,34 @@ def fetch_pypi_provenance(
         return None
 
 
-def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bool:
-    """Verify PyPI PEP 740 attestation by restructuring into a cosign-compatible bundle."""
+def _restructure_pep740_to_cosign(att: dict) -> dict:
+    """Restructure a PEP 740 attestation into a cosign-compatible sigstore bundle."""
+    vm = att.get("verification_material", {})
+    return {
+        "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
+        "verificationMaterial": {
+            "certificate": {"rawBytes": vm["certificate"]},
+            "tlogEntries": vm["transparency_entries"],
+            "timestampVerificationData": {},
+        },
+        "dsseEnvelope": {
+            "payload": att["envelope"]["statement"],
+            "payloadType": "application/vnd.in-toto+json",
+            "signatures": [{"sig": att["envelope"]["signature"]}],
+        },
+    }
+
+
+def verify_pypi_attestation(
+    path: Path,
+    provenance: dict,
+    index_name: str,
+) -> bool:
+    """Verify PyPI PEP 740 attestation using cosign + pypi-attestations inspect."""
+    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+    proofs_dir = REPO_ROOT / "proofs" / index_dir
+    proofs_dir.mkdir(parents=True, exist_ok=True)
+
     bundles = provenance.get("attestation_bundles", [])
     if not bundles:
         fail(f"No attestation bundles in {index_name} provenance")
@@ -274,28 +319,19 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 
     all_ok = True
     for bundle_data in bundles:
-        for att in bundle_data.get("attestations", []):
-            vm = att.get("verification_material", {})
-            # Restructure PEP 740 format into a sigstore bundle cosign understands
-            cosign_bundle = {
-                "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
-                "verificationMaterial": {
-                    "certificate": {"rawBytes": vm["certificate"]},
-                    "tlogEntries": vm["transparency_entries"],
-                    "timestampVerificationData": {},
-                },
-                "dsseEnvelope": {
-                    "payload": att["envelope"]["statement"],
-                    "payloadType": "application/vnd.in-toto+json",
-                    "signatures": [{"sig": att["envelope"]["signature"]}],
-                },
-            }
+        publisher = bundle_data.get("publisher", {})
 
-            # Save restructured bundle to proofs/pypi/ for inspection
-            pypi_proofs = REPO_ROOT / "proofs" / "pypi"
-            pypi_proofs.mkdir(parents=True, exist_ok=True)
-            extracted = pypi_proofs / f"{path.name}.{index_name.lower()}-cosign-bundle.json"
-            extracted.write_text(json.dumps(cosign_bundle, indent=2))
+        for att in bundle_data.get("attestations", []):
+            # Use pre-extracted cosign bundle or restructure inline
+            bundle_file = proofs_dir / f"{path.name}.cosign-bundle.json"
+            if not bundle_file.exists():
+                cosign_bundle = _restructure_pep740_to_cosign(att)
+                bundle_file.write_text(json.dumps(cosign_bundle, indent=2))
+
+            # Also extract .publish.attestation for inspect
+            att_file = proofs_dir / f"{path.name}.publish.attestation"
+            if not att_file.exists():
+                att_file.write_text(json.dumps(att))
 
             result = run(
                 [
@@ -308,7 +344,7 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
                     "--type",
                     "https://docs.pypi.org/attestations/publish/v1",
                     "--bundle",
-                    str(extracted),
+                    str(bundle_file),
                     str(path),
                 ]
             )
@@ -320,13 +356,28 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
                     fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
                 all_ok = False
             else:
-                publisher = bundle_data.get("publisher", {})
                 repo = publisher.get("repository", "?")
                 wf = publisher.get("workflow", "?")
                 ok(f"cosign {index_name} PEP 740: {path.name} ({artifact_hash})")
                 info(f"  signed by: {repo}/{wf}")
                 info(f"  environment: {publisher.get('environment', '?')}")
                 info(f"  trust root: {OIDC_ISSUER}")
+
+                # Show PEP 740 details with pypi-attestations inspect
+                inspect_result = run(
+                    [
+                        "uv",
+                        "run",
+                        "pypi-attestations",
+                        "inspect",
+                        str(att_file),
+                    ]
+                )
+                # inspect writes to stderr (uses rich console internally)
+                inspect_output = inspect_result.stderr or inspect_result.stdout
+                if inspect_result.returncode == 0 and inspect_output:
+                    for line in inspect_output.strip().splitlines():
+                        info(line)
 
     return all_ok
 
@@ -401,7 +452,7 @@ def main() -> int:
     if not gh_proofs.exists() or not any(gh_proofs.iterdir()):
         header("Downloading proof files")
         gh_proofs.mkdir(parents=True, exist_ok=True)
-        tag = f"v{version}"
+        tag = f"{TAG_PREFIX}{version}"
         result = run(
             [
                 "gh",
@@ -476,9 +527,8 @@ def main() -> int:
             border_style="dim",
         )
     )
-    for name, path in artifacts.items():
-        att_file = gh_proofs / f"{name}.gh-attestation.json"
-        if not verify_gh_attestation(path, att_file, version):
+    for _name, path in artifacts.items():
+        if not verify_gh_attestation(path, gh_proofs, version):
             failures += 1
 
     # -- 5. PyPI / TestPyPI attestations (cosign) ----------------------
@@ -487,8 +537,9 @@ def main() -> int:
         Panel(
             "[bold]PyPI PEP 740 attestations[/] use a different JSON format\n"
             "but contain the same sigstore primitives (certificate + Rekor\n"
-            "entry + DSSE envelope). This script restructures them into\n"
-            "cosign-compatible bundles for verification.",
+            "entry + DSSE envelope). Uses pre-extracted cosign bundles from\n"
+            "download_release.py, or restructures inline as fallback.\n"
+            "Attestation details shown via pypi-attestations inspect.",
             border_style="dim",
         )
     )

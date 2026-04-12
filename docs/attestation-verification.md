@@ -21,9 +21,9 @@ providers are verified by each script using different toolchains:
 
 | Script | Dependencies | Best for |
 |--------|-------------|----------|
-| `verify_provenance.py` | gh, sigstore CLI, slsa-verifier, pypi-attestations | Most verbose, original tools |
-| `verify_cosign.py` | cosign, gh (for proof download) | Single verification binary |
-| `verify_pure.py` | sigstore + pypi-attestations (Python), gh (for proof download) | Minimal external tools |
+| `verify_provenance.py` | gh, sigstore CLI, slsa-verifier, pypi-attestations CLI | Most verbose, each tool native |
+| `verify_cosign.py` | cosign, pypi-attestations CLI (inspect only), gh (for proof download) | Single verification binary |
+| `verify_pure.py` | sigstore + pypi-attestations (Python library), gh (for proof download) | Minimal external tools |
 
 `gh` is required by all scripts for downloading proof files.
 `verify_provenance.py` also uses `gh attestation verify` during verification.
@@ -32,7 +32,7 @@ are not already in `proofs/github/` (e.g., from `download_release.py`).
 
 **Quick start:**
 ```sh
-# Download release artifacts + proof files
+# Download release artifacts + all proof files (GitHub, PyPI, TestPyPI)
 uv run python scripts/download_release.py 0.4.2a7
 
 # Verify with any of the three scripts
@@ -40,6 +40,12 @@ uv run python scripts/verify_provenance.py 0.4.2a7
 uv run python scripts/verify_cosign.py 0.4.2a7
 uv run python scripts/verify_pure.py 0.4.2a7
 ```
+
+`download_release.py` fetches from three sources and extracts all proof formats:
+- GitHub Release assets (sigstore bundles, SLSA provenance, checksums)
+- GitHub Attestation API (build attestations + extracted sigstore bundles)
+- PyPI/TestPyPI Integrity API (PEP 740 provenance + extracted `.publish.attestation`
+  files and cosign-compatible bundles)
 
 ### Key finding: bundle format interoperability
 
@@ -91,6 +97,13 @@ slsa-verifier verify-artifact \
   --provenance-path proofs/github/geek42-v0.4.2a7-provenance.intoto.jsonl \
   --source-uri github.com/IvanAnishchuk/geek42 \
   --source-tag v0.4.2a7 \
+  dist/geek42-0.4.2a7-py3-none-any.whl
+
+# PyPI PEP 740 attestation (pypi-attestations CLI)
+# Requires .publish.attestation file — created by download_release.py
+pypi-attestations inspect dist/geek42-0.4.2a7-py3-none-any.whl.publish.attestation
+pypi-attestations verify attestation \
+  --identity 'https://github.com/IvanAnishchuk/geek42/.github/workflows/release.yml@refs/tags/v0.4.2a7' \
   dist/geek42-0.4.2a7-py3-none-any.whl
 ```
 
@@ -163,8 +176,25 @@ trustcheck inspect geek42 --expected-repo https://github.com/IvanAnishchuk/geek4
 
 ### pypi-attestations
 
-Official library (Trail of Bits / PyPI) to convert between Sigstore Bundles and
-PEP 740 Attestation objects. Primarily for programmatic use.
+Official library and CLI (Trail of Bits / PyPI) for PEP 740 attestation
+verification. The CLI (v0.0.29) provides `verify attestation`, `inspect`,
+and `convert` subcommands. geek42 uses the CLI in `verify_provenance.py`
+and for `inspect` output in `verify_cosign.py`, while `verify_pure.py`
+uses the Python library API.
+
+```sh
+# Verify a PEP 740 attestation (requires .publish.attestation file next to artifact)
+pypi-attestations verify attestation \
+  --identity 'https://github.com/IvanAnishchuk/geek42/.github/workflows/release.yml@refs/tags/v0.4.2a7' \
+  dist/geek42-0.4.2a7-py3-none-any.whl
+
+# Inspect attestation details (unverified display)
+pypi-attestations inspect dist/geek42-0.4.2a7-py3-none-any.whl.publish.attestation
+```
+
+Note: The CLI is marked as experimental (v0.0.x). The `verify pypi` subcommand
+only supports production PyPI, not TestPyPI.
+
 [PyPI: pypi-attestations](https://pypi.org/project/pypi-attestations/)
 
 ### Google OSS Rebuild

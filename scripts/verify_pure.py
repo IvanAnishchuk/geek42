@@ -29,7 +29,9 @@ import json
 import shutil
 import subprocess
 import sys
+import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -40,12 +42,30 @@ from rich.table import Table
 console = Console()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-REPO_OWNER = "IvanAnishchuk"
-REPO_NAME = "geek42"
-REPO_SLUG = f"{REPO_OWNER}/{REPO_NAME}"
-PACKAGE_NAME = "geek42"
 DIST_EXTENSIONS = (".whl", ".tar.gz")
-OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+
+# Known CI providers and their OIDC issuers
+KNOWN_HOSTS = {
+    "github.com": "https://token.actions.githubusercontent.com",
+}
+
+# -- Trust anchors (derived from pyproject.toml) ---------------------------
+
+_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+PACKAGE_NAME = _pyproject["project"]["name"]
+_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+_repo_host = _repo_url.hostname
+if _repo_host not in KNOWN_HOSTS:
+    console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
+    console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
+    sys.exit(1)
+REPO_SLUG = _repo_url.path.strip("/")
+OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
+
+# Release conventions — update these if your project uses different values
+RELEASE_WORKFLOW = "release.yml"
+TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+
 PYPI_INDEXES = [
     ("PyPI", "https://pypi.org"),
     ("TestPyPI", "https://test.pypi.org"),
@@ -147,9 +167,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
     from sigstore.models import Bundle
     from sigstore.verify import Verifier, policy
 
-    identity_str = (
-        f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
-    )
+    identity_str = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
 
     try:
         bundle = Bundle.from_json(bundle_path.read_bytes())
@@ -455,7 +473,7 @@ def main() -> int:
             identity = policy.Identity(
                 identity=(
                     f"https://github.com/{REPO_SLUG}"
-                    f"/.github/workflows/release.yml@refs/tags/v{version}"
+                    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
                 ),
                 issuer=OIDC_ISSUER,
             )
@@ -475,7 +493,7 @@ def main() -> int:
                 continue
 
             ok(f"GH attestation verified: {name} ({artifact_hash})")
-            info(f"  signed by: release.yml@refs/tags/v{version}")
+            info(f"  signed by: {RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}")
             info(f"  trust root: {OIDC_ISSUER}")
         except (
             sigstore.errors.VerificationError,
@@ -488,8 +506,6 @@ def main() -> int:
 
     # -- 5. PyPI / TestPyPI attestations (PEP 740) ---------------------
     header("5. PyPI / TestPyPI attestations (pypi-attestations library)")
-    pypi_proofs = _ensure_proofs_dir() / "pypi"
-    pypi_proofs.mkdir(exist_ok=True)
     for index_name, base_url in PYPI_INDEXES:
         if index_name == "TestPyPI":
             console.print(
@@ -498,10 +514,13 @@ def main() -> int:
                     border_style="yellow",
                 )
             )
+        index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+        proofs_dir = _ensure_proofs_dir() / index_dir
+        proofs_dir.mkdir(exist_ok=True)
         for name, path in artifacts.items():
             prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
             if prov:
-                out = pypi_proofs / f"{name}.{index_name.lower()}-provenance.json"
+                out = proofs_dir / f"{name}.provenance.json"
                 out.write_text(json.dumps(prov, indent=2))
                 if not verify_pypi_attestation(path, prov, index_name):
                     failures += 1

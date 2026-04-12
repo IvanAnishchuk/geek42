@@ -12,14 +12,15 @@ Files must already exist in dist/ (build with 'uv build' or download with
 'pip download'). Proof artifacts are cached in proofs/{github,pypi}/.
 
 Requirements:
-  - gh              (GitHub CLI, for attestation verify + release download)
-  - sigstore        (uv tool run sigstore, for sigstore bundle verification)
-  - slsa-verifier   (Go binary, for SLSA L3 provenance verification)
-  - rich            (Python, for pretty output — already a project dependency)
+  - gh                (GitHub CLI, for attestation verify + release download)
+  - sigstore          (uv tool run sigstore, for sigstore bundle verification)
+  - slsa-verifier     (Go binary, for SLSA L3 provenance verification)
+  - pypi-attestations (CLI, for PEP 740 attestation verify + inspect)
+  - rich              (Python, for pretty output — already a project dependency)
 
 Usage:
     uv run python scripts/verify_provenance.py [VERSION]
-    uv run python scripts/verify_provenance.py 0.4.2a5
+    uv run python scripts/verify_provenance.py 0.4.2a7
     uv run python scripts/verify_provenance.py          # auto-detects from __init__.py
 """
 
@@ -27,9 +28,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
+import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -40,11 +45,29 @@ from rich.table import Table
 console = Console()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-REPO_OWNER = "IvanAnishchuk"
-REPO_NAME = "geek42"
-REPO_SLUG = f"{REPO_OWNER}/{REPO_NAME}"
-PACKAGE_NAME = "geek42"
 DIST_EXTENSIONS = (".whl", ".tar.gz")
+
+# Known CI providers and their OIDC issuers
+KNOWN_HOSTS = {
+    "github.com": "https://token.actions.githubusercontent.com",
+}
+
+# -- Trust anchors (derived from pyproject.toml) ---------------------------
+
+_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+PACKAGE_NAME = _pyproject["project"]["name"]
+_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+_repo_host = _repo_url.hostname
+if _repo_host not in KNOWN_HOSTS:
+    console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
+    console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
+    sys.exit(1)
+REPO_SLUG = _repo_url.path.strip("/")
+OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
+
+# Release conventions — update these if your project uses different values
+RELEASE_WORKFLOW = "release.yml"
+TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
 
 # -- Descriptions for each mechanism ----------------------------------
 
@@ -157,7 +180,7 @@ def download_github_proofs(version: str) -> Path:
     """
     gh_proofs = _ensure_proofs_dir() / "github"
     gh_proofs.mkdir(exist_ok=True)
-    tag = f"v{version}"
+    tag = f"{TAG_PREFIX}{version}"
     result = run(
         [
             "gh",
@@ -236,7 +259,7 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
 
     san = _extract_san_from_bundle(bundle)
     if not san:
-        san = f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
+        san = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
 
     result = run(
         [
@@ -249,7 +272,7 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
             "--cert-identity",
             san,
             "--cert-oidc-issuer",
-            "https://token.actions.githubusercontent.com",
+            OIDC_ISSUER,
             "--bundle",
             str(bundle),
             str(path),
@@ -264,7 +287,7 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
         return False
     ok(f"sigstore verify: {path.name} ({artifact_hash})")
     info(f"  signed by: {san}")
-    info("  trust root: https://token.actions.githubusercontent.com")
+    info(f"  trust root: {OIDC_ISSUER}")
     return True
 
 
@@ -283,7 +306,7 @@ def verify_gh_attestation(path: Path) -> dict | None:
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return None
     ok(f"gh attestation verify: {path.name} ({artifact_hash})")
-    info("  trust root: https://token.actions.githubusercontent.com (via GitHub)")
+    info(f"  trust root: {OIDC_ISSUER} (via GitHub)")
     try:
         records = json.loads(result.stdout)
         if isinstance(records, list) and records:
@@ -368,7 +391,7 @@ def _find_slsa_verifier() -> str:
 
 
 def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bool:
-    tag = f"v{version}"
+    tag = f"{TAG_PREFIX}{version}"
     verifier = _find_slsa_verifier()
     result = run(
         [
@@ -393,7 +416,7 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
         return False
     ok(f"slsa-verifier: {artifact.name} ({artifact_hash})")
     info("  signed by: slsa-framework/slsa-github-generator@v2.1.0")
-    info("  trust root: https://token.actions.githubusercontent.com")
+    info(f"  trust root: {OIDC_ISSUER}")
 
     for line in result.stdout.splitlines():
         try:
@@ -481,74 +504,140 @@ def fetch_pypi_provenance(
         return None
 
 
+def extract_attestation_file(
+    path: Path,
+    provenance: dict,
+    index_name: str,
+) -> Path | None:
+    """Extract individual PEP 740 attestation from provenance wrapper.
+
+    The PyPI Integrity API returns a provenance wrapper with
+    attestation_bundles[].attestations[], but the pypi-attestations CLI
+    expects individual Attestation objects as .publish.attestation files.
+    """
+    bundles = provenance.get("attestation_bundles", [])
+    if not bundles:
+        return None
+    attestations = bundles[0].get("attestations", [])
+    if not attestations:
+        return None
+
+    # Save to proofs/{index}/ directory
+    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+    proofs_dir = _ensure_proofs_dir() / index_dir
+    proofs_dir.mkdir(exist_ok=True)
+    att_file = proofs_dir / f"{path.name}.publish.attestation"
+    att_file.write_text(json.dumps(attestations[0]))
+
+    return att_file
+
+
+def inspect_attestation(att_file: Path) -> None:
+    """Run pypi-attestations inspect to display attestation details."""
+    result = run(["uv", "run", "pypi-attestations", "inspect", str(att_file)])
+    # inspect writes to stderr (uses rich console internally)
+    output = result.stderr or result.stdout
+    if result.returncode == 0 and output:
+        for line in output.strip().splitlines():
+            info(line)
+
+
 def verify_pypi_attestation(
     path: Path,
     provenance: dict,
     index_name: str,
+    version: str,
 ) -> bool:
-    """Verify PyPI PEP 740 attestation cryptographically."""
-    from pypi_attestations import Attestation, AttestationError, GitHubPublisher
-    from pypi_attestations import Distribution as AttestDist
+    """Verify PyPI PEP 740 attestation using pypi-attestations CLI.
 
+    Uses 'pypi-attestations inspect' for details and
+    'pypi-attestations verify attestation' for cryptographic verification.
+    """
     bundles = provenance.get("attestation_bundles", [])
     if not bundles:
         fail(f"No attestation bundles in {index_name} provenance")
         return False
 
-    all_ok = True
-    dist = AttestDist.from_file(path)
+    # Extract individual attestation file for CLI
+    att_file = extract_attestation_file(path, provenance, index_name)
+    if not att_file:
+        fail(f"Could not extract attestation from {index_name} provenance")
+        return False
+    info(f"Extracted attestation to {att_file.name}")
 
-    for bundle in bundles:
-        publisher_data = bundle.get("publisher", {})
-        attestations = bundle.get("attestations", [])
+    # Inspect attestation details (unverified display)
+    inspect_attestation(att_file)
 
-        publisher = GitHubPublisher(
-            repository=publisher_data.get("repository", ""),
-            workflow=publisher_data.get("workflow", ""),
-            environment=publisher_data.get("environment"),
+    # Use local trust anchors for identity — never relax to provenance publisher data
+    publisher_data = bundles[0].get("publisher", {})
+    identity = (
+        f"https://github.com/{REPO_SLUG}"
+        f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    )
+
+    # Warn if publisher data doesn't match trust anchors
+    pub_repo = publisher_data.get("repository", "")
+    pub_wf = publisher_data.get("workflow", "")
+    if pub_repo and pub_repo != REPO_SLUG:
+        fail(f"Publisher repo mismatch: {pub_repo} != {REPO_SLUG}")
+    if pub_wf and pub_wf != RELEASE_WORKFLOW:
+        fail(f"Publisher workflow mismatch: {pub_wf} != {RELEASE_WORKFLOW}")
+
+    # Verify with pypi-attestations CLI
+    # CLI expects {artifact}.publish.attestation next to the artifact,
+    # so copy both into a temporary directory for verification
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        tmp_artifact = tmp / path.name
+        shutil.copy2(path, tmp_artifact)
+        shutil.copy2(att_file, tmp / f"{path.name}.publish.attestation")
+        result = run(
+            [
+                "uv",
+                "run",
+                "pypi-attestations",
+                "verify",
+                "attestation",
+                "--identity",
+                identity,
+                str(tmp_artifact),
+            ]
         )
 
-        for att_data in attestations:
-            att = Attestation.model_validate(att_data)
-            artifact_hash = sha256(path)
-            try:
-                predicate_type, predicate = att.verify(publisher, dist)
-                repo = publisher_data.get("repository", "?")
-                wf = publisher_data.get("workflow", "?")
-                ok(f"{index_name}: {path.name} ({artifact_hash})")
-                info(f"  signed by: {repo}/{wf}")
-                info(f"  environment: {publisher_data.get('environment', '?')}")
-                info("  trust root: https://token.actions.githubusercontent.com")
-            except (AttestationError, ValueError) as exc:
-                fail(f"{index_name}: {path.name}")
-                fail(f"  artifact: {artifact_hash}")
-                fail(f"  error: {exc}")
-                all_ok = False
-                predicate_type = "?"
-                continue
+    artifact_hash = sha256(path)
+    if result.returncode != 0:
+        fail(f"{index_name}: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
+        if result.stderr:
+            fail(f"  error: {result.stderr.strip()}")
+        return False
 
-            # Display verified publisher and attestation details
-            table = Table(
-                title=f"{index_name} PEP 740 Attestation (verified)",
-                show_header=False,
-                padding=(0, 2),
-                expand=True,
-            )
-            table.add_column("Field", style="bold cyan", min_width=24, max_width=30)
-            table.add_column("Value", overflow="fold")
+    ok(f"{index_name}: {path.name} ({artifact_hash})")
+    info("  verified by: pypi-attestations verify attestation")
+    info(f"  signed by: {pub_repo}/{pub_wf}")
+    info(f"  environment: {publisher_data.get('environment', '?')}")
+    info(f"  trust root: {OIDC_ISSUER}")
 
-            table.add_row("Publisher kind", publisher_data.get("kind", "?"))
-            table.add_row("Repository", publisher_data.get("repository", "?"))
-            table.add_row("Workflow", publisher_data.get("workflow", "?"))
-            table.add_row("Environment", publisher_data.get("environment", "?"))
-            table.add_row("Predicate type", predicate_type)
-            table.add_row("Artifact", path.name)
-            table.add_row("SHA256", sha256(path))
+    # Display publisher details table
+    table = Table(
+        title=f"{index_name} PEP 740 Attestation (verified)",
+        show_header=False,
+        padding=(0, 2),
+        expand=True,
+    )
+    table.add_column("Field", style="bold cyan", min_width=24, max_width=30)
+    table.add_column("Value", overflow="fold")
+    table.add_row("Publisher kind", publisher_data.get("kind", "?"))
+    table.add_row("Repository", publisher_data.get("repository", "?"))
+    table.add_row("Workflow", publisher_data.get("workflow", "?"))
+    table.add_row("Environment", publisher_data.get("environment", "?"))
+    table.add_row("Predicate type", "https://docs.pypi.org/attestations/publish/v1")
+    table.add_row("Artifact", path.name)
+    table.add_row("SHA256", artifact_hash)
+    console.print()
+    console.print(table)
 
-            console.print()
-            console.print(table)
-
-    return all_ok
+    return True
 
 
 def save_provenance_to_proofs(
@@ -556,10 +645,10 @@ def save_provenance_to_proofs(
     filename: str,
     index_name: str,
 ) -> None:
-    pypi_proofs = _ensure_proofs_dir() / "pypi"
-    pypi_proofs.mkdir(exist_ok=True)
-    suffix = "testpypi-provenance" if index_name == "TestPyPI" else "provenance"
-    out = pypi_proofs / f"{filename}.{suffix}.json"
+    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
+    proofs_dir = _ensure_proofs_dir() / index_dir
+    proofs_dir.mkdir(exist_ok=True)
+    out = proofs_dir / f"{filename}.provenance.json"
     out.write_text(json.dumps(provenance, indent=2))
     info(f"Saved to {out.relative_to(REPO_ROOT)}")
 
@@ -660,7 +749,7 @@ def main() -> int:
             prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
             if prov:
                 save_provenance_to_proofs(prov, name, index_name)
-                if not verify_pypi_attestation(path, prov, index_name):
+                if not verify_pypi_attestation(path, prov, index_name, version):
                     failures += 1
             else:
                 info(f"{index_name}: no attestation for {name}")
