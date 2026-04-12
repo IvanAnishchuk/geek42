@@ -27,7 +27,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - Replace deprecated `deny-licenses` with `allow-licenses` allowlist
   in dependency-review workflow. Expand license policy to include
-  copyleft (GPL, LGPL, MPL, WTFPL) alongside permissive licenses.
+  copyleft (GPL, LGPL, MPL) and public domain (WTFPL) alongside
+  permissive licenses.
   Enable `retry-on-snapshot-warnings` and `show-openssf-scorecard`
   to fix empty scan results (#76).
 
@@ -387,7 +388,7 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - `.github/workflows/gitleaks.yml` — secret scanning on push, PR, and
   schedule
 - `.github/workflows/dependency-review.yml` — PR-time dependency diff
-  with moderate-severity gate and license allowlist
+  with moderate-severity gate and GPL license denylist
 
 #### Release pipeline
 - `.github/workflows/release.yml` — full release pipeline triggered on

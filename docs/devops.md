@@ -382,7 +382,8 @@ Scans the full git history on every push and PR using
 
 Runs on PRs only. Fails on any dependency introduction with
 moderate+ vulnerabilities or licenses not on the allowlist.
-Posts a summary comment on the PR. Allowed licenses include
+Posts a summary comment on the PR with OpenSSF Scorecard context.
+Allowed licenses include
 permissive (MIT, Apache-2.0, BSD, ISC, etc.), copyleft (GPL, LGPL,
 MPL), and public domain dedications (CC0, 0BSD, Unlicense, WTFPL).
 See `.github/workflows/dependency-review.yml` for the full list.
