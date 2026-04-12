@@ -29,7 +29,22 @@ jobs:
         with:
           fail-on-severity: moderate
           comment-summary-in-pr: always
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, CC0-1.0, Unlicense, PSF-2.0, 0BSD, CC-BY-4.0
+          allow-licenses: >-
+            MIT,
+            Apache-2.0,
+            BSD-2-Clause,
+            BSD-3-Clause,
+            ISC,
+            CC0-1.0,
+            Unlicense,
+            PSF-2.0,
+            0BSD,
+            CC-BY-4.0,
+            GPL-2.0-only,
+            GPL-2.0-or-later,
+            GPL-3.0-only,
+            GPL-3.0-or-later,
+            WTFPL-2.0
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: 120
           show-openssf-scorecard: true
