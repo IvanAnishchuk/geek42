@@ -109,7 +109,7 @@ def sha256(path: Path) -> str:
 
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)  # noqa: S603
+    return subprocess.run(cmd, capture_output=True, text=True, check=False, **kwargs)  # noqa: S603 — args are list literals, no shell
 
 
 def is_dist_file(name: str) -> bool:
@@ -471,8 +471,10 @@ def fetch_pypi_provenance(
     base_url: str,
 ) -> dict | None:
     url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
+    if not url.startswith(("https://pypi.org/", "https://test.pypi.org/")):
+        return None
     try:
-        req = urllib.request.Request(url)  # noqa: S310
+        req = urllib.request.Request(url)  # noqa: S310 — URL validated above
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             return json.loads(resp.read())
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
@@ -485,7 +487,7 @@ def verify_pypi_attestation(
     index_name: str,
 ) -> bool:
     """Verify PyPI PEP 740 attestation cryptographically."""
-    from pypi_attestations import Attestation, GitHubPublisher
+    from pypi_attestations import Attestation, AttestationError, GitHubPublisher
     from pypi_attestations import Distribution as AttestDist
 
     bundles = provenance.get("attestation_bundles", [])
@@ -517,7 +519,7 @@ def verify_pypi_attestation(
                 info(f"  signed by: {repo}/{wf}")
                 info(f"  environment: {publisher_data.get('environment', '?')}")
                 info("  trust root: https://token.actions.githubusercontent.com")
-            except Exception as exc:  # noqa: BLE001
+            except (AttestationError, ValueError) as exc:
                 fail(f"{index_name}: {path.name}")
                 fail(f"  artifact: {artifact_hash}")
                 fail(f"  error: {exc}")

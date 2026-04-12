@@ -108,7 +108,7 @@ def open_in_editor(path: Path, editor: str) -> int:
     do not validate it further — the user is authorizing execution.
     """
     cmd = shlex.split(editor) + [str(path)]
-    return subprocess.run(cmd, check=False).returncode  # noqa: S603
+    return subprocess.run(cmd, check=False).returncode  # noqa: S603 — args are list literals, no shell
 
 
 def edit_and_lint(path: Path, editor: str) -> tuple[bool, list[Diagnostic]]:

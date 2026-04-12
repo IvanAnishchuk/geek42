@@ -69,7 +69,7 @@ def generate_manifest(root: Path, *, signing_key: str = "") -> bool:
         args += ["--sign", "--openpgp-id", signing_key]
     args.append(str(root))
 
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # noqa: S603 — args are list literals, no shell
         args,
         capture_output=True,
         text=True,
@@ -93,7 +93,7 @@ def verify_manifest(root: Path, *, key_file: str = "metadata/key.asc") -> list[s
 
     args += ["--keep-going", str(root)]
 
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # noqa: S603 — args are list literals, no shell
         args,
         capture_output=True,
         text=True,
