@@ -840,7 +840,12 @@ hashes, and first-class reproducibility features. We standardize on
 
 Tags are mutable on GitHub. A compromised action repository could
 re-point `v4` to a malicious commit and every downstream consumer
-would silently inherit it. SHA pins are immutable.
+would silently inherit it. SHA pins are immutable. Exception:
+`slsa-github-generator` is pinned by tag (`@v2.1.0`) because its
+builder requires `refs/tags/vX.Y.Z` to fetch the pre-built binary.
+This is an accepted risk — the reusable workflow runs in an isolated
+environment the caller cannot tamper with, and the provenance it
+produces is independently verifiable.
 
 **Why both `sigstore` and `SLSA` provenance?**
 

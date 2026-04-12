@@ -104,7 +104,9 @@ for the repo-owner configuration checklist see
   runner; no persistent state between runs
 - **SHA-pinned actions** — every `uses:` references a specific commit
   SHA, not a tag. Mitigates tag-retargeting attacks on third-party
-  actions.
+  actions. Exception: `slsa-github-generator` reusable workflow is
+  pinned by tag because its `generate-builder.sh` requires
+  `refs/tags/vX.Y.Z` (see `release.yml` comment for rationale).
 - **`step-security/harden-runner`** — first step in every job:
   - Monitors all network egress
   - Audits all process executions

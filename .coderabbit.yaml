@@ -12,7 +12,8 @@ reviews:
     All subprocess calls must use list args (no shell=True). Every noqa must
     document why. Every PR must update CHANGELOG.md under [Unreleased]. Versions
     follow PEP 440 (not SemVer). Supply-chain security: SLSA L3, sigstore,
-    PEP 740 attestations. All workflow actions pinned by SHA.
+    PEP 740 attestations. All workflow actions pinned by SHA
+    (exception: slsa-github-generator pinned by tag, see release.yml).
 
   auto_review:
     enabled: true
@@ -44,7 +45,7 @@ reviews:
     - path: "scripts/**"
       instructions: "Verify subprocess calls use list args. Check trust anchors are derived from pyproject.toml."
     - path: ".github/workflows/**"
-      instructions: "All actions must be pinned by SHA with a version comment."
+      instructions: "All actions must be pinned by SHA with a version comment. Exception: slsa-github-generator is pinned by tag (see release.yml comment)."
 
   tools:
     ruff:

@@ -22,6 +22,7 @@
 
 - Supply-chain: SLSA L3, sigstore, PEP 740 attestations on every release
 - All actions in workflows pinned by SHA with version comment
+  (exception: slsa-github-generator pinned by tag, see release.yml)
 - Trust anchors derived from pyproject.toml, not hardcoded
 
 ## Changelog
