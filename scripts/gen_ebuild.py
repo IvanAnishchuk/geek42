@@ -48,8 +48,16 @@ def get_version() -> str:
     sys.exit(1)
 
 
+def _validate_version(version: str) -> None:
+    """Reject versions with path separators or other unsafe characters."""
+    if not re.match(r"^[0-9]+(\.[0-9]+)*(a|b|c|rc|dev)?[0-9]*$", version):
+        print(f"Error: invalid version format: {version}")
+        sys.exit(1)
+
+
 def main() -> int:
     version = get_version()
+    _validate_version(version)
     gentoo_version = pep440_to_gentoo(version)
 
     if not TEMPLATE.exists():
