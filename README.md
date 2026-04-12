@@ -14,12 +14,14 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12450/badge)](https://www.bestpractices.dev/projects/12450)
 
 <!-- tooling & standards -->
-[![uv](https://img.shields.io/badge/uv-0.11.5-blue)](https://github.com/astral-sh/uv)
-[![ruff](https://img.shields.io/badge/ruff-0.15.10-blue)](https://github.com/astral-sh/ruff)
-[![ty](https://img.shields.io/badge/ty-0.0.29-blue)](https://github.com/astral-sh/ty)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/IvanAnishchuk/geek42/main/badges/uv.json)](https://github.com/astral-sh/uv)
+[![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/IvanAnishchuk/geek42/main/badges/ruff.json)](https://github.com/astral-sh/ruff)
+[![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/IvanAnishchuk/geek42/main/badges/ty.json)](https://github.com/astral-sh/ty)
+[![python](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/IvanAnishchuk/geek42/main/badges/python.json)](https://www.python.org/)
 [![yamllint](https://img.shields.io/badge/yamllint-checked-blue)](https://github.com/adrienverge/yamllint)
 [![mdformat](https://img.shields.io/badge/mdformat-formatted-blue)](https://github.com/executablebooks/mdformat)
 [![SemVer](https://img.shields.io/badge/SemVer-2.0.0-blue)](https://semver.org)
+[![PEP 440](https://img.shields.io/badge/PEP_440-versions-blue)](https://peps.python.org/pep-0440/)
 [![commits: conventional](https://img.shields.io/badge/commits-conventional-blue)](https://conventionalcommits.org)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![releases: immutable](https://img.shields.io/badge/releases-immutable-blue)](https://github.com/IvanAnishchuk/geek42/releases)

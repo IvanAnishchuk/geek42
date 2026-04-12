@@ -42,6 +42,7 @@ geek42 = "geek42.cli:main"
 
 [dependency-groups]
 dev = [
+    "uv>=0.7",
     "ruff>=0.11",
     "ty",
     "pytest>=8.0",
