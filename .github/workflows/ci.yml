@@ -315,7 +315,7 @@ jobs:
 
       - name: Run supply-chain audit script
         id: audit_script
-        run: uv run python scripts/audit.py
+        run: uv run scripts/audit.py
         continue-on-error: true
 
       - name: Copy committed requirements into reports dir

@@ -31,7 +31,7 @@ uv run ty check
 uv run pre-commit run --all-files
 
 # Supply-chain audit (pip-audit + SBOM)
-uv run python scripts/audit.py
+uv run scripts/audit.py
 
 # Download and verify a release
 uv run scripts/download_release.py 0.4.2a7
@@ -76,7 +76,7 @@ Version must be updated in ALL of these files simultaneously:
 After updating `pyproject.toml`, always run:
 ```bash
 uv lock
-uv run python scripts/regen_requirements.py
+uv run scripts/regen_requirements.py
 ```
 
 ### PEP 440 version format
@@ -99,7 +99,7 @@ uv run python scripts/regen_requirements.py
 1. Create `release/{version}` branch from main
 2. Bump version in ALL files listed above
 3. Update `CHANGELOG.md`
-4. Run `uv lock` + `uv run python scripts/regen_requirements.py`
+4. Run `uv lock` + `uv run scripts/regen_requirements.py`
 5. Commit, push, create PR
 6. Wait for CI, address review comments, merge (`--admin` OK for owner's own PRs)
 7. Create signed tag: `git tag -s v{version} -m "Release v{version}"`

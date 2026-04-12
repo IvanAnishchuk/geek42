@@ -58,8 +58,8 @@ no Make, no extra task runner.
 
 | Script | Command | What it does |
 |--------|---------|--------------|
-| Regenerate requirements | `uv run python scripts/regen_requirements.py` | Runs `uv lock`, exports `requirements.txt` (prod) and `requirements-dev.txt` (prod + dev). Both are hash-pinned and **committed to the repo**. |
-| Supply-chain audit | `uv run python scripts/audit.py` | Runs the full audit locally in the same order as CI: uv lock check, requirements freshness, `pip-audit` on both variants, CycloneDX SBOM on both variants. |
+| Regenerate requirements | `uv run scripts/regen_requirements.py` | Runs `uv lock`, exports `requirements.txt` (prod) and `requirements-dev.txt` (prod + dev). Both are hash-pinned and **committed to the repo**. |
+| Supply-chain audit | `uv run scripts/audit.py` | Runs the full audit locally in the same order as CI: uv lock check, requirements freshness, `pip-audit` on both variants, CycloneDX SBOM on both variants. |
 
 ### The inner loop
 
@@ -107,7 +107,7 @@ uv run pytest
 # Full CI parity (includes supply-chain audit)
 uv run pre-commit run --all-files
 uv run pre-commit run --all-files --hook-stage pre-push
-uv run python scripts/audit.py
+uv run scripts/audit.py
 ```
 
 If these pass locally, CI will pass — pre-commit uses the same
@@ -134,7 +134,7 @@ uv add pydantic-settings
 uv add --dev mypy-extensions
 
 # Regenerate the exported requirements files
-uv run python scripts/regen_requirements.py
+uv run scripts/regen_requirements.py
 
 # Commit everything together
 git add pyproject.toml uv.lock requirements.txt requirements-dev.txt
@@ -171,7 +171,7 @@ uv lock --upgrade                        # update all
 uv lock --upgrade-package pydantic       # update one
 
 # Always regen after upgrading
-uv run python scripts/regen_requirements.py
+uv run scripts/regen_requirements.py
 ```
 
 Dependabot runs weekly and will open grouped PRs for routine updates.
@@ -182,7 +182,7 @@ stay consistent.
 ### Running the full audit locally
 
 ```sh
-uv run python scripts/audit.py
+uv run scripts/audit.py
 ```
 
 This runs all six checks (uv lock consistency, requirements freshness,

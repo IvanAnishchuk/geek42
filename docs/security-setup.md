@@ -80,7 +80,7 @@ Enable:
     - `Review dependency changes`
 - [x] **Require conversation resolution before merging**
 - [x] **Require signed commits**
-- [x] **Require linear history**
+- [ ] ~~Require linear history~~ (disabled — we use merge commits)
 - [x] **Do not allow bypassing the above settings**
 - [x] **Restrict who can push to matching branches** (optional, for higher tiers)
 - [x] **Include administrators**

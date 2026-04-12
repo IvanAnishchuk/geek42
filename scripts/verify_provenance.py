@@ -18,9 +18,9 @@ Requirements:
   - rich            (Python, for pretty output — already a project dependency)
 
 Usage:
-    uv run python scripts/verify_provenance.py [VERSION]
-    uv run python scripts/verify_provenance.py 0.4.2a5
-    uv run python scripts/verify_provenance.py          # auto-detects from __init__.py
+    uv run scripts/verify_provenance.py [VERSION]
+    uv run scripts/verify_provenance.py 0.4.2a5
+    uv run scripts/verify_provenance.py          # auto-detects from __init__.py
 """
 
 from __future__ import annotations

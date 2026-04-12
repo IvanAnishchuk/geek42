@@ -5,7 +5,7 @@ installs. They are committed to the repo and CI verifies they stay in
 sync with pyproject.toml / uv.lock.
 
 Usage:
-    uv run python scripts/regen_requirements.py
+    uv run scripts/regen_requirements.py
 """
 
 from __future__ import annotations
