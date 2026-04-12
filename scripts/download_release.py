@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -45,12 +46,22 @@ def main() -> int:
     print(f"Downloading {tag} from {REPO_SLUG}...")
 
     # Download everything to a single temp location, then sort
+    gh = shutil.which("gh") or "gh"
     result = subprocess.run(  # noqa: S603
-        ["gh", "release", "download", tag,
-         "--repo", REPO_SLUG,
-         "--dir", str(DIST_DIR),
-         "--skip-existing"],
-        capture_output=True, text=True, check=False,
+        [
+            gh,
+            "release",
+            "download",
+            tag,
+            "--repo",
+            REPO_SLUG,
+            "--dir",
+            str(DIST_DIR),
+            "--skip-existing",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         print(f"Error: GitHub Release {tag} not found")
@@ -70,7 +81,9 @@ def main() -> int:
                 f.unlink()  # duplicate, already in proofs
 
     dist_files = [f for f in sorted(DIST_DIR.iterdir()) if f.is_file()]
-    proof_files = [f for f in sorted(PROOFS_DIR.iterdir()) if f.is_file() and f.name != ".gitignore"]
+    proof_files = [
+        f for f in sorted(PROOFS_DIR.iterdir()) if f.is_file() and f.name != ".gitignore"
+    ]
 
     print(f"\ndist/ ({len(dist_files)} files):")
     for f in dist_files:

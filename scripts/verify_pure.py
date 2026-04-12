@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -78,9 +79,7 @@ def collect_local(version: str) -> dict[str, Path]:
     if not dist_dir.is_dir():
         return {}
     return {
-        f.name: f
-        for f in sorted(dist_dir.iterdir())
-        if is_dist_file(f.name) and version in f.name
+        f.name: f for f in sorted(dist_dir.iterdir()) if is_dist_file(f.name) and version in f.name
     }
 
 
@@ -148,8 +147,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
     from sigstore.verify import Verifier, policy
 
     identity_str = (
-        f"https://github.com/{REPO_SLUG}"
-        f"/.github/workflows/release.yml@refs/tags/v{version}"
+        f"https://github.com/{REPO_SLUG}/.github/workflows/release.yml@refs/tags/v{version}"
     )
 
     try:
@@ -166,7 +164,6 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
 
     ok(f"sigstore verify: {path.name} ({sha256(path)})")
 
-    # Extract certificate details for display
     try:
         from cryptography.x509 import UniformResourceIdentifier
         from cryptography.x509.oid import ExtensionOID
@@ -174,13 +171,12 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         cert = bundle.signing_certificate
         san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
         sans = san_ext.value.get_values_for_type(UniformResourceIdentifier)
-        for san in sans:
-            info(f"  SAN: {san}")
-        info(f"  Issuer: {cert.issuer.rfc4514_string()}")
-        info(f"  Not before: {cert.not_valid_before_utc}")
-        info(f"  Not after: {cert.not_valid_after_utc}")
+        if sans:
+            info(f"  signed by: {sans[0]}")
+        info(f"  issuer: {cert.issuer.rfc4514_string()}")
+        info(f"  trust root: {OIDC_ISSUER}")
     except Exception:  # noqa: BLE001
-        pass
+        info(f"  trust root: {OIDC_ISSUER}")
 
     return True
 
@@ -220,7 +216,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
         subjects = stmt.get("subject", [])
         subject_hashes = {s["digest"]["sha256"] for s in subjects}
         if artifact_hash not in subject_hashes:
-            fail(f"SLSA L3 provenance: artifact hash not in provenance subjects")
+            fail("SLSA L3 provenance: artifact hash not in provenance subjects")
             fail(f"  artifact: {artifact_hash}")
             fail(f"  subjects: {subject_hashes}")
             return False
@@ -229,6 +225,8 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
         return False
 
     ok(f"SLSA L3 provenance verified: {path.name} ({artifact_hash})")
+    info("  signed by: slsa-framework/slsa-github-generator@v2.1.0")
+    info(f"  trust root: {OIDC_ISSUER}")
 
     # Decode and display provenance details
     try:
@@ -242,7 +240,9 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
 
             table = Table(
                 title="SLSA L3 Provenance",
-                show_header=False, padding=(0, 2), expand=True,
+                show_header=False,
+                padding=(0, 2),
+                expand=True,
             )
             table.add_column("Field", style="bold cyan", min_width=20, max_width=26)
             table.add_column("Value", overflow="fold")
@@ -264,8 +264,8 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
 
             console.print()
             console.print(table)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001
+        info(f"  (could not display provenance details: {exc})")
 
     return True
 
@@ -274,7 +274,10 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
 
 
 def fetch_pypi_provenance(
-    package: str, version: str, filename: str, base_url: str,
+    package: str,
+    version: str,
+    filename: str,
+    base_url: str,
 ) -> dict | None:
     url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
     try:
@@ -310,7 +313,12 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
             artifact_hash = sha256(path)
             try:
                 predicate_type, _ = att.verify(publisher, dist)
+                repo = publisher_data.get("repository", "?")
+                wf = publisher_data.get("workflow", "?")
                 ok(f"{index_name}: {path.name} ({artifact_hash})")
+                info(f"  signed by: {repo}/{wf}")
+                info(f"  environment: {publisher_data.get('environment', '?')}")
+                info(f"  trust root: {OIDC_ISSUER}")
             except Exception as exc:  # noqa: BLE001
                 fail(f"{index_name}: {path.name}")
                 fail(f"  artifact: {artifact_hash}")
@@ -320,7 +328,9 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 
             table = Table(
                 title=f"{index_name} PEP 740 (verified)",
-                show_header=False, padding=(0, 2), expand=True,
+                show_header=False,
+                padding=(0, 2),
+                expand=True,
             )
             table.add_column("Field", style="bold cyan", min_width=20, max_width=26)
             table.add_column("Value", overflow="fold")
@@ -341,10 +351,12 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 
 def main() -> int:
     version = get_version()
-    console.print(Panel(
-        f"Verifying [bold]{PACKAGE_NAME} {version}[/] with pure Python\n"
-        f"[dim]No external tools — uses sigstore + pypi-attestations libraries[/]"
-    ))
+    console.print(
+        Panel(
+            f"Verifying [bold]{PACKAGE_NAME} {version}[/] with pure Python\n"
+            f"[dim]No external tools — uses sigstore + pypi-attestations libraries[/]"
+        )
+    )
 
     failures = 0
 
@@ -352,10 +364,12 @@ def main() -> int:
     header("Distribution files")
     artifacts = collect_local(version)
     if not artifacts:
-        console.print(Panel(
-            f"[bold red]No files matching version {version} found in dist/[/]\n"
-            "Download with: uv run scripts/download_release.py " + version,
-        ))
+        console.print(
+            Panel(
+                f"[bold red]No files matching version {version} found in dist/[/]\n"
+                "Download with: uv run scripts/download_release.py " + version,
+            )
+        )
         return 1
     console.print(f"  Verifying {len(artifacts)} file(s) from dist/:")
     for name, path in artifacts.items():
@@ -367,10 +381,22 @@ def main() -> int:
         header("Downloading proof files")
         gh_proofs.mkdir(parents=True, exist_ok=True)
         tag = f"v{version}"
+        gh = shutil.which("gh") or "gh"
         subprocess.run(  # noqa: S603
-            ["gh", "release", "download", tag, "--repo", REPO_SLUG,
-             "--dir", str(gh_proofs), "--skip-existing"],
-            capture_output=True, text=True, check=False,
+            [
+                gh,
+                "release",
+                "download",
+                tag,
+                "--repo",
+                REPO_SLUG,
+                "--dir",
+                str(gh_proofs),
+                "--skip-existing",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     # -- 1. SHA256 checksums -------------------------------------------
@@ -393,7 +419,7 @@ def main() -> int:
     provenance = gh_proofs / f"geek42-v{version}-provenance.intoto.jsonl"
     if not provenance.exists():
         provenance = gh_proofs / "geek42-provenance.intoto.jsonl"
-    for name, path in artifacts.items():
+    for _name, path in artifacts.items():
         if not verify_slsa_provenance(path, provenance, version):
             failures += 1
         break  # verify once
@@ -440,6 +466,8 @@ def main() -> int:
                 continue
 
             ok(f"GH attestation verified: {name} ({artifact_hash})")
+            info(f"  signed by: release.yml@refs/tags/v{version}")
+            info(f"  trust root: {OIDC_ISSUER}")
         except Exception as exc:  # noqa: BLE001
             fail(f"GH attestation: {name} — {exc}")
             failures += 1
@@ -450,10 +478,12 @@ def main() -> int:
     pypi_proofs.mkdir(exist_ok=True)
     for index_name, base_url in PYPI_INDEXES:
         if index_name == "TestPyPI":
-            console.print(Panel(
-                "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]",
-                border_style="yellow",
-            ))
+            console.print(
+                Panel(
+                    "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]",
+                    border_style="yellow",
+                )
+            )
         for name, path in artifacts.items():
             prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
             if prov:
