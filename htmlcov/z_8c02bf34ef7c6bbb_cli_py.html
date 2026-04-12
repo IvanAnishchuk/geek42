@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_8c02bf34ef7c6bbb_compose_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-12 04:02 +0000
+            created at 2026-04-12 04:41 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -607,7 +607,7 @@
     <p class="mis show_mis"><span class="n"><a id="t523" href="#t523">523</a></span><span class="t">    <span class="nam">git</span> <span class="op">=</span> <span class="nam">shutil</span><span class="op">.</span><span class="nam">which</span><span class="op">(</span><span class="str">"git"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t524" href="#t524">524</a></span><span class="t">    <span class="key">if</span> <span class="nam">git</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t525" href="#t525">525</a></span><span class="t">        <span class="key">raise</span> <span class="nam">GitNotFoundError</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t526" href="#t526">526</a></span><span class="t">    <span class="key">return</span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span>  <span class="com"># noqa: S603</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t526" href="#t526">526</a></span><span class="t">    <span class="key">return</span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span>  <span class="com"># noqa: S603 &#8212; args are list literals, no shell</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t527" href="#t527">527</a></span><span class="t">        <span class="op">[</span><span class="nam">git</span><span class="op">,</span> <span class="str">"-C"</span><span class="op">,</span> <span class="nam">str</span><span class="op">(</span><span class="nam">root</span><span class="op">)</span><span class="op">,</span> <span class="op">*</span><span class="nam">args</span><span class="op">]</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t528" href="#t528">528</a></span><span class="t">        <span class="nam">text</span><span class="op">=</span><span class="key">True</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t529" href="#t529">529</a></span><span class="t">        <span class="nam">capture_output</span><span class="op">=</span><span class="nam">capture_output</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
@@ -757,7 +757,7 @@
     <p class="mis show_mis"><span class="n"><a id="t673" href="#t673">673</a></span><span class="t">    <span class="nam">root</span> <span class="op">=</span> <span class="op">(</span><span class="nam">directory</span> <span class="key">or</span> <span class="nam">Path</span><span class="op">(</span><span class="str">"."</span><span class="op">)</span><span class="op">)</span><span class="op">.</span><span class="nam">resolve</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t674" href="#t674">674</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t675" href="#t675">675</a></span><span class="t">    <span class="key">def</span> <span class="nam">_gh</span><span class="op">(</span><span class="nam">args</span><span class="op">:</span> <span class="nam">list</span><span class="op">[</span><span class="nam">str</span><span class="op">]</span><span class="op">)</span> <span class="op">-></span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">CompletedProcess</span><span class="op">[</span><span class="nam">str</span><span class="op">]</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t676" href="#t676">676</a></span><span class="t">        <span class="key">return</span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span>  <span class="com"># noqa: S603</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t676" href="#t676">676</a></span><span class="t">        <span class="key">return</span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span>  <span class="com"># noqa: S603 &#8212; args are list literals, no shell</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t677" href="#t677">677</a></span><span class="t">            <span class="op">[</span><span class="nam">gh</span><span class="op">,</span> <span class="op">*</span><span class="nam">args</span><span class="op">]</span><span class="op">,</span> <span class="nam">capture_output</span><span class="op">=</span><span class="key">True</span><span class="op">,</span> <span class="nam">text</span><span class="op">=</span><span class="key">True</span><span class="op">,</span> <span class="nam">check</span><span class="op">=</span><span class="key">False</span><span class="op">,</span> <span class="nam">cwd</span><span class="op">=</span><span class="nam">str</span><span class="op">(</span><span class="nam">root</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis mis2 show_mis"><span class="n"><a id="t678" href="#t678">678</a></span><span class="t">        <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t679" href="#t679">679</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -842,7 +842,7 @@
             <a class="nav" href="z_8c02bf34ef7c6bbb_compose_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-12 04:02 +0000
+            created at 2026-04-12 04:41 +0000
         </p>
     </div>
 </footer>

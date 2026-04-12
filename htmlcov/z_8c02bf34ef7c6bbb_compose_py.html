@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_8c02bf34ef7c6bbb_errors_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-12 04:02 +0000
+            created at 2026-04-12 04:41 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -192,7 +192,7 @@
     <p class="pln"><span class="n"><a id="t108" href="#t108">108</a></span><span class="t"><span class="str">    do not validate it further &#8212; the user is authorizing execution.</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t109" href="#t109">109</a></span><span class="t"><span class="str">    """</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t110" href="#t110">110</a></span><span class="t">    <span class="nam">cmd</span> <span class="op">=</span> <span class="nam">shlex</span><span class="op">.</span><span class="nam">split</span><span class="op">(</span><span class="nam">editor</span><span class="op">)</span> <span class="op">+</span> <span class="op">[</span><span class="nam">str</span><span class="op">(</span><span class="nam">path</span><span class="op">)</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t111" href="#t111">111</a></span><span class="t">    <span class="key">return</span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span><span class="nam">cmd</span><span class="op">,</span> <span class="nam">check</span><span class="op">=</span><span class="key">False</span><span class="op">)</span><span class="op">.</span><span class="nam">returncode</span>  <span class="com"># noqa: S603</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t111" href="#t111">111</a></span><span class="t">    <span class="key">return</span> <span class="nam">subprocess</span><span class="op">.</span><span class="nam">run</span><span class="op">(</span><span class="nam">cmd</span><span class="op">,</span> <span class="nam">check</span><span class="op">=</span><span class="key">False</span><span class="op">)</span><span class="op">.</span><span class="nam">returncode</span>  <span class="com"># noqa: S603 &#8212; args are list literals, no shell</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t112" href="#t112">112</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t113" href="#t113">113</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t114" href="#t114">114</a></span><span class="t"><span class="key">def</span> <span class="nam">edit_and_lint</span><span class="op">(</span><span class="nam">path</span><span class="op">:</span> <span class="nam">Path</span><span class="op">,</span> <span class="nam">editor</span><span class="op">:</span> <span class="nam">str</span><span class="op">)</span> <span class="op">-></span> <span class="nam">tuple</span><span class="op">[</span><span class="nam">bool</span><span class="op">,</span> <span class="nam">list</span><span class="op">[</span><span class="nam">Diagnostic</span><span class="op">]</span><span class="op">]</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
@@ -329,7 +329,7 @@
             <a class="nav" href="z_8c02bf34ef7c6bbb_errors_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.13.5">coverage.py v7.13.5</a>,
-            created at 2026-04-12 04:02 +0000
+            created at 2026-04-12 04:41 +0000
         </p>
     </div>
 </footer>
