@@ -1,4 +1,4 @@
-# Copilot instructions for geek42
+# Codex instructions for geek42
 
 ## Project
 
@@ -12,17 +12,7 @@ pydantic. Converts GLEP 42 Gentoo news repos into static blogs.
 - **Type checking:** ty
 - **Testing:** pytest with 75% coverage floor
 - **Package manager:** uv (never raw pip)
-- No checked-in shell scripts or Makefiles — prefer Python scripts for tooling
-
-## Version locations
-
-When bumping version, update ALL of:
-- `pyproject.toml`
-- `src/geek42/__init__.py`
-- `Dockerfile`
-- `packaging/debian/changelog`
-- `packaging/rpm/geek42.spec`
-- New ebuild in `packaging/gentoo/`
+- Prefer Python scripts over shell scripts or Makefiles for tooling
 
 ## Security
 
@@ -31,15 +21,7 @@ When bumping version, update ALL of:
 - URLs must be validated before fetching
 - Every noqa comment must document why it's necessary
 - Supply-chain: SLSA L3, sigstore, PEP 740 attestations on every release
-
-## Workflow
-
-- Never push to main directly — always use PRs
-- Signed commits and signed tags required
-- Run `uv run pre-commit run --all-files` before pushing
-- Merge commits only (no squash, no rebase)
-- Owners may use `--admin` to bypass review requirement for their own PRs
-- Never use `--admin` to bypass required CI checks
+- All actions in workflows pinned by SHA with version comment
 
 ## Changelog
 
@@ -57,4 +39,4 @@ When reviewing PRs:
 - After changes are made, re-review before approving
 - Verify that CHANGELOG.md is updated for user-visible changes
 
-This applies to all reviewers: Copilot, Gemini Code Assist, CodeRabbit, and humans.
+This applies to all reviewers: Copilot, Gemini Code Assist, CodeRabbit, Codex, and humans.

@@ -8,6 +8,11 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+### Added
+
+- Gemini Code Assist and CodeRabbit as PR reviewers with
+  repo-level configuration (#46).
+
 ### Changed
 
 - Derive trust anchors (repo slug, package name, OIDC issuer) from

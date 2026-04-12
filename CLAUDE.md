@@ -138,7 +138,7 @@ Proof files: `proofs/{github,pypi}/`. Distribution files: `dist/`.
 
 After creating a PR:
 
-1. **Request AI reviews** on every PR (Copilot, Gemini Code Assist, etc.).
+1. **Request AI reviews** on every PR (Copilot, Gemini Code Assist, CodeRabbit).
 2. **Triage every review comment**, including low-confidence hidden ones.
    Expand "Show hidden" to see all comments — don't skip them.
 3. **For each actionable comment:**
@@ -152,7 +152,7 @@ After creating a PR:
 6. **After addressing comments**, request a new review and wait for it
    to complete before merging. Repeat until all comments are resolved.
 
-This applies to all reviewers: Copilot, Gemini Code Assist, Codex, and humans.
+This applies to all reviewers: Copilot, Gemini Code Assist, CodeRabbit, and humans.
 
 ## Code quality
 
