@@ -178,7 +178,16 @@ def fetch_pypi_provenance(
         req = urllib.request.Request(url)  # noqa: S310 — URL validated above
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             return json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None  # no attestation available — expected
+        print(f"  Warning: HTTP {exc.code} from {url}")
+        return None
+    except urllib.error.URLError as exc:
+        print(f"  Warning: network error fetching {url}: {exc.reason}")
+        return None
+    except json.JSONDecodeError:
+        print(f"  Warning: invalid JSON from {url}")
         return None
 
 

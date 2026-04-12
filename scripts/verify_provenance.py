@@ -33,9 +33,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from rich.console import Console
@@ -475,33 +473,13 @@ def print_slsa_provenance(data: dict) -> None:
 
 # -- 5. PyPI attestations (PEP 740) ------------------------------------
 
-PYPI_INDEXES = [
-    ("PyPI", "https://pypi.org"),
-    ("TestPyPI", "https://test.pypi.org"),
-]
+PYPI_INDEX_DIRS = ["pypi", "testpypi"]
 
 
 def _ensure_proofs_dir() -> Path:
     proofs = REPO_ROOT / "proofs"
     proofs.mkdir(exist_ok=True)
     return proofs
-
-
-def fetch_pypi_provenance(
-    package: str,
-    version: str,
-    filename: str,
-    base_url: str,
-) -> dict | None:
-    url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
-    if not url.startswith(("https://pypi.org/", "https://test.pypi.org/")):
-        return None
-    try:
-        req = urllib.request.Request(url)  # noqa: S310 — URL validated above
-        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
-            return json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
-        return None
 
 
 def extract_attestation_file(
@@ -640,19 +618,6 @@ def verify_pypi_attestation(
     return True
 
 
-def save_provenance_to_proofs(
-    provenance: dict,
-    filename: str,
-    index_name: str,
-) -> None:
-    index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
-    proofs_dir = _ensure_proofs_dir() / index_dir
-    proofs_dir.mkdir(exist_ok=True)
-    out = proofs_dir / f"{filename}.provenance.json"
-    out.write_text(json.dumps(provenance, indent=2))
-    info(f"Saved to {out.relative_to(REPO_ROOT)}")
-
-
 # -- Main --------------------------------------------------------------
 
 
@@ -732,10 +697,11 @@ def main() -> int:
     # -- 5. PyPI / TestPyPI attestations (PEP 740) ---------------------
     header("5. PyPI / TestPyPI attestations (PEP 740)")
     explain("pypi_attestation")
-    for index_name, base_url in PYPI_INDEXES:
-        header(f"5.{PYPI_INDEXES.index((index_name, base_url)) + 1} {index_name}")
+    for idx, index_dir in enumerate(PYPI_INDEX_DIRS, 1):
+        index_name = "TestPyPI" if index_dir == "testpypi" else "PyPI"
+        header(f"5.{idx} {index_name}")
 
-        if index_name == "TestPyPI":
+        if index_dir == "testpypi":
             console.print(
                 Panel(
                     "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]\n"
@@ -745,14 +711,19 @@ def main() -> int:
                 )
             )
 
+        proofs_dir = REPO_ROOT / "proofs" / index_dir
+        if not proofs_dir.is_dir():
+            info(f"{index_name}: no proofs directory (run download_release.py first)")
+            continue
+
         for name, path in artifacts.items():
-            prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
-            if prov:
-                save_provenance_to_proofs(prov, name, index_name)
-                if not verify_pypi_attestation(path, prov, index_name, version):
-                    failures += 1
-            else:
+            prov_file = proofs_dir / f"{name}.provenance.json"
+            if not prov_file.exists():
                 info(f"{index_name}: no attestation for {name}")
+                continue
+            prov = json.loads(prov_file.read_text())
+            if not verify_pypi_attestation(path, prov, index_name, version):
+                failures += 1
 
     # -- Summary -------------------------------------------------------
     console.print()
