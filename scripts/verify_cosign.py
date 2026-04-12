@@ -145,7 +145,8 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
         return False
 
     ok(f"cosign verify-blob: {path.name} ({artifact_hash})")
-    info(f"  identity: {identity}")
+    info(f"  signed by: {identity}")
+    info(f"  trust root: {OIDC_ISSUER}")
     return True
 
 
@@ -174,6 +175,8 @@ def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
         return False
 
     ok(f"cosign SLSA L3: {path.name} ({artifact_hash})")
+    info("  signed by: slsa-framework/slsa-github-generator")
+    info(f"  trust root: {OIDC_ISSUER}")
     return True
 
 
@@ -220,7 +223,8 @@ def verify_gh_attestation(path: Path, att_file: Path, version: str) -> bool:
         return False
 
     ok(f"cosign GH attestation: {path.name} ({artifact_hash})")
-    info(f"  identity: {identity}")
+    info(f"  signed by: {identity}")
+    info(f"  trust root: {OIDC_ISSUER}")
     return True
 
 
@@ -286,9 +290,9 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
             else:
                 publisher = bundle_data.get("publisher", {})
                 ok(f"cosign {index_name} PEP 740: {path.name} ({artifact_hash})")
-                info(f"  publisher: {publisher.get('repository', '?')}")
-                info(f"  workflow: {publisher.get('workflow', '?')}")
+                info(f"  signed by: {publisher.get('repository', '?')}/{publisher.get('workflow', '?')}")
                 info(f"  environment: {publisher.get('environment', '?')}")
+                info(f"  trust root: {OIDC_ISSUER}")
 
     return all_ok
 

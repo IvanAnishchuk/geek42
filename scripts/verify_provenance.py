@@ -246,6 +246,8 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
     ok(f"sigstore verify: {path.name} ({artifact_hash})")
+    info(f"  signed by: {san}")
+    info(f"  trust root: https://token.actions.githubusercontent.com")
     return True
 
 
@@ -262,6 +264,7 @@ def verify_gh_attestation(path: Path) -> dict | None:
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return None
     ok(f"gh attestation verify: {path.name} ({artifact_hash})")
+    info("  trust root: https://token.actions.githubusercontent.com (via GitHub)")
     try:
         records = json.loads(result.stdout)
         if isinstance(records, list) and records:
@@ -364,6 +367,8 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
             fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
         return False
     ok(f"slsa-verifier: {artifact.name} ({artifact_hash})")
+    info("  signed by: slsa-framework/slsa-github-generator@v2.1.0")
+    info("  trust root: https://token.actions.githubusercontent.com")
 
     for line in result.stdout.splitlines():
         try:
@@ -475,6 +480,9 @@ def verify_pypi_attestation(
             try:
                 predicate_type, predicate = att.verify(publisher, dist)
                 ok(f"{index_name}: {path.name} ({artifact_hash})")
+                info(f"  signed by: {publisher_data.get('repository', '?')}/{publisher_data.get('workflow', '?')}")
+                info(f"  environment: {publisher_data.get('environment', '?')}")
+                info("  trust root: https://token.actions.githubusercontent.com")
             except Exception as exc:  # noqa: BLE001
                 fail(f"{index_name}: {path.name}")
                 fail(f"  artifact: {artifact_hash}")

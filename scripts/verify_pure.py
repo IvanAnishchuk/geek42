@@ -166,7 +166,6 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
 
     ok(f"sigstore verify: {path.name} ({sha256(path)})")
 
-    # Extract certificate details for display
     try:
         from cryptography.x509 import UniformResourceIdentifier
         from cryptography.x509.oid import ExtensionOID
@@ -174,13 +173,12 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         cert = bundle.signing_certificate
         san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
         sans = san_ext.value.get_values_for_type(UniformResourceIdentifier)
-        for san in sans:
-            info(f"  SAN: {san}")
-        info(f"  Issuer: {cert.issuer.rfc4514_string()}")
-        info(f"  Not before: {cert.not_valid_before_utc}")
-        info(f"  Not after: {cert.not_valid_after_utc}")
+        if sans:
+            info(f"  signed by: {sans[0]}")
+        info(f"  issuer: {cert.issuer.rfc4514_string()}")
+        info(f"  trust root: {OIDC_ISSUER}")
     except Exception:  # noqa: BLE001
-        pass
+        info(f"  trust root: {OIDC_ISSUER}")
 
     return True
 
@@ -229,6 +227,8 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
         return False
 
     ok(f"SLSA L3 provenance verified: {path.name} ({artifact_hash})")
+    info("  signed by: slsa-framework/slsa-github-generator@v2.1.0")
+    info(f"  trust root: {OIDC_ISSUER}")
 
     # Decode and display provenance details
     try:
@@ -311,6 +311,9 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
             try:
                 predicate_type, _ = att.verify(publisher, dist)
                 ok(f"{index_name}: {path.name} ({artifact_hash})")
+                info(f"  signed by: {publisher_data.get('repository', '?')}/{publisher_data.get('workflow', '?')}")
+                info(f"  environment: {publisher_data.get('environment', '?')}")
+                info(f"  trust root: {OIDC_ISSUER}")
             except Exception as exc:  # noqa: BLE001
                 fail(f"{index_name}: {path.name}")
                 fail(f"  artifact: {artifact_hash}")
@@ -440,6 +443,8 @@ def main() -> int:
                 continue
 
             ok(f"GH attestation verified: {name} ({artifact_hash})")
+            info(f"  signed by: release.yml@refs/tags/v{version}")
+            info(f"  trust root: {OIDC_ISSUER}")
         except Exception as exc:  # noqa: BLE001
             fail(f"GH attestation: {name} — {exc}")
             failures += 1
