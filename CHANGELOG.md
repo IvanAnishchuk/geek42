@@ -8,6 +8,13 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+### Fixed
+
+- Revert SLSA generator to tag ref (`@v2.1.0`) — commit SHA pinning
+  breaks `generate-builder.sh` which requires `refs/tags/vX.Y.Z`.
+  Tag pinning is acceptable because the reusable workflow is the
+  trust boundary itself.
+
 ## [0.4.2a8] - 2026-04-12
 
 ### Added
