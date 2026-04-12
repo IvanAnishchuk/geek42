@@ -1,3 +1,14 @@
+geek42 (0.4.2~a8-1) unstable; urgency=medium
+
+  * New upstream pre-release.
+  * pypi-attestations CLI integration.
+  * Trust anchors derived from pyproject.toml.
+  * Gemini Code Assist and CodeRabbit PR reviewers.
+  * Dependency-review allowlist policy.
+  * See CHANGELOG.md for details.
+
+ -- Ivan Anishchuk <ivan@agorism.org>  Sat, 12 Apr 2026 00:00:00 +0000
+
 geek42 (0.4.2~a7-1) unstable; urgency=medium
 
   * New upstream pre-release.
