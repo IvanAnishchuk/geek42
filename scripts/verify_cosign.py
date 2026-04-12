@@ -16,9 +16,9 @@ Requirements:
   - gh      (GitHub CLI, only for downloading proof files)
 
 Usage:
-    uv run scripts/verify_cosign.py [VERSION]
-    uv run scripts/verify_cosign.py 0.4.2a7
-    uv run scripts/verify_cosign.py          # auto-detects from __init__.py
+    uv run python scripts/verify_cosign.py [VERSION]
+    uv run python scripts/verify_cosign.py 0.4.2a7
+    uv run python scripts/verify_cosign.py          # auto-detects from __init__.py
 """
 
 from __future__ import annotations
@@ -385,7 +385,7 @@ def main() -> int:
         console.print(
             Panel(
                 f"[bold red]No files matching version {version} found in dist/[/]\n"
-                "Download with: uv run scripts/download_release.py " + version,
+                "Download with: uv run python scripts/download_release.py " + version,
             )
         )
         return 1

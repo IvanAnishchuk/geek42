@@ -26,8 +26,8 @@ uv run pre-commit install --hook-type pre-push
 
 | Script | Command | Purpose |
 |--------|---------|---------|
-| Regenerate requirements | `uv run scripts/regen_requirements.py` | Rewrites `requirements.txt` + `requirements-dev.txt` from `uv.lock` (hash-pinned, committed) |
-| Supply-chain audit | `uv run scripts/audit.py` | Runs the same checks as the CI `audit` job locally |
+| Regenerate requirements | `uv run python scripts/regen_requirements.py` | Rewrites `requirements.txt` + `requirements-dev.txt` from `uv.lock` (hash-pinned, committed) |
+| Supply-chain audit | `uv run python scripts/audit.py` | Runs the same checks as the CI `audit` job locally |
 
 ### Pre-commit hooks
 

@@ -28,12 +28,12 @@ providers are verified by each script using different toolchains:
 **Quick start:**
 ```sh
 # Download release artifacts + proof files
-uv run scripts/download_release.py 0.4.2a7
+uv run python scripts/download_release.py 0.4.2a7
 
 # Verify with any of the three scripts
-uv run scripts/verify_provenance.py 0.4.2a7
-uv run scripts/verify_cosign.py 0.4.2a7
-uv run scripts/verify_pure.py 0.4.2a7
+uv run python scripts/verify_provenance.py 0.4.2a7
+uv run python scripts/verify_cosign.py 0.4.2a7
+uv run python scripts/verify_pure.py 0.4.2a7
 ```
 
 ### Key finding: bundle format interoperability
@@ -61,7 +61,7 @@ extracting the inner bundles:
 
 ```sh
 # Download release (dist files to dist/, proofs to proofs/)
-uv run scripts/download_release.py 0.4.2a7
+uv run python scripts/download_release.py 0.4.2a7
 
 # Sigstore bundle (cosign)
 cosign verify-blob \

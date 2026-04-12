@@ -25,7 +25,7 @@ See CONTRIBUTING.md for details.
 - [ ] Tests added/updated for new behavior
 - [ ] `uv run pytest` passes locally
 - [ ] `uv run pre-commit run --all-files` passes locally
-- [ ] `uv run scripts/audit.py` passes (if touching deps)
+- [ ] `uv run python scripts/audit.py` passes (if touching deps)
 - [ ] `CHANGELOG.md` updated under `## [Unreleased]`
 - [ ] Docs updated if the public interface changed
 - [ ] Commits are signed (`-S`) and DCO-signed off (`-s`)

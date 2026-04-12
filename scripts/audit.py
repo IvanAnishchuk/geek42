@@ -4,7 +4,7 @@ Fails with a non-zero exit code on any check failure. Idempotent —
 safe to run at any time.
 
 Usage:
-    uv run scripts/audit.py
+    uv run python scripts/audit.py
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def main() -> int:  # noqa: C901
         ok("uv.lock is up to date")
     else:
         console.print(out)
-        fail("uv.lock is out of date — run: uv run scripts/regen_requirements.py")
+        fail("uv.lock is out of date — run: uv run python scripts/regen_requirements.py")
 
     # -------------------------------------------------------------
     step(2, "requirements*.txt in sync with uv.lock")
