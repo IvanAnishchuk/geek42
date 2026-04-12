@@ -23,6 +23,15 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   supports both git and PyPI via PV conditional. Add `gen_ebuild.py`
   script to generate versioned copies at release time (#55).
 
+### Fixed
+
+- Replace deprecated `deny-licenses` with `allow-licenses` allowlist
+  in dependency-review workflow. Expand license policy to include
+  copyleft (GPL, LGPL, MPL) and public domain (WTFPL) alongside
+  permissive licenses.
+  Enable `retry-on-snapshot-warnings` and `show-openssf-scorecard`
+  to fix empty scan results (#76).
+
 ## [0.4.2a7] - 2026-04-12
 
 ### Added

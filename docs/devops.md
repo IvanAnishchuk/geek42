@@ -381,8 +381,12 @@ Scans the full git history on every push and PR using
 ### `dependency-review.yml` — dependency diff
 
 Runs on PRs only. Fails on any dependency introduction with
-moderate+ vulnerabilities or forbidden licenses (GPL-2/3, AGPL).
-Posts a summary comment on the PR.
+moderate+ vulnerabilities or licenses not on the allowlist.
+Posts a summary comment on the PR with OpenSSF Scorecard context.
+Allowed licenses include
+permissive (MIT, Apache-2.0, BSD, ISC, etc.), copyleft (GPL, LGPL,
+MPL), and public domain dedications (CC0, 0BSD, Unlicense, WTFPL).
+See `.github/workflows/dependency-review.yml` for the full list.
 
 ### Required status checks
 

@@ -88,7 +88,7 @@ for the repo-owner configuration checklist see
   sync with `pyproject.toml` or hashes don't match
 - **Dependabot** — weekly grouped PRs for minor/patch updates
 - **Dependency review** (PR-time) — blocks introductions of
-  moderate-severity vulns and forbidden licenses (GPL-2/3, AGPL)
+  moderate-severity vulns and unlisted licenses (allowlist-based)
 - **pip-audit** — runs on every CI build against the exported
   requirements, fails on any known vuln
 - **CycloneDX SBOM** — generated and attested with every release
