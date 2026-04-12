@@ -2,10 +2,94 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versions follow [PEP 440](https://peps.python.org/pep-0440/) (e.g. `0.4.2a7`
+for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
+
+### Changed
+
+- Derive trust anchors (repo slug, package name, OIDC issuer) from
+  `pyproject.toml` instead of hardcoding in verify scripts (#37).
+- Add `RELEASE_WORKFLOW` and `TAG_PREFIX` constants for configurability.
+- Pin `slsa-github-generator` to commit SHA (#49).
+
+## [0.4.2a7] - 2026-04-12
+
+### Added
+
+- `download_release.py` — downloads from GitHub Release, GitHub
+  Attestation API, and PyPI/TestPyPI Integrity API. Extracts all
+  proof formats (`.publish.attestation`, cosign bundles, GH attestation
+  bundles) into `proofs/` subdirectories (#35).
+- `verify_cosign.py` — single-binary verification using cosign for all
+  five supply-chain providers (#29).
+- `verify_pure.py` — pure-Python verification using sigstore and
+  pypi-attestations libraries (#29).
+- Trust chain display on successful verification (#34).
+- `pypi-attestations` CLI integration for PEP 740 verification in
+  `verify_provenance.py` (`inspect` + `verify attestation`) (#36).
+- `docs/pypi-attestations-cli-research.md` — CLI research findings.
+- `docs/attestation-verification.md` — state-of-the-art guide for
+  package attestation verification.
+- CLAUDE.md and copilot-instructions.md for AI-assisted development.
+
+### Changed
+
+- `verify_provenance.py` uses `pypi-attestations` CLI instead of
+  Python library imports for PEP 740 verification (#36).
+- Format conversions (GH attestation bundles, cosign-compatible PEP 740
+  bundles) moved from verify scripts into `download_release.py` (#35).
+- Proof files stored in per-index directories (`proofs/pypi/`,
+  `proofs/testpypi/`) instead of mixed `proofs/pypi/` with prefixed
+  filenames.
+- Uniform hash display across all verification scripts (#33).
+
+### Fixed
+
+- Verify artifact hash against SLSA provenance subjects.
+- All `# noqa` suppressions audited and documented (#41).
+- Versioned filenames for SBOM, SHA256SUMS, and provenance files.
+
+## [0.4.2a6] - 2026-04-11
+
+### Added
+
+- Real cryptographic PEP 740 verification via `pypi-attestations`
+  library in `verify_provenance.py`.
+
+### Changed
+
+- Verify `dist/` files directly instead of downloading duplicates.
+- Proofs organized into `proofs/github/` and `proofs/pypi/` subdirs.
+
+## [0.4.2a5] - 2026-04-11
+
+### Fixed
+
+- Create draft release before publishing for immutability.
+- Use explicit `*.sigstore.json` glob for release assets.
+
+## [0.4.2a4] - 2026-04-11
+
+### Fixed
+
+- Enable SLSA L3 provenance (`contents: write` permission fix).
+
+## [0.4.2a3] - 2026-04-11
+
+### Fixed
+
+- Only allow merge commits in repo settings.
+- Remove deployment branch policies from environments.
+
+## [0.4.2a2] - 2026-04-11
+
+### Fixed
+
+- Handle all PEP 440 pre-release suffixes (a/b/c/dev) in CI routing.
+- Simplify environment deployment branch policies.
 
 ## [0.4.2a1] - 2026-04-11
 

@@ -41,6 +41,12 @@ When bumping version, update ALL of:
 - Owners may use `--admin` to bypass review requirement for their own PRs
 - Never use `--admin` to bypass required CI checks
 
+## Changelog
+
+- Every PR should have a corresponding `CHANGELOG.md` entry under `[Unreleased]`
+- When reviewing, check that user-visible changes have changelog entries
+- Changelog uses PEP 440 versions, not SemVer
+
 ## Review process
 
 When reviewing PRs:
@@ -49,3 +55,4 @@ When reviewing PRs:
 - Never dismiss comments without explicit owner confirmation
 - Reply with linked issue number or reason before resolving conversations
 - After changes are made, re-review before approving
+- Verify that CHANGELOG.md is updated for user-visible changes

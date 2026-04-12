@@ -87,6 +87,16 @@ uv run python scripts/regen_requirements.py
 - Dev: `0.4.2a3.dev1`
 - Gentoo: `0.4.2_alpha7`, `0.4.2_beta1`, `0.4.2_rc1`
 
+## Changelog
+
+- **Every PR must update `CHANGELOG.md`** under `[Unreleased]` with a
+  brief description of the change. Group entries under `Added`, `Changed`,
+  `Fixed`, `Removed` etc. per Keep a Changelog convention.
+- Before creating a release, move `[Unreleased]` entries into the new
+  version heading with the release date.
+- The changelog uses PEP 440 versions (not SemVer). Every alpha/beta/rc
+  release gets its own section.
+
 ## Branch naming
 
 - Release: `release/0.4.2a7` (match PEP 440 exactly, no hyphens)
