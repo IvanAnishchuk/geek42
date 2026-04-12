@@ -8,6 +8,9 @@ build/
 proofs/
 *.egg
 
+# AI assistant local state
+.claude/
+
 # uv
 .venv/
 
