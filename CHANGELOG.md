@@ -14,6 +14,9 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   `pyproject.toml` instead of hardcoding in verify scripts (#37).
 - Add `RELEASE_WORKFLOW` and `TAG_PREFIX` constants for configurability.
 - Pin `slsa-github-generator` to commit SHA (#49).
+- Replace versioned ebuilds with single `-9999` live ebuild that
+  supports both git and PyPI via PV conditional. Add `gen_ebuild.py`
+  script to generate versioned copies at release time (#55).
 
 ## [0.4.2a7] - 2026-04-12
 

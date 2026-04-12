@@ -6,7 +6,15 @@ EAPI=8
 DISTUTILS_USE_PEP517=hatchling
 PYTHON_COMPAT=( python3_{13,14} )
 
-inherit distutils-r1 pypi
+inherit distutils-r1
+
+if [[ ${PV} == 9999 ]]; then
+	inherit git-r3
+	EGIT_REPO_URI="https://github.com/IvanAnishchuk/geek42.git"
+else
+	inherit pypi
+	KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv ~x86"
+fi
 
 DESCRIPTION="Convert GLEP 42 Gentoo news repositories into static blogs"
 HOMEPAGE="
@@ -16,15 +24,16 @@ HOMEPAGE="
 
 LICENSE="CC0-1.0"
 SLOT="0"
-KEYWORDS="~amd64 ~arm64 ~ppc64 ~riscv ~x86"
 
 RDEPEND="
 	dev-vcs/git
+	app-portage/gemato
 	>=dev-python/pydantic-2.0[${PYTHON_USEDEP}]
 	>=dev-python/jinja2-3.1[${PYTHON_USEDEP}]
 	>=dev-python/typer-0.15[${PYTHON_USEDEP}]
 	>=dev-python/rich-13.0[${PYTHON_USEDEP}]
 	>=dev-python/markdown-3.5[${PYTHON_USEDEP}]
+	>=dev-python/gemato-20[${PYTHON_USEDEP}]
 "
 BDEPEND="
 	test? (
