@@ -43,7 +43,7 @@ When bumping version, update ALL of:
 
 ## Changelog
 
-- Every PR should have a corresponding `CHANGELOG.md` entry under `[Unreleased]`
+- Every PR must have a corresponding `CHANGELOG.md` entry under `[Unreleased]`
 - When reviewing, check that user-visible changes have changelog entries
 - Changelog uses PEP 440 versions, not SemVer
 
