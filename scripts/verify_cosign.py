@@ -165,8 +165,8 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
     if result.returncode != 0:
         fail(f"cosign verify-blob: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr and result.stderr.strip():
-            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+        if stderr := result.stderr.strip():
+            fail(f"  error: {stderr.splitlines()[-1]}")
         return False
 
     ok(f"cosign verify-blob: {path.name} ({artifact_hash})")
@@ -201,8 +201,8 @@ def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
     if result.returncode != 0:
         fail(f"cosign SLSA L3: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr and result.stderr.strip():
-            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+        if stderr := result.stderr.strip():
+            fail(f"  error: {stderr.splitlines()[-1]}")
         return False
 
     ok(f"cosign SLSA L3: {path.name} ({artifact_hash})")
@@ -252,8 +252,8 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
     if result.returncode != 0:
         fail(f"cosign GH attestation: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr and result.stderr.strip():
-            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+        if stderr := result.stderr.strip():
+            fail(f"  error: {stderr.splitlines()[-1]}")
         return False
 
     ok(f"cosign GH attestation: {path.name} ({artifact_hash})")
@@ -330,8 +330,8 @@ def verify_pypi_attestation(
             if result.returncode != 0:
                 fail(f"cosign {index_name} PEP 740: {path.name}")
                 fail(f"  artifact: {artifact_hash}")
-                if result.stderr:
-                    fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+                if stderr := result.stderr.strip():
+                    fail(f"  error: {stderr.splitlines()[-1]}")
                 all_ok = False
             else:
                 repo = publisher.get("repository", "?")
