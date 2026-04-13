@@ -496,7 +496,12 @@ def main() -> int:
             if not prov_file.exists():
                 info(f"{index_name}: no attestation for {name}")
                 continue
-            prov = json.loads(prov_file.read_text())
+            try:
+                prov = json.loads(prov_file.read_text())
+            except (OSError, json.JSONDecodeError) as exc:
+                fail(f"{index_name}: invalid provenance for {name}: {exc}")
+                failures += 1
+                continue
             if not verify_pypi_attestation(path, prov, index_name):
                 failures += 1
 

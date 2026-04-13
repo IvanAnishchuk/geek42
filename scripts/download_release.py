@@ -182,13 +182,13 @@ def fetch_pypi_provenance(
         if exc.code == 404:
             return None  # no attestation available — expected
         print(f"  Warning: HTTP {exc.code} from {url}")
-        return None
+        raise
     except urllib.error.URLError as exc:
         print(f"  Warning: network error fetching {url}: {exc.reason}")
-        return None
+        raise
     except json.JSONDecodeError:
         print(f"  Warning: invalid JSON from {url}")
-        return None
+        raise
 
 
 def extract_pypi_proofs(version: str) -> None:
@@ -204,7 +204,11 @@ def extract_pypi_proofs(version: str) -> None:
             if not is_dist_file(f.name):
                 continue
 
-            prov = fetch_pypi_provenance(PACKAGE_NAME, version, f.name, base_url)
+            try:
+                prov = fetch_pypi_provenance(PACKAGE_NAME, version, f.name, base_url)
+            except (urllib.error.URLError, json.JSONDecodeError) as exc:
+                print(f"  {index_name}: {f.name} — fetch failed: {exc}")
+                continue
             if not prov:
                 print(f"  {index_name}: {f.name} — no attestation")
                 continue
