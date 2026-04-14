@@ -49,9 +49,14 @@ When bumping version, update ALL of:
 
 ## Review process
 
+**When asked to "review", only review.** Do not create commits, push
+changes, or apply fixes. The goal of a review is to provide feedback,
+not to modify the code. If you find issues, report them as review
+comments — never fix them on behalf of the author.
+
 When reviewing PRs:
 - Triage every comment, including low-confidence hidden ones
-- For actionable findings: fix in the PR or create a GitHub issue and link it
+- For actionable findings: report them as comments, or create a GitHub issue and link it
 - Never dismiss comments without explicit owner confirmation
 - Reply with linked issue number or reason before resolving conversations
 - After changes are made, re-review before approving

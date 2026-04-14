@@ -17,6 +17,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - Switch Dependabot from `pip` to `uv` ecosystem so it updates
   `pyproject.toml` + `uv.lock` directly (#94).
+- Copilot instructions: clarify that "review" means feedback only,
+  not committing fixes on behalf of the author.
 
 ## [0.4.2a9] - 2026-04-12
 
