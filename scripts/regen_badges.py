@@ -16,9 +16,20 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+# Tool name → badge color (shields.io hex)
+TOOL_COLORS: dict[str, str] = {
+    "uv": "DE5FE9",
+    "ruff": "D7FF64",
+    "ty": "D7FF64",
+}
+
 
 def _locked_version(lock_data: dict, package: str) -> str | None:  # noqa: ANN401 — tomllib returns Any
-    """Extract a package version from parsed uv.lock TOML data."""
+    """Extract a package version from parsed uv.lock TOML data.
+
+    Linear scan — fine for a handful of tools. If TOOL_COLORS grows large,
+    build a {name: version} lookup dict once instead.
+    """
     for pkg in lock_data.get("package", []):
         if pkg.get("name") == package:
             return pkg.get("version")
@@ -41,11 +52,7 @@ def regen_badges() -> dict[str, str]:
     badges: dict[str, str] = {}
 
     # Tool versions from uv.lock
-    for pkg, color in [
-        ("uv", "DE5FE9"),
-        ("ruff", "D7FF64"),
-        ("ty", "D7FF64"),
-    ]:
+    for pkg, color in TOOL_COLORS.items():
         version = _locked_version(lock_data, pkg)
         if version:
             badge = _make_badge(pkg, f"v{version}", color)
