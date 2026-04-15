@@ -50,6 +50,7 @@ def regen_badges() -> dict[str, str]:
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
     badges: dict[str, str] = {}
+    missing: list[str] = []
 
     # Tool versions from uv.lock
     for pkg, color in TOOL_COLORS.items():
@@ -59,6 +60,8 @@ def regen_badges() -> dict[str, str]:
             path = badges_dir / f"{pkg}.json"
             path.write_text(json.dumps(badge, indent=2) + "\n", encoding="utf-8")
             badges[pkg] = version
+        else:
+            missing.append(pkg)
 
     # Python version from pyproject.toml requires-python
     requires_python = pyproject.get("project", {}).get("requires-python", "")
@@ -68,6 +71,12 @@ def regen_badges() -> dict[str, str]:
             json.dumps(badge, indent=2) + "\n", encoding="utf-8"
         )
         badges["python"] = requires_python
+    else:
+        missing.append("python")
+
+    if missing:
+        print(f"ERROR: missing versions for: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
 
     return badges
 
