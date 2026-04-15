@@ -5,8 +5,8 @@
 # requirements*.txt files and commits them back to the PR branch.
 #
 # Uses GITHUB_TOKEN to push.  If the pushed commit does not retrigger CI
-# (a known GitHub limitation with GITHUB_TOKEN), upgrade to a GitHub App
-# token or PAT — see docs/dependabot-token-upgrade.md (TODO).
+# (a known GitHub limitation with GITHUB_TOKEN), switch to a GitHub App
+# token or fine-grained PAT for the checkout/push steps.
 
 name: "Dependabot: regenerate requirements"
 
@@ -50,8 +50,12 @@ jobs:
 
       - run: uv sync --frozen --dev
 
-      - name: Regenerate requirements files
-        run: uv run python scripts/regen_requirements.py
+      - name: Export requirements from uv.lock
+        run: |
+          uv export --format requirements-txt --no-emit-project --no-dev \
+            --output-file requirements.txt
+          uv export --format requirements-txt --no-emit-project \
+            --output-file requirements-dev.txt
 
       - name: Commit and push if changed
         run: |
