@@ -8,6 +8,10 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+### Changed
+
+- Bump rich from 14.3.3 to 15.0.0.
+
 ## [0.4.2a9] - 2026-04-12
 
 ### Fixed
