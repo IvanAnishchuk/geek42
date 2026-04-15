@@ -9,7 +9,7 @@
 # (a known GitHub limitation with GITHUB_TOKEN), switch to a GitHub App
 # token or fine-grained PAT for the checkout/push steps.
 
-name: "Dependabot: regenerate requirements"
+name: "Dependabot: regenerate requirements and badges"
 
 on:
   pull_request:
