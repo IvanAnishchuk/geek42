@@ -134,9 +134,9 @@ downloading proofs via `download_release.py`):
 
 Proof files: `proofs/{github,pypi}/`. Distribution files: `dist/`.
 
-## Pull request review process
+## Pull request review process (author checklist)
 
-After creating a PR:
+After creating a PR, the **author** (you, as the coding agent) must:
 
 1. **Request AI reviews** on every PR (Copilot, Gemini Code Assist, CodeRabbit).
 2. **Triage every review comment**, including low-confidence hidden ones.
