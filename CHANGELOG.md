@@ -8,6 +8,16 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+### Changed
+
+- Switch Dependabot from `pip` to `uv` ecosystem so it updates
+  `pyproject.toml` + `uv.lock` directly (#94).
+
+### Added
+
+- Companion workflow (`dependabot-regen.yml`) that auto-regenerates
+  `requirements*.txt` after Dependabot updates dependencies.
+
 ## [0.4.2a9] - 2026-04-12
 
 ### Fixed
