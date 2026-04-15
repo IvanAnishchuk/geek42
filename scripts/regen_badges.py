@@ -75,19 +75,20 @@ def regen_badges() -> dict[str, str]:
         missing.append("python")
 
     if missing:
-        print(f"ERROR: missing versions for: {', '.join(missing)}", file=sys.stderr)
-        sys.exit(1)
+        msg = f"missing versions for: {', '.join(missing)}"
+        raise RuntimeError(msg)
 
     return badges
 
 
 def main() -> int:
-    badges = regen_badges()
-    if badges:
-        summary = ", ".join(f"{k} {v}" for k, v in badges.items())
-        print(f"Regenerated badges: {summary}")
-    else:
-        print("No badges generated.")
+    try:
+        badges = regen_badges()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    summary = ", ".join(f"{k} {v}" for k, v in badges.items())
+    print(f"Regenerated badges: {summary}")
     return 0
 
 
