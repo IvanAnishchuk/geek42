@@ -17,6 +17,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - Switch Dependabot from `pip` to `uv` ecosystem so it updates
   `pyproject.toml` + `uv.lock` directly (#94).
+- Fix duplicate scope in Dependabot commit messages (e.g.
+  `chore(deps)(deps):` → `chore(deps):`).
 - Copilot instructions: clarify that "review" means feedback only,
   not committing fixes on behalf of the author.
 
