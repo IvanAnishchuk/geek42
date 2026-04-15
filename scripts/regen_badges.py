@@ -10,7 +10,6 @@ Usage:
 from __future__ import annotations
 
 import json
-import re
 import sys
 import tomllib
 from pathlib import Path
@@ -18,13 +17,15 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _locked_version(lock_text: str, package: str) -> str | None:
-    """Extract a package version from uv.lock text."""
-    match = re.search(rf'^name = "{package}"\nversion = "(.+?)"', lock_text, re.MULTILINE)
-    return match.group(1) if match else None
+def _locked_version(lock_data: dict, package: str) -> str | None:  # noqa: ANN401 — tomllib returns Any
+    """Extract a package version from parsed uv.lock TOML data."""
+    for pkg in lock_data.get("package", []):
+        if pkg.get("name") == package:
+            return pkg.get("version")
+    return None
 
 
-def _make_badge(label: str, message: str, color: str = "blue") -> dict:
+def _make_badge(label: str, message: str, color: str = "blue") -> dict[str, str | int]:
     """Create a shields.io endpoint badge JSON object."""
     return {"schemaVersion": 1, "label": label, "message": message, "color": color}
 
@@ -34,7 +35,7 @@ def regen_badges() -> dict[str, str]:
     badges_dir = REPO_ROOT / "badges"
     badges_dir.mkdir(exist_ok=True)
 
-    lock_text = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
+    lock_data = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
     badges: dict[str, str] = {}
@@ -45,7 +46,7 @@ def regen_badges() -> dict[str, str]:
         ("ruff", "D7FF64"),
         ("ty", "D7FF64"),
     ]:
-        version = _locked_version(lock_text, pkg)
+        version = _locked_version(lock_data, pkg)
         if version:
             badge = _make_badge(pkg, f"v{version}", color)
             path = badges_dir / f"{pkg}.json"
