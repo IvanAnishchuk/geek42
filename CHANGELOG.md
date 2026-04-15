@@ -12,6 +12,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - Companion workflow (`dependabot-regen.yml`) that auto-regenerates
   `requirements*.txt` after Dependabot updates dependencies.
+- Badge generation script (`scripts/regen_badges.py`) that extracts
+  tool versions from `uv.lock` for dynamic shields.io badges (#61).
 
 ### Changed
 
@@ -21,6 +23,12 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   `chore(deps)(deps):` → `chore(deps):`).
 - Copilot instructions: clarify that "review" means feedback only,
   not committing fixes on behalf of the author.
+
+### Fixed
+
+- Replace hard-coded tool version badges with dynamic shields.io
+  endpoints generated from `uv.lock` (#61).
+- Add uv as dev dependency so its version is tracked in `uv.lock`.
 
 ## [0.4.2a9] - 2026-04-12
 
