@@ -138,6 +138,36 @@ def info(msg: str) -> None:
     console.print(f"  [dim]{msg}[/]")
 
 
+def _extract_san(bundle: Bundle) -> str | None:
+    """Extract the SAN URI from a sigstore Bundle's signing certificate."""
+    try:
+        cert = bundle.signing_certificate
+        san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+        san_val = cast(SubjectAlternativeName, san_ext.value)
+        sans = san_val.get_values_for_type(UniformResourceIdentifier)
+        return sans[0] if sans else None
+    except (ValueError, KeyError, ExtensionNotFound, TypeError, AttributeError) as exc:
+        fail(f"  could not extract SAN from certificate: {exc}")
+        return None
+
+
+def _verify_identity(bundle: Bundle, expected_identity: str, label: str) -> bool:
+    """Extract SAN from bundle and compare against expected identity.
+
+    Returns True if SAN matches, False (with logged error) otherwise.
+    """
+    actual = _extract_san(bundle)
+    if not actual:
+        fail(f"{label}: no SAN URI in signing certificate")
+        return False
+    if actual != expected_identity:
+        fail(f"{label}: identity mismatch")
+        fail(f"  certificate SAN: {actual}")
+        fail(f"  expected: {expected_identity}")
+        return False
+    return True
+
+
 # -- 1. SHA256 checksums -----------------------------------------------
 
 
@@ -184,24 +214,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         return False
 
     # Extract SAN from certificate and compare against expected identity
-    try:
-        cert = bundle.signing_certificate
-        san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-        san_val = cast(SubjectAlternativeName, san_ext.value)
-        sans = san_val.get_values_for_type(UniformResourceIdentifier)
-        if not sans:
-            fail(f"sigstore verify: {path.name}")
-            fail("  error: no SAN URI in signing certificate")
-            return False
-        actual_identity = sans[0]
-        if actual_identity != expected_identity:
-            fail(f"sigstore verify: {path.name}")
-            fail(f"  identity mismatch: {actual_identity}")
-            fail(f"  expected: {expected_identity}")
-            return False
-    except (ValueError, KeyError, ExtensionNotFound) as exc:
-        fail(f"sigstore verify: {path.name}")
-        fail(f"  error: could not extract SAN from certificate: {exc}")
+    if not _verify_identity(bundle, expected_identity, f"sigstore verify: {path.name}"):
         return False
 
     # Cryptographic verification with sigstore library
@@ -217,7 +230,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         return False
 
     ok(f"sigstore verify: {path.name} ({sha256(path)})")
-    info(f"  signed by: {actual_identity}")
+    info(f"  signed by: {expected_identity}")
     info(f"  trust root: {OIDC_ISSUER}")
     return True
 
@@ -461,16 +474,18 @@ def main() -> int:
                 info(f"Empty GH attestation for {name}")
                 continue
             bundle_json = json.dumps(data[0]["attestation"]["bundle"]).encode()
+            expected_id = IDENTITY_TEMPLATE.format(version=version)
 
             bundle = Bundle.from_json(bundle_json)
+
+            # Extract and verify SAN from certificate
+            if not _verify_identity(bundle, expected_id, f"GH attestation: {name}"):
+                failures += 1
+                continue
+
+            # Cryptographic verification
             verifier = Verifier.production()
-            identity = policy.Identity(
-                identity=(
-                    f"https://github.com/{REPO_SLUG}"
-                    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
-                ),
-                issuer=OIDC_ISSUER,
-            )
+            identity = policy.Identity(identity=expected_id, issuer=OIDC_ISSUER)
             verifier.verify_dsse(bundle, identity)
 
             # verify_dsse checks signature but NOT artifact digest match
@@ -487,7 +502,7 @@ def main() -> int:
                 continue
 
             ok(f"GH attestation verified: {name} ({artifact_hash})")
-            info(f"  signed by: {RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}")
+            info(f"  signed by: {expected_id}")
             info(f"  trust root: {OIDC_ISSUER}")
         except (
             sigstore.errors.VerificationError,

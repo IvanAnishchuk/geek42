@@ -139,7 +139,15 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
         sans = san_val.get_values_for_type(UniformResourceIdentifier)
         if sans:
             return sans[0]
-    except (OSError, ValueError, KeyError, ExtensionNotFound, json.JSONDecodeError) as exc:
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        ExtensionNotFound,
+        json.JSONDecodeError,
+    ) as exc:
         fail(f"  could not parse bundle certificate: {exc}")
         return None
     return None

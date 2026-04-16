@@ -252,16 +252,18 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
         cert_pem = "-----BEGIN CERTIFICATE-----\n" + cert_b64 + "\n-----END CERTIFICATE-----\n"
         openssl = shutil.which("openssl")
         if not openssl:
+            fail("  openssl not found — required for SAN extraction")
             return None
         result = run([openssl, "x509", "-noout", "-ext", "subjectAltName"], input=cert_pem)
         if result.returncode != 0:
+            fail(f"  openssl x509 failed: {result.stderr.strip()}")
             return None
         for line in result.stdout.splitlines():
             stripped = line.strip()
             if stripped.startswith("URI:"):
                 return stripped.removeprefix("URI:")
-    except (json.JSONDecodeError, KeyError) as exc:
-        console.print(f"  [dim]could not parse bundle certificate: {exc}[/]")
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as exc:
+        fail(f"  could not parse bundle certificate: {exc}")
         return None
     return None
 
