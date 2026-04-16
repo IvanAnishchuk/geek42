@@ -8,6 +8,13 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+### Added
+
+- `download_artifacts.py` — focused artifact downloader with `--source gh|pypi`,
+  `--ext`, `--force`, `--dry-run`, `--verbose` options (#120).
+- `[tool.pyscv]` section in pyproject.toml for supply-chain verification
+  trust anchors.
+
 ### Fixed
 
 - Fix `download_release.py` crash when `dist/` contains subdirectories (#118).
