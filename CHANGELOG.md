@@ -36,6 +36,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   `download_release.py`'s `fetch_pypi_provenance` (#48).
 - Guard `stderr.splitlines()[-1]` against empty/whitespace-only stderr
   to prevent `IndexError` crash in verify scripts (#50).
+- Catch `ValueError` (covers `binascii.Error`) in SLSA provenance
+  base64 decoding to prevent crash on malformed payloads (#56).
 
 ## [0.4.2a9] - 2026-04-12
 
