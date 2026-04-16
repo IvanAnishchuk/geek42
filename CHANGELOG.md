@@ -12,6 +12,7 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - Version consistency pre-commit hook that checks `pyproject.toml` and
   `__init__.py` versions match (#30).
+- Pre-push hook to verify all commits are signed before pushing (#67).
 - Companion workflow (`dependabot-regen.yml`) that auto-regenerates
   `requirements*.txt` after Dependabot updates dependencies.
 - Badge generation script (`scripts/regen_badges.py`) that extracts
