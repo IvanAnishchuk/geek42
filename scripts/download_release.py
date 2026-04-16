@@ -183,8 +183,8 @@ def fetch_pypi_provenance(
             return None  # no attestation available — expected
         print(f"  Warning: HTTP {exc.code} from {url}")
         raise
-    except urllib.error.URLError as exc:
-        print(f"  Warning: network error fetching {url}: {exc.reason}")
+    except OSError as exc:
+        print(f"  Warning: network error fetching {url}: {exc}")
         raise
     except json.JSONDecodeError:
         print(f"  Warning: invalid JSON from {url}")
@@ -206,9 +206,10 @@ def extract_pypi_proofs(version: str) -> None:
 
             try:
                 prov = fetch_pypi_provenance(PACKAGE_NAME, version, f.name, base_url)
-            except (urllib.error.URLError, json.JSONDecodeError) as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 print(f"  {index_name}: {f.name} — fetch failed: {exc}")
-                continue
+                msg = f"{index_name}: {f.name} — provenance fetch failed"
+                raise RuntimeError(msg) from exc
             if not prov:
                 print(f"  {index_name}: {f.name} — no attestation")
                 continue
