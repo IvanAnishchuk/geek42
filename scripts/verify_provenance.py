@@ -722,7 +722,6 @@ def main() -> int:
         for _name, path in artifacts.items():
             if not verify_slsa_provenance(path, provenance, version):
                 failures += 1
-            break  # show details once
     else:
         fail("No SLSA provenance file found in GitHub Release")
         failures += 1

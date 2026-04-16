@@ -464,7 +464,6 @@ def main() -> int:
     for _name, path in artifacts.items():
         if not verify_slsa_provenance(path, provenance, version):
             failures += 1
-        break  # verify once
 
     # -- 4. GitHub attestations (sigstore Python) -----------------------
     header("4. GitHub attestations (Python sigstore library)")

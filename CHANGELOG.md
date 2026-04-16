@@ -29,6 +29,7 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ### Fixed
 
+- SLSA verification now checks all artifacts, not just the first (#53).
 - Missing proofs (sigstore bundles, SLSA provenance, GH attestations,
   PyPI attestations) now fail verification instead of silently passing (#52).
 - Replace hard-coded tool version badges with dynamic shields.io

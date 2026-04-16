@@ -566,7 +566,6 @@ def main() -> int:
     for _, path in artifacts.items():
         if not verify_slsa_attestation(path, provenance):
             failures += 1
-        break  # provenance covers all subjects, verify once
 
     # -- 4. GitHub attestations (cosign verify-blob-attestation) --------
     header("4. GitHub attestations (cosign verify-blob-attestation)")
