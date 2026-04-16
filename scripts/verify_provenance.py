@@ -342,7 +342,7 @@ def verify_gh_attestation(path: Path) -> dict | None:
             return records[0]
     except json.JSONDecodeError as exc:
         fail(f"  could not parse gh attestation output: {exc}")
-        raise
+    return None
 
 
 def print_gh_attestation_details(attestation: dict) -> None:
@@ -443,11 +443,11 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
 
     for line in result.stdout.splitlines():
         try:
-            provenance = json.loads(line)
+            provenance_data = json.loads(line)
         except json.JSONDecodeError:
             continue  # scan for first valid JSON line in slsa-verifier output
         else:
-            print_slsa_provenance(provenance)
+            print_slsa_provenance(provenance_data)
             return True
     fail(f"  could not parse provenance from slsa-verifier output for {artifact.name}")
     return False
