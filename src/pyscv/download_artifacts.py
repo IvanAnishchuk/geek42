@@ -18,14 +18,43 @@ console = Console()
 
 DEFAULT_EXTENSIONS = (".whl", ".tar.gz")
 
+ALLOWED_HOSTS = frozenset(
+    {
+        "github.com",
+        "objects.githubusercontent.com",
+        "pypi.org",
+        "test.pypi.org",
+        "files.pythonhosted.org",
+        "test-files.pythonhosted.org",
+    }
+)
+
+GH_API_HEADERS = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+}
+
 
 # -- Download helpers ------------------------------------------------------
+
+
+def _validate_url(url: str) -> None:
+    """Validate that a download URL uses HTTPS and an allowed host."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        msg = f"Refusing non-HTTPS URL: {url}"
+        raise ValueError(msg)
+    if parsed.hostname not in ALLOWED_HOSTS:
+        msg = f"Refusing URL from unexpected host {parsed.hostname}: {url}"
+        raise ValueError(msg)
 
 
 def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[dict]:
     """Fetch asset list from GitHub Releases API."""
     url = f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}"
-    resp = httpx.get(url, timeout=30, follow_redirects=True)
+    resp = httpx.get(url, timeout=30, follow_redirects=True, headers=GH_API_HEADERS)
     resp.raise_for_status()
     return resp.json().get("assets", [])
 
@@ -39,7 +68,8 @@ def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[dict]:
 
 
 def atomic_download(url: str, dest: Path) -> None:
-    """Download a file atomically — write to temp dir then rename."""
+    """Download a file atomically — write to temp dir then replace."""
+    _validate_url(url)
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmpdir:
         tmp_file = Path(tmpdir) / dest.name
@@ -48,7 +78,7 @@ def atomic_download(url: str, dest: Path) -> None:
             with tmp_file.open("wb") as fh:
                 for chunk in stream.iter_bytes():
                     fh.write(chunk)
-        tmp_file.rename(dest)
+        tmp_file.replace(dest)
 
 
 # -- Source downloaders ----------------------------------------------------
@@ -72,8 +102,9 @@ def download_from_gh(
         return 1
 
     if not dry_run:
-        config.dist_dir.mkdir(exist_ok=True)
-    count = 0
+        config.dist_dir.mkdir(parents=True, exist_ok=True)
+    downloaded = 0
+    skipped = 0
     for asset in assets:
         name = asset["name"]
         if not any(name.endswith(ext) for ext in extensions):
@@ -84,14 +115,18 @@ def download_from_gh(
         dest = config.dist_dir / name
 
         if dry_run:
-            status = "[yellow]exists[/]" if dest.exists() and not force else "[green]download[/]"
-            console.print(f"  {status} {name}")
-            count += 1
+            if dest.exists() and not force:
+                console.print(f"  [yellow]exists[/] {name}")
+                skipped += 1
+            else:
+                console.print(f"  [green]download[/] {name}")
+                downloaded += 1
             continue
 
         if dest.exists() and not force:
             if verbose:
                 console.print(f"  [dim]skip {name} (exists)[/]")
+            skipped += 1
             continue
 
         download_url = asset["browser_download_url"]
@@ -99,14 +134,17 @@ def download_from_gh(
             console.print(f"  [dim]downloading {name}...[/]")
         try:
             atomic_download(download_url, dest)
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             console.print(f"  [red]FAIL[/] {name}: {exc}")
             return 1
         console.print(f"  [green]OK[/] {name}")
-        count += 1
+        downloaded += 1
 
     action = "would be downloaded" if dry_run else "downloaded"
-    console.print(f"\n[bold]{count}[/] artifact(s) {action} from {tag}")
+    summary = f"{downloaded} {action}"
+    if skipped:
+        summary += f", {skipped} skipped"
+    console.print(f"\n[bold]{summary}[/] from {tag}")
     return 0
 
 
@@ -127,8 +165,9 @@ def download_from_pypi(
         return 1
 
     if not dry_run:
-        config.dist_dir.mkdir(exist_ok=True)
-    count = 0
+        config.dist_dir.mkdir(parents=True, exist_ok=True)
+    downloaded = 0
+    skipped = 0
     for file_info in files:
         filename = file_info["filename"]
         if not any(filename.endswith(ext) for ext in extensions):
@@ -139,14 +178,18 @@ def download_from_pypi(
         dest = config.dist_dir / filename
 
         if dry_run:
-            status = "[yellow]exists[/]" if dest.exists() and not force else "[green]download[/]"
-            console.print(f"  {status} {filename}")
-            count += 1
+            if dest.exists() and not force:
+                console.print(f"  [yellow]exists[/] {filename}")
+                skipped += 1
+            else:
+                console.print(f"  [green]download[/] {filename}")
+                downloaded += 1
             continue
 
         if dest.exists() and not force:
             if verbose:
                 console.print(f"  [dim]skip {filename} (exists)[/]")
+            skipped += 1
             continue
 
         download_url = file_info["url"]
@@ -154,12 +197,15 @@ def download_from_pypi(
             console.print(f"  [dim]downloading {filename}...[/]")
         try:
             atomic_download(download_url, dest)
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             console.print(f"  [red]FAIL[/] {filename}: {exc}")
             return 1
         console.print(f"  [green]OK[/] {filename}")
-        count += 1
+        downloaded += 1
 
     action = "would be downloaded" if dry_run else "downloaded"
-    console.print(f"\n[bold]{count}[/] artifact(s) {action} from {config.pypi_label}")
+    summary = f"{downloaded} {action}"
+    if skipped:
+        summary += f", {skipped} skipped"
+    console.print(f"\n[bold]{summary}[/] from {config.pypi_label}")
     return 0

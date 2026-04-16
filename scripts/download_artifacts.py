@@ -63,12 +63,16 @@ def main(
 ) -> None:
     """Download distribution artifacts from GitHub Release or PyPI."""
     repo_root = Path(__file__).resolve().parent.parent
-    config = PyscvConfig.from_pyproject(repo_root / "pyproject.toml")
+    try:
+        config = PyscvConfig.from_pyproject(repo_root / "pyproject.toml")
+    except ValueError as exc:
+        console.print(f"[red]ERROR: {exc}[/]")
+        raise typer.Exit(1) from exc
 
     ver = version or config.version
     extensions = tuple(ext) if ext else DEFAULT_EXTENSIONS
 
-    if config.use_testpypi:
+    if config.use_testpypi and source == Source.pypi:
         console.print(
             "[bold yellow]WARNING: using TestPyPI (use-testpypi = true in pyproject.toml)[/]"
         )

@@ -10,6 +10,7 @@ import pytest
 
 from pyscv.config import PyscvConfig
 from pyscv.download_artifacts import (
+    _validate_url,
     atomic_download,
     download_from_gh,
     download_from_pypi,
@@ -378,7 +379,7 @@ def test_atomic_download_writes_complete_file(tmp_path, monkeypatch):
     mock_stream.iter_bytes.return_value = [b"chunk1", b"chunk2"]
 
     monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *a, **kw: mock_stream)
-    atomic_download("https://example.com/f.whl", dest)
+    atomic_download("https://github.com/f.whl", dest)
     assert dest.read_bytes() == b"chunk1chunk2"
 
 
@@ -393,7 +394,7 @@ def test_atomic_download_no_partial_on_status_error(tmp_path, monkeypatch):
 
     monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: mock_stream)
     with pytest.raises(httpx.HTTPStatusError):
-        atomic_download("https://example.com/f.whl", dest)
+        atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
 
 
@@ -413,5 +414,57 @@ def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch):
 
     monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: mock_stream)
     with pytest.raises(ConnectionError):
-        atomic_download("https://example.com/f.whl", dest)
+        atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
+
+
+# -- URL validation --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/file.whl",
+        "https://objects.githubusercontent.com/file.whl",
+        "https://pypi.org/file.whl",
+        "https://test.pypi.org/file.whl",
+        "https://files.pythonhosted.org/file.whl",
+    ],
+)
+def test_validate_url_allows_known_hosts(url):
+    _validate_url(url)  # should not raise
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://github.com/file.whl",
+        "https://evil.com/file.whl",
+        "ftp://pypi.org/file.whl",
+    ],
+)
+def test_validate_url_rejects_bad_urls(url):
+    with pytest.raises(ValueError):
+        _validate_url(url)
+
+
+# -- Config error handling -------------------------------------------------
+
+
+def test_from_pyproject_missing_file(tmp_path):
+    with pytest.raises(ValueError, match="not found"):
+        PyscvConfig.from_pyproject(tmp_path / "nonexistent.toml")
+
+
+def test_from_pyproject_invalid_toml(tmp_path):
+    p = tmp_path / "pyproject.toml"
+    p.write_text("this is not valid toml [[[")
+    with pytest.raises(ValueError, match="missing required field"):
+        PyscvConfig.from_pyproject(p)
+
+
+def test_from_pyproject_missing_project_key(tmp_path):
+    p = tmp_path / "pyproject.toml"
+    p.write_text("[tool]\nfoo = 1\n")
+    with pytest.raises(ValueError, match="missing required field"):
+        PyscvConfig.from_pyproject(p)
