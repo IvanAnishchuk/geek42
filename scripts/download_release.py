@@ -178,8 +178,17 @@ def fetch_pypi_provenance(
         req = urllib.request.Request(url)  # noqa: S310 — URL validated above
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             return json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
-        return None
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None  # no attestation available — expected
+        print(f"  Warning: HTTP {exc.code} from {url}")
+        raise
+    except OSError as exc:
+        print(f"  Warning: network error fetching {url}: {exc}")
+        raise
+    except json.JSONDecodeError:
+        print(f"  Warning: invalid JSON from {url}")
+        raise
 
 
 def extract_pypi_proofs(version: str) -> None:
@@ -195,7 +204,12 @@ def extract_pypi_proofs(version: str) -> None:
             if not is_dist_file(f.name):
                 continue
 
-            prov = fetch_pypi_provenance(PACKAGE_NAME, version, f.name, base_url)
+            try:
+                prov = fetch_pypi_provenance(PACKAGE_NAME, version, f.name, base_url)
+            except (OSError, json.JSONDecodeError) as exc:
+                print(f"  {index_name}: {f.name} — fetch failed: {exc}")
+                msg = f"{index_name}: {f.name} — provenance fetch failed"
+                raise RuntimeError(msg) from exc
             if not prov:
                 print(f"  {index_name}: {f.name} — no attestation")
                 continue
@@ -260,6 +274,8 @@ def main() -> int:
     fetch_gh_attestations(version)
 
     # 3. PyPI / TestPyPI provenance + extraction
+    # Intentionally let RuntimeError propagate with full traceback —
+    # fetch failures must be visible and loud.
     print("\nFetching PyPI/TestPyPI provenance...")
     extract_pypi_proofs(version)
 

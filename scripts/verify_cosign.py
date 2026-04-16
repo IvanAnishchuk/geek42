@@ -31,9 +31,7 @@ import json
 import subprocess
 import sys
 import tomllib
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from rich.console import Console
@@ -66,10 +64,7 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
 
-PYPI_INDEXES = [
-    ("PyPI", "https://pypi.org"),
-    ("TestPyPI", "https://test.pypi.org"),
-]
+PYPI_INDEX_DIRS = ["pypi", "testpypi"]
 
 
 # -- Helpers -----------------------------------------------------------
@@ -265,23 +260,6 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
     info(f"  signed by: {identity}")
     info(f"  trust root: {OIDC_ISSUER}")
     return True
-
-
-def fetch_pypi_provenance(
-    package: str,
-    version: str,
-    filename: str,
-    base_url: str,
-) -> dict | None:
-    url = f"{base_url}/integrity/{package}/{version}/{filename}/provenance"
-    if not url.startswith(("https://pypi.org/", "https://test.pypi.org/")):
-        return None
-    try:
-        req = urllib.request.Request(url)  # noqa: S310 — URL validated above
-        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
-            return json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError):
-        return None
 
 
 def _restructure_pep740_to_cosign(att: dict) -> dict:
@@ -543,21 +521,33 @@ def main() -> int:
             border_style="dim",
         )
     )
-    for index_name, base_url in PYPI_INDEXES:
-        if index_name == "TestPyPI":
+    for index_dir in PYPI_INDEX_DIRS:
+        index_name = "TestPyPI" if index_dir == "testpypi" else "PyPI"
+        if index_dir == "testpypi":
             console.print(
                 Panel(
                     "[bold yellow]WARNING: TestPyPI is NOT a production index.[/]",
                     border_style="yellow",
                 )
             )
+        proofs_dir = REPO_ROOT / "proofs" / index_dir
+        if not proofs_dir.is_dir():
+            fail(f"{index_name}: no proofs directory (run download_release.py first)")
+            failures += 1
+            continue
         for name, path in artifacts.items():
-            prov = fetch_pypi_provenance(PACKAGE_NAME, version, name, base_url)
-            if prov:
-                if not verify_pypi_attestation(path, prov, index_name):
-                    failures += 1
-            else:
+            prov_file = proofs_dir / f"{name}.provenance.json"
+            if not prov_file.exists():
                 info(f"{index_name}: no attestation for {name}")
+                continue
+            try:
+                prov = json.loads(prov_file.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                fail(f"{index_name}: invalid provenance for {name}: {exc}")
+                failures += 1
+                continue
+            if not verify_pypi_attestation(path, prov, index_name):
+                failures += 1
 
     # -- Summary -------------------------------------------------------
     console.print()

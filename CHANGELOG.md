@@ -23,12 +23,17 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   `chore(deps)(deps):` → `chore(deps):`).
 - Copilot instructions: clarify that "review" means feedback only,
   not committing fixes on behalf of the author.
+- Remove inline PyPI provenance fetching from verify scripts — they
+  now read from `proofs/{pypi,testpypi}/` populated by
+  `download_release.py` (#48).
 
 ### Fixed
 
 - Replace hard-coded tool version badges with dynamic shields.io
   endpoints generated from `uv.lock` (#61).
 - Add uv as dev dependency so its version is tracked in `uv.lock`.
+- Distinguish 404 (no attestation) from network/server errors in
+  `download_release.py`'s `fetch_pypi_provenance` (#48).
 
 ## [0.4.2a9] - 2026-04-12
 
