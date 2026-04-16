@@ -202,8 +202,8 @@ def verify_checksums(artifacts: dict[str, Path], sums_file: Path) -> bool:
 
 def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
     if not bundle_path.exists():
-        info(f"No sigstore bundle for {path.name}")
-        return True
+        fail(f"No sigstore bundle for {path.name}")
+        return False
 
     expected_identity = IDENTITY_TEMPLATE.format(version=version)
 
@@ -241,8 +241,8 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
 
 def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> bool:
     if not provenance_path.exists():
-        info("No SLSA provenance file found")
-        return True
+        fail("No SLSA provenance file found")
+        return False
 
     try:
         bundle = Bundle.from_json(provenance_path.read_bytes())
@@ -471,7 +471,8 @@ def main() -> int:
     for name, path in artifacts.items():
         att_file = gh_proofs / f"{name}.gh-attestation.json"
         if not att_file.exists():
-            info(f"No GH attestation file for {name}")
+            fail(f"No GH attestation file for {name}")
+            failures += 1
             continue
         try:
             data = json.loads(att_file.read_text())
@@ -537,7 +538,8 @@ def main() -> int:
         for name, path in artifacts.items():
             prov_file = proofs_dir / f"{name}.provenance.json"
             if not prov_file.exists():
-                info(f"{index_name}: no attestation for {name}")
+                fail(f"{index_name}: no attestation for {name}")
+                failures += 1
                 continue
             try:
                 prov = json.loads(prov_file.read_text(encoding="utf-8"))

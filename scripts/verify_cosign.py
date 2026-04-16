@@ -192,8 +192,8 @@ def info(msg: str) -> None:
 def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
     """Verify a sigstore bundle against a file using cosign verify-blob."""
     if not bundle.exists():
-        info(f"No sigstore bundle for {path.name}")
-        return True  # not a failure, just not available
+        fail(f"No sigstore bundle for {path.name}")
+        return False
 
     # Extract and verify identity from bundle certificate before cosign check
     identity = IDENTITY_TEMPLATE.format(version=version)
@@ -231,8 +231,8 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
 def verify_slsa_attestation(path: Path, provenance: Path) -> bool:
     """Verify SLSA L3 provenance using cosign verify-blob-attestation."""
     if not provenance.exists():
-        info("No SLSA provenance file found")
-        return True  # not a failure, just not available
+        fail("No SLSA provenance file found")
+        return False
 
     # SLSA provenance is signed by the slsa-framework generator, not our workflow
     result = run(
@@ -272,8 +272,8 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
     if not bundle_file.exists():
         att_file = gh_proofs / f"{path.name}.gh-attestation.json"
         if not att_file.exists():
-            info(f"No GH attestation file for {path.name}")
-            return True
+            fail(f"No GH attestation file for {path.name}")
+            return False
         try:
             data = json.loads(att_file.read_text())
             if not isinstance(data, list) or not data:
@@ -611,7 +611,8 @@ def main() -> int:
         for name, path in artifacts.items():
             prov_file = proofs_dir / f"{name}.provenance.json"
             if not prov_file.exists():
-                info(f"{index_name}: no attestation for {name}")
+                fail(f"{index_name}: no attestation for {name}")
+                failures += 1
                 continue
             try:
                 prov = json.loads(prov_file.read_text(encoding="utf-8"))
