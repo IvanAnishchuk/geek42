@@ -114,6 +114,8 @@ def download_github_release(version: str) -> bool:
 
     # Move non-distribution files to proofs/github/
     for f in sorted(DIST_DIR.iterdir()):
+        if not f.is_file():
+            continue
         if not is_dist_file(f.name):
             target = PROOFS_DIR / f.name
             if not target.exists():
