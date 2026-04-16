@@ -29,6 +29,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ### Fixed
 
+- Missing proofs (sigstore bundles, SLSA provenance, GH attestations,
+  PyPI attestations) now fail verification instead of silently passing (#52).
 - Replace hard-coded tool version badges with dynamic shields.io
   endpoints generated from `uv.lock` (#61).
 - Add uv as dev dependency so its version is tracked in `uv.lock`.

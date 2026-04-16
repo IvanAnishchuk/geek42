@@ -271,8 +271,8 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
 
 def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
     if not bundle or not bundle.exists():
-        info(f"sigstore: no bundle for {path.name}")
-        return True
+        fail(f"sigstore: no bundle for {path.name}")
+        return False
 
     expected_identity = IDENTITY_TEMPLATE.format(version=version)
     san = _extract_san_from_bundle(bundle)
@@ -724,7 +724,8 @@ def main() -> int:
                 failures += 1
             break  # show details once
     else:
-        info("No SLSA provenance file found in GitHub Release")
+        fail("No SLSA provenance file found in GitHub Release")
+        failures += 1
 
     # -- 5. PyPI / TestPyPI attestations (PEP 740) ---------------------
     header("5. PyPI / TestPyPI attestations (PEP 740)")
@@ -752,7 +753,8 @@ def main() -> int:
         for name, path in artifacts.items():
             prov_file = proofs_dir / f"{name}.provenance.json"
             if not prov_file.exists():
-                info(f"{index_name}: no attestation for {name}")
+                fail(f"{index_name}: no attestation for {name}")
+                failures += 1
                 continue
             try:
                 prov = json.loads(prov_file.read_text(encoding="utf-8"))
