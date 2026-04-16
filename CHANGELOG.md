@@ -8,6 +8,10 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix `download_release.py` crash when `dist/` contains subdirectories (#118).
+
 ## [0.4.2a10] - 2026-04-16
 
 ### Added
