@@ -76,6 +76,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: check-version
+        name: check version consistency (pyproject.toml vs __init__.py)
+        entry: uv run python scripts/check_version.py
+        language: system
+        files: ^(pyproject\.toml|src/geek42/__init__\.py)$
+        pass_filenames: false
+
       - id: regen-requirements
         name: regenerate requirements.txt and requirements-dev.txt
         entry: uv run python scripts/regen_requirements.py
