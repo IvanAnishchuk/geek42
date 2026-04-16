@@ -99,7 +99,8 @@ def get_version() -> str:
         if line.startswith("__version__"):
             return line.split('"')[1]
     console.print("[red]Could not detect version. Pass it as an argument.[/]")
-    sys.exit(1)
+    msg = "Could not detect version from __init__.py or CLI argument"
+    raise ValueError(msg)
 
 
 def sha256(path: Path) -> str:
@@ -458,7 +459,11 @@ def verify_checksums(artifacts: dict[str, Path], sums_file: Path) -> bool:
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 1
     console.print(
         Panel(
             f"Verifying [bold]{PACKAGE_NAME} {version}[/] with cosign\n"
@@ -558,7 +563,7 @@ def main() -> int:
     provenance = gh_proofs / f"geek42-v{version}-provenance.intoto.jsonl"
     if not provenance.exists():
         provenance = gh_proofs / "geek42-provenance.intoto.jsonl"
-    for _name, path in artifacts.items():
+    for _, path in artifacts.items():
         if not verify_slsa_attestation(path, provenance):
             failures += 1
         break  # provenance covers all subjects, verify once
@@ -573,7 +578,7 @@ def main() -> int:
             border_style="dim",
         )
     )
-    for _name, path in artifacts.items():
+    for _, path in artifacts.items():
         if not verify_gh_attestation(path, gh_proofs, version):
             failures += 1
 

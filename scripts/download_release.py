@@ -74,7 +74,8 @@ def get_version() -> str:
         if line.startswith("__version__"):
             return line.split('"')[1]
     print("Could not detect version. Pass it as an argument.")
-    sys.exit(1)
+    msg = "Could not detect version from __init__.py or CLI argument"
+    raise ValueError(msg)
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
@@ -266,7 +267,11 @@ def extract_pypi_proofs(version: str) -> None:
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return 1
     tag = f"{TAG_PREFIX}{version}"
 
     DIST_DIR.mkdir(exist_ok=True)

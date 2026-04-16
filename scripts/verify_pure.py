@@ -100,7 +100,8 @@ def get_version() -> str:
         if line.startswith("__version__"):
             return line.split('"')[1]
     console.print("[red]Could not detect version. Pass it as an argument.[/]")
-    sys.exit(1)
+    msg = "Could not detect version from __init__.py or CLI argument"
+    raise ValueError(msg)
 
 
 def sha256(path: Path) -> str:
@@ -387,7 +388,11 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        return 1
     console.print(
         Panel(
             f"Verifying [bold]{PACKAGE_NAME} {version}[/] with Python libraries\n"
