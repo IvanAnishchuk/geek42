@@ -277,8 +277,8 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
         try:
             data = json.loads(att_file.read_text())
             if not isinstance(data, list) or not data:
-                info(f"Empty or invalid GH attestation for {path.name}")
-                return True
+                fail(f"No GH attestation entries for {path.name}")
+                return False
             bundle_json = json.dumps(data[0]["attestation"]["bundle"])
             bundle_file.write_text(bundle_json)
         except (json.JSONDecodeError, KeyError) as exc:

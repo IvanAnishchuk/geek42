@@ -477,7 +477,8 @@ def main() -> int:
         try:
             data = json.loads(att_file.read_text())
             if not isinstance(data, list) or not data:
-                info(f"Empty GH attestation for {name}")
+                fail(f"No GH attestation entries for {name}")
+                failures += 1
                 continue
             bundle_json = json.dumps(data[0]["attestation"]["bundle"]).encode()
             expected_id = IDENTITY_TEMPLATE.format(version=version)
