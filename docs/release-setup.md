@@ -40,8 +40,9 @@ now installed. `.github/settings.yml` declares:
   type check, audit, OSV scan, test, CodeQL, secret scan,
   dependency review
 - Signed commits required
-- Admins may bypass review requirement (`--admin`) but not CI checks
-- Linear history required
+- Admins may bypass branch protection (`--admin`); project policy is
+  to only bypass review requirement, never CI checks
+- Merge commits (no linear history requirement)
 - No force pushes, no branch deletion
 - Conversation resolution required
 
