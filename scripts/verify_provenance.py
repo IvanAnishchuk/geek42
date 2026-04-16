@@ -338,9 +338,9 @@ def verify_gh_attestation(path: Path) -> dict | None:
             att_file.write_text(json.dumps(records, indent=2))
             info(f"Saved to {att_file.relative_to(REPO_ROOT)}")
             return records[0]
-    except json.JSONDecodeError:
-        pass
-    return None
+    except json.JSONDecodeError as exc:
+        fail(f"  could not parse gh attestation output: {exc}")
+        raise
 
 
 def print_gh_attestation_details(attestation: dict) -> None:
@@ -441,11 +441,14 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
 
     for line in result.stdout.splitlines():
         try:
-            print_slsa_provenance(json.loads(line))
-            break
+            provenance = json.loads(line)
         except json.JSONDecodeError:
-            continue
-    return True
+            continue  # scan for first valid JSON line in slsa-verifier output
+        else:
+            print_slsa_provenance(provenance)
+            return True
+    fail(f"  could not parse provenance from slsa-verifier output for {artifact.name}")
+    return False
 
 
 def print_slsa_provenance(data: dict) -> None:
