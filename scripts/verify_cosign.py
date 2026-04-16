@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -70,6 +71,11 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 # Release conventions — update these if your project uses different values
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+# OIDC identity template — {version} is substituted at verification time
+IDENTITY_TEMPLATE = (
+    f"https://github.com/{REPO_SLUG}"
+    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{{version}}"
+)
 
 PYPI_INDEX_DIRS = ["pypi", "testpypi"]
 
@@ -109,6 +115,51 @@ def collect_local(version: str) -> dict[str, Path]:
     }
 
 
+def _extract_san_from_bundle(bundle_path: Path) -> str | None:
+    """Extract the SAN URI from a sigstore bundle's signing certificate."""
+    try:
+        bundle_data = json.loads(bundle_path.read_text(encoding="utf-8"))
+        cert_b64 = (
+            bundle_data.get("verificationMaterial", {}).get("certificate", {}).get("rawBytes", "")
+        )
+        if not cert_b64:
+            return None
+        cert_pem = "-----BEGIN CERTIFICATE-----\n" + cert_b64 + "\n-----END CERTIFICATE-----\n"
+        openssl = shutil.which("openssl")
+        if not openssl:
+            return None
+        result = subprocess.run(  # noqa: S603 — args are list literals, no shell
+            [openssl, "x509", "-noout", "-ext", "subjectAltName"],
+            input=cert_pem,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("URI:"):
+                return stripped.removeprefix("URI:")
+    except (json.JSONDecodeError, KeyError):
+        pass
+    return None
+
+
+def _verify_bundle_identity(bundle_path: Path, expected_identity: str, label: str) -> bool:
+    """Extract SAN from bundle and compare against expected identity. Returns False on failure."""
+    san = _extract_san_from_bundle(bundle_path)
+    if not san:
+        fail(f"{label}: could not extract SAN from bundle certificate")
+        return False
+    if san != expected_identity:
+        fail(f"{label}: identity mismatch")
+        fail(f"  certificate SAN: {san}")
+        fail(f"  expected: {expected_identity}")
+        return False
+    return True
+
+
 def header(title: str) -> None:
     console.print()
     console.rule(f"[bold blue]{title}[/]")
@@ -136,8 +187,10 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
         info(f"No sigstore bundle for {path.name}")
         return True  # not a failure, just not available
 
-    # Use exact identity for the specific tag
-    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    # Extract and verify identity from bundle certificate before cosign check
+    identity = IDENTITY_TEMPLATE.format(version=version)
+    if not _verify_bundle_identity(bundle, identity, f"cosign verify-blob: {path.name}"):
+        return False
 
     result = run(
         [
@@ -152,21 +205,6 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
             str(path),
         ]
     )
-    if result.returncode != 0:
-        # Try with workflow-scoped regexp fallback (any tag, but only release workflow)
-        result = run(
-            [
-                "cosign",
-                "verify-blob",
-                "--certificate-oidc-issuer",
-                OIDC_ISSUER,
-                "--certificate-identity-regexp",
-                f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@",
-                "--bundle",
-                str(bundle),
-                str(path),
-            ]
-        )
 
     artifact_hash = sha256(path)
     if result.returncode != 0:
@@ -239,7 +277,10 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
             fail(f"Could not parse GH attestation: {exc}")
             return False
 
-    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    identity = IDENTITY_TEMPLATE.format(version=version)
+    if not _verify_bundle_identity(bundle_file, identity, f"cosign GH attestation: {path.name}"):
+        return False
+
     result = run(
         [
             "cosign",
@@ -296,6 +337,7 @@ def verify_pypi_attestation(
     path: Path,
     provenance: dict,
     index_name: str,
+    version: str,
 ) -> bool:
     """Verify PyPI PEP 740 attestation using cosign + pypi-attestations inspect."""
     index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
@@ -323,14 +365,21 @@ def verify_pypi_attestation(
             if not att_file.exists():
                 att_file.write_text(json.dumps(att))
 
+            identity = IDENTITY_TEMPLATE.format(version=version)
+            if not _verify_bundle_identity(
+                bundle_file, identity, f"cosign {index_name} PEP 740: {path.name}"
+            ):
+                all_ok = False
+                continue
+
             result = run(
                 [
                     "cosign",
                     "verify-blob-attestation",
                     "--certificate-oidc-issuer",
                     OIDC_ISSUER,
-                    "--certificate-identity-regexp",
-                    f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@",
+                    "--certificate-identity",
+                    identity,
                     "--type",
                     "https://docs.pypi.org/attestations/publish/v1",
                     "--bundle",
@@ -558,7 +607,7 @@ def main() -> int:
                 fail(f"{index_name}: invalid provenance for {name}: {exc}")
                 failures += 1
                 continue
-            if not verify_pypi_attestation(path, prov, index_name):
+            if not verify_pypi_attestation(path, prov, index_name, version):
                 failures += 1
 
     # -- Summary -------------------------------------------------------

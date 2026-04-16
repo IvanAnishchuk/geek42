@@ -63,6 +63,11 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 # Release conventions — update these if your project uses different values
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+# OIDC identity template — {version} is substituted at verification time
+IDENTITY_TEMPLATE = (
+    f"https://github.com/{REPO_SLUG}"
+    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{{version}}"
+)
 
 PYPI_INDEX_DIRS = ["pypi", "testpypi"]
 
@@ -156,22 +161,16 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
     from sigstore.models import Bundle
     from sigstore.verify import Verifier, policy
 
-    identity_str = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    expected_identity = IDENTITY_TEMPLATE.format(version=version)
 
     try:
         bundle = Bundle.from_json(bundle_path.read_bytes())
-        verifier = Verifier.production()
-        identity = policy.Identity(identity=identity_str, issuer=OIDC_ISSUER)
-        verifier.verify_artifact(path.read_bytes(), bundle, identity)
-    except (sigstore.errors.VerificationError, ValueError, OSError) as exc:
-        artifact_hash = sha256(path)
+    except (ValueError, OSError) as exc:
         fail(f"sigstore verify: {path.name}")
-        fail(f"  artifact: {artifact_hash}")
-        fail(f"  error: {exc}")
+        fail(f"  error: could not load bundle: {exc}")
         return False
 
-    ok(f"sigstore verify: {path.name} ({sha256(path)})")
-
+    # Extract SAN from certificate and compare against expected identity
     try:
         from typing import cast
 
@@ -182,13 +181,36 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
         san_val = cast(SubjectAlternativeName, san_ext.value)
         sans = san_val.get_values_for_type(UniformResourceIdentifier)
-        if sans:
-            info(f"  signed by: {sans[0]}")
-        info(f"  issuer: {cert.issuer.rfc4514_string()}")
-        info(f"  trust root: {OIDC_ISSUER}")
-    except (ImportError, ValueError, KeyError):
-        info(f"  trust root: {OIDC_ISSUER}")
+        if not sans:
+            fail(f"sigstore verify: {path.name}")
+            fail("  error: no SAN URI in signing certificate")
+            return False
+        actual_identity = sans[0]
+        if actual_identity != expected_identity:
+            fail(f"sigstore verify: {path.name}")
+            fail(f"  identity mismatch: {actual_identity}")
+            fail(f"  expected: {expected_identity}")
+            return False
+    except (ImportError, ValueError, KeyError) as exc:
+        fail(f"sigstore verify: {path.name}")
+        fail(f"  error: could not extract SAN from certificate: {exc}")
+        return False
 
+    # Cryptographic verification with sigstore library
+    try:
+        verifier = Verifier.production()
+        identity = policy.Identity(identity=expected_identity, issuer=OIDC_ISSUER)
+        verifier.verify_artifact(path.read_bytes(), bundle, identity)
+    except (sigstore.errors.VerificationError, ValueError, OSError) as exc:
+        artifact_hash = sha256(path)
+        fail(f"sigstore verify: {path.name}")
+        fail(f"  artifact: {artifact_hash}")
+        fail(f"  error: {exc}")
+        return False
+
+    ok(f"sigstore verify: {path.name} ({sha256(path)})")
+    info(f"  signed by: {actual_identity}")
+    info(f"  trust root: {OIDC_ISSUER}")
     return True
 
 

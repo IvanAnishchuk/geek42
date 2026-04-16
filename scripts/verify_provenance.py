@@ -73,6 +73,11 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 # Release conventions — update these if your project uses different values
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+# OIDC identity template — {version} is substituted at verification time
+IDENTITY_TEMPLATE = (
+    f"https://github.com/{REPO_SLUG}"
+    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{{version}}"
+)
 
 # -- Descriptions for each mechanism ----------------------------------
 
@@ -245,7 +250,10 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
         if not cert_b64:
             return None
         cert_pem = "-----BEGIN CERTIFICATE-----\n" + cert_b64 + "\n-----END CERTIFICATE-----\n"
-        result = run(["openssl", "x509", "-noout", "-ext", "subjectAltName"], input=cert_pem)
+        openssl = shutil.which("openssl")
+        if not openssl:
+            return None
+        result = run([openssl, "x509", "-noout", "-ext", "subjectAltName"], input=cert_pem)
         if result.returncode != 0:
             return None
         for line in result.stdout.splitlines():
@@ -262,9 +270,16 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
         info(f"sigstore: no bundle for {path.name}")
         return True
 
+    expected_identity = IDENTITY_TEMPLATE.format(version=version)
     san = _extract_san_from_bundle(bundle)
     if not san:
-        san = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+        fail(f"sigstore: could not extract SAN from bundle for {path.name}")
+        return False
+    if san != expected_identity:
+        fail(f"sigstore: identity mismatch for {path.name}")
+        fail(f"  certificate SAN: {san}")
+        fail(f"  expected: {expected_identity}")
+        return False
 
     result = run(
         [
@@ -555,10 +570,7 @@ def verify_pypi_attestation(
 
     # Use local trust anchors for identity — never relax to provenance publisher data
     publisher_data = bundles[0].get("publisher", {})
-    identity = (
-        f"https://github.com/{REPO_SLUG}"
-        f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
-    )
+    identity = IDENTITY_TEMPLATE.format(version=version)
 
     # Fail closed on publisher mismatch — do not continue verification
     pub_repo = publisher_data.get("repository", "")
