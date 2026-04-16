@@ -32,10 +32,20 @@ import sys
 import tomllib
 import urllib.parse
 from pathlib import Path
+from typing import cast
 
+import sigstore.errors
+from cryptography.x509 import (
+    ExtensionNotFound,
+    SubjectAlternativeName,
+    UniformResourceIdentifier,
+)
+from cryptography.x509.oid import ExtensionOID
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from sigstore.models import Bundle
+from sigstore.verify import Verifier, policy
 
 console = Console()
 
@@ -49,10 +59,17 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    console.print(f"[bold red]Cannot derive trust anchors from pyproject.toml: {exc}[/]")
+    console.print(
+        "[dim]Ensure pyproject.toml exists with [project].name and [project.urls].Repository[/]"
+    )
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
     console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
@@ -157,10 +174,6 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         info(f"No sigstore bundle for {path.name}")
         return True
 
-    import sigstore.errors
-    from sigstore.models import Bundle
-    from sigstore.verify import Verifier, policy
-
     expected_identity = IDENTITY_TEMPLATE.format(version=version)
 
     try:
@@ -172,11 +185,6 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
 
     # Extract SAN from certificate and compare against expected identity
     try:
-        from typing import cast
-
-        from cryptography.x509 import SubjectAlternativeName, UniformResourceIdentifier
-        from cryptography.x509.oid import ExtensionOID
-
         cert = bundle.signing_certificate
         san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
         san_val = cast(SubjectAlternativeName, san_ext.value)
@@ -191,7 +199,7 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
             fail(f"  identity mismatch: {actual_identity}")
             fail(f"  expected: {expected_identity}")
             return False
-    except (ImportError, ValueError, KeyError) as exc:
+    except (ValueError, KeyError, ExtensionNotFound) as exc:
         fail(f"sigstore verify: {path.name}")
         fail(f"  error: could not extract SAN from certificate: {exc}")
         return False
@@ -221,10 +229,6 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
     if not provenance_path.exists():
         info("No SLSA provenance file found")
         return True
-
-    import sigstore.errors
-    from sigstore.models import Bundle
-    from sigstore.verify import Verifier, policy
 
     try:
         bundle = Bundle.from_json(provenance_path.read_bytes())
@@ -445,8 +449,6 @@ def main() -> int:
         break  # verify once
 
     # -- 4. GitHub attestations (sigstore Python) -----------------------
-    import sigstore.errors
-
     header("4. GitHub attestations (Python sigstore library)")
     for name, path in artifacts.items():
         att_file = gh_proofs / f"{name}.gh-attestation.json"
@@ -459,9 +461,6 @@ def main() -> int:
                 info(f"Empty GH attestation for {name}")
                 continue
             bundle_json = json.dumps(data[0]["attestation"]["bundle"]).encode()
-
-            from sigstore.models import Bundle
-            from sigstore.verify import Verifier, policy
 
             bundle = Bundle.from_json(bundle_json)
             verifier = Verifier.production()

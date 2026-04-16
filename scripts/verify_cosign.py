@@ -26,15 +26,23 @@ Usage:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
-import shutil
 import subprocess
 import sys
 import tomllib
 import urllib.parse
 from pathlib import Path
+from typing import cast
 
+from cryptography import x509
+from cryptography.x509 import (
+    ExtensionNotFound,
+    SubjectAlternativeName,
+    UniformResourceIdentifier,
+)
+from cryptography.x509.oid import ExtensionOID
 from rich.console import Console
 from rich.panel import Panel
 
@@ -124,25 +132,16 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
         )
         if not cert_b64:
             return None
-        cert_pem = "-----BEGIN CERTIFICATE-----\n" + cert_b64 + "\n-----END CERTIFICATE-----\n"
-        openssl = shutil.which("openssl")
-        if not openssl:
-            return None
-        result = subprocess.run(  # noqa: S603 — args are list literals, no shell
-            [openssl, "x509", "-noout", "-ext", "subjectAltName"],
-            input=cert_pem,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            return None
-        for line in result.stdout.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("URI:"):
-                return stripped.removeprefix("URI:")
-    except (json.JSONDecodeError, KeyError):
-        pass
+        cert_der = base64.b64decode(cert_b64)
+        cert = x509.load_der_x509_certificate(cert_der)
+        san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+        san_val = cast(SubjectAlternativeName, san_ext.value)
+        sans = san_val.get_values_for_type(UniformResourceIdentifier)
+        if sans:
+            return sans[0]
+    except (OSError, ValueError, KeyError, ExtensionNotFound, json.JSONDecodeError) as exc:
+        fail(f"  could not parse bundle certificate: {exc}")
+        return None
     return None
 
 

@@ -260,8 +260,9 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
             stripped = line.strip()
             if stripped.startswith("URI:"):
                 return stripped.removeprefix("URI:")
-    except (json.JSONDecodeError, KeyError):
-        pass
+    except (json.JSONDecodeError, KeyError) as exc:
+        console.print(f"  [dim]could not parse bundle certificate: {exc}[/]")
+        return None
     return None
 
 
