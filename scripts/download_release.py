@@ -74,7 +74,8 @@ def get_version() -> str:
         if line.startswith("__version__"):
             return line.split('"')[1]
     print("Could not detect version. Pass it as an argument.")
-    sys.exit(1)
+    msg = "Could not detect version from __init__.py or CLI argument"
+    raise ValueError(msg)
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
