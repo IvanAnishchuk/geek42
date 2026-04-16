@@ -32,10 +32,20 @@ import sys
 import tomllib
 import urllib.parse
 from pathlib import Path
+from typing import cast
 
+import sigstore.errors
+from cryptography.x509 import (
+    ExtensionNotFound,
+    SubjectAlternativeName,
+    UniformResourceIdentifier,
+)
+from cryptography.x509.oid import ExtensionOID
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from sigstore.models import Bundle
+from sigstore.verify import Verifier, policy
 
 console = Console()
 
@@ -49,10 +59,17 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    console.print(f"[bold red]Cannot derive trust anchors from pyproject.toml: {exc}[/]")
+    console.print(
+        "[dim]Ensure pyproject.toml exists with [project].name and [project.urls].Repository[/]"
+    )
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
     console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
@@ -63,6 +80,11 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 # Release conventions — update these if your project uses different values
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+# OIDC identity template — {version} is substituted at verification time
+IDENTITY_TEMPLATE = (
+    f"https://github.com/{REPO_SLUG}"
+    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{{version}}"
+)
 
 PYPI_INDEX_DIRS = ["pypi", "testpypi"]
 
@@ -116,6 +138,36 @@ def info(msg: str) -> None:
     console.print(f"  [dim]{msg}[/]")
 
 
+def _extract_san(bundle: Bundle) -> str | None:
+    """Extract the SAN URI from a sigstore Bundle's signing certificate."""
+    try:
+        cert = bundle.signing_certificate
+        san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+        san_val = cast(SubjectAlternativeName, san_ext.value)
+        sans = san_val.get_values_for_type(UniformResourceIdentifier)
+        return sans[0] if sans else None
+    except (ValueError, KeyError, ExtensionNotFound, TypeError, AttributeError) as exc:
+        fail(f"  could not extract SAN from certificate: {exc}")
+        return None
+
+
+def _verify_identity(bundle: Bundle, expected_identity: str, label: str) -> bool:
+    """Extract SAN from bundle and compare against expected identity.
+
+    Returns True if SAN matches, False (with logged error) otherwise.
+    """
+    actual = _extract_san(bundle)
+    if not actual:
+        fail(f"{label}: no SAN URI in signing certificate")
+        return False
+    if actual != expected_identity:
+        fail(f"{label}: identity mismatch")
+        fail(f"  certificate SAN: {actual}")
+        fail(f"  expected: {expected_identity}")
+        return False
+    return True
+
+
 # -- 1. SHA256 checksums -----------------------------------------------
 
 
@@ -152,16 +204,23 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         info(f"No sigstore bundle for {path.name}")
         return True
 
-    import sigstore.errors
-    from sigstore.models import Bundle
-    from sigstore.verify import Verifier, policy
-
-    identity_str = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    expected_identity = IDENTITY_TEMPLATE.format(version=version)
 
     try:
         bundle = Bundle.from_json(bundle_path.read_bytes())
+    except (ValueError, OSError) as exc:
+        fail(f"sigstore verify: {path.name}")
+        fail(f"  error: could not load bundle: {exc}")
+        return False
+
+    # Extract SAN from certificate and compare against expected identity
+    if not _verify_identity(bundle, expected_identity, f"sigstore verify: {path.name}"):
+        return False
+
+    # Cryptographic verification with sigstore library
+    try:
         verifier = Verifier.production()
-        identity = policy.Identity(identity=identity_str, issuer=OIDC_ISSUER)
+        identity = policy.Identity(identity=expected_identity, issuer=OIDC_ISSUER)
         verifier.verify_artifact(path.read_bytes(), bundle, identity)
     except (sigstore.errors.VerificationError, ValueError, OSError) as exc:
         artifact_hash = sha256(path)
@@ -171,24 +230,8 @@ def verify_sigstore_bundle(path: Path, bundle_path: Path, version: str) -> bool:
         return False
 
     ok(f"sigstore verify: {path.name} ({sha256(path)})")
-
-    try:
-        from typing import cast
-
-        from cryptography.x509 import SubjectAlternativeName, UniformResourceIdentifier
-        from cryptography.x509.oid import ExtensionOID
-
-        cert = bundle.signing_certificate
-        san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
-        san_val = cast(SubjectAlternativeName, san_ext.value)
-        sans = san_val.get_values_for_type(UniformResourceIdentifier)
-        if sans:
-            info(f"  signed by: {sans[0]}")
-        info(f"  issuer: {cert.issuer.rfc4514_string()}")
-        info(f"  trust root: {OIDC_ISSUER}")
-    except (ImportError, ValueError, KeyError):
-        info(f"  trust root: {OIDC_ISSUER}")
-
+    info(f"  signed by: {expected_identity}")
+    info(f"  trust root: {OIDC_ISSUER}")
     return True
 
 
@@ -199,10 +242,6 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
     if not provenance_path.exists():
         info("No SLSA provenance file found")
         return True
-
-    import sigstore.errors
-    from sigstore.models import Bundle
-    from sigstore.verify import Verifier, policy
 
     try:
         bundle = Bundle.from_json(provenance_path.read_bytes())
@@ -423,8 +462,6 @@ def main() -> int:
         break  # verify once
 
     # -- 4. GitHub attestations (sigstore Python) -----------------------
-    import sigstore.errors
-
     header("4. GitHub attestations (Python sigstore library)")
     for name, path in artifacts.items():
         att_file = gh_proofs / f"{name}.gh-attestation.json"
@@ -437,19 +474,18 @@ def main() -> int:
                 info(f"Empty GH attestation for {name}")
                 continue
             bundle_json = json.dumps(data[0]["attestation"]["bundle"]).encode()
-
-            from sigstore.models import Bundle
-            from sigstore.verify import Verifier, policy
+            expected_id = IDENTITY_TEMPLATE.format(version=version)
 
             bundle = Bundle.from_json(bundle_json)
+
+            # Extract and verify SAN from certificate
+            if not _verify_identity(bundle, expected_id, f"GH attestation: {name}"):
+                failures += 1
+                continue
+
+            # Cryptographic verification
             verifier = Verifier.production()
-            identity = policy.Identity(
-                identity=(
-                    f"https://github.com/{REPO_SLUG}"
-                    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
-                ),
-                issuer=OIDC_ISSUER,
-            )
+            identity = policy.Identity(identity=expected_id, issuer=OIDC_ISSUER)
             verifier.verify_dsse(bundle, identity)
 
             # verify_dsse checks signature but NOT artifact digest match
@@ -466,7 +502,7 @@ def main() -> int:
                 continue
 
             ok(f"GH attestation verified: {name} ({artifact_hash})")
-            info(f"  signed by: {RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}")
+            info(f"  signed by: {expected_id}")
             info(f"  trust root: {OIDC_ISSUER}")
         except (
             sigstore.errors.VerificationError,

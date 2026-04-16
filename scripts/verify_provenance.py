@@ -52,10 +52,17 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    console.print(f"[bold red]Cannot derive trust anchors from pyproject.toml: {exc}[/]")
+    console.print(
+        "[dim]Ensure pyproject.toml exists with [project].name and [project.urls].Repository[/]"
+    )
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
     console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
@@ -66,6 +73,11 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 # Release conventions — update these if your project uses different values
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+# OIDC identity template — {version} is substituted at verification time
+IDENTITY_TEMPLATE = (
+    f"https://github.com/{REPO_SLUG}"
+    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{{version}}"
+)
 
 # -- Descriptions for each mechanism ----------------------------------
 
@@ -238,15 +250,21 @@ def _extract_san_from_bundle(bundle_path: Path) -> str | None:
         if not cert_b64:
             return None
         cert_pem = "-----BEGIN CERTIFICATE-----\n" + cert_b64 + "\n-----END CERTIFICATE-----\n"
-        result = run(["openssl", "x509", "-noout", "-ext", "subjectAltName"], input=cert_pem)
+        openssl = shutil.which("openssl")
+        if not openssl:
+            fail("  openssl not found — required for SAN extraction")
+            return None
+        result = run([openssl, "x509", "-noout", "-ext", "subjectAltName"], input=cert_pem)
         if result.returncode != 0:
+            fail(f"  openssl x509 failed: {result.stderr.strip()}")
             return None
         for line in result.stdout.splitlines():
             stripped = line.strip()
             if stripped.startswith("URI:"):
                 return stripped.removeprefix("URI:")
-    except (json.JSONDecodeError, KeyError):
-        pass
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as exc:
+        fail(f"  could not parse bundle certificate: {exc}")
+        return None
     return None
 
 
@@ -255,9 +273,16 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
         info(f"sigstore: no bundle for {path.name}")
         return True
 
+    expected_identity = IDENTITY_TEMPLATE.format(version=version)
     san = _extract_san_from_bundle(bundle)
     if not san:
-        san = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+        fail(f"sigstore: could not extract SAN from bundle for {path.name}")
+        return False
+    if san != expected_identity:
+        fail(f"sigstore: identity mismatch for {path.name}")
+        fail(f"  certificate SAN: {san}")
+        fail(f"  expected: {expected_identity}")
+        return False
 
     result = run(
         [
@@ -315,8 +340,8 @@ def verify_gh_attestation(path: Path) -> dict | None:
             att_file.write_text(json.dumps(records, indent=2))
             info(f"Saved to {att_file.relative_to(REPO_ROOT)}")
             return records[0]
-    except json.JSONDecodeError:
-        pass
+    except json.JSONDecodeError as exc:
+        fail(f"  could not parse gh attestation output: {exc}")
     return None
 
 
@@ -418,11 +443,14 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
 
     for line in result.stdout.splitlines():
         try:
-            print_slsa_provenance(json.loads(line))
-            break
+            provenance_data = json.loads(line)
         except json.JSONDecodeError:
-            continue
-    return True
+            continue  # scan for first valid JSON line in slsa-verifier output
+        else:
+            print_slsa_provenance(provenance_data)
+            return True
+    fail(f"  could not parse provenance from slsa-verifier output for {artifact.name}")
+    return False
 
 
 def print_slsa_provenance(data: dict) -> None:
@@ -548,18 +576,17 @@ def verify_pypi_attestation(
 
     # Use local trust anchors for identity — never relax to provenance publisher data
     publisher_data = bundles[0].get("publisher", {})
-    identity = (
-        f"https://github.com/{REPO_SLUG}"
-        f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
-    )
+    identity = IDENTITY_TEMPLATE.format(version=version)
 
-    # Warn if publisher data doesn't match trust anchors
+    # Fail closed on publisher mismatch — do not continue verification
     pub_repo = publisher_data.get("repository", "")
     pub_wf = publisher_data.get("workflow", "")
     if pub_repo and pub_repo != REPO_SLUG:
         fail(f"Publisher repo mismatch: {pub_repo} != {REPO_SLUG}")
+        return False
     if pub_wf and pub_wf != RELEASE_WORKFLOW:
         fail(f"Publisher workflow mismatch: {pub_wf} != {RELEASE_WORKFLOW}")
+        return False
 
     # Verify with pypi-attestations CLI
     # CLI expects {artifact}.publish.attestation next to the artifact,

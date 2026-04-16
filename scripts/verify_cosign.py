@@ -26,6 +26,7 @@ Usage:
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import subprocess
@@ -33,7 +34,15 @@ import sys
 import tomllib
 import urllib.parse
 from pathlib import Path
+from typing import cast
 
+from cryptography import x509
+from cryptography.x509 import (
+    ExtensionNotFound,
+    SubjectAlternativeName,
+    UniformResourceIdentifier,
+)
+from cryptography.x509.oid import ExtensionOID
 from rich.console import Console
 from rich.panel import Panel
 
@@ -49,10 +58,17 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    console.print(f"[bold red]Cannot derive trust anchors from pyproject.toml: {exc}[/]")
+    console.print(
+        "[dim]Ensure pyproject.toml exists with [project].name and [project.urls].Repository[/]"
+    )
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
     console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
@@ -63,6 +79,11 @@ OIDC_ISSUER = KNOWN_HOSTS[_repo_host]
 # Release conventions — update these if your project uses different values
 RELEASE_WORKFLOW = "release.yml"
 TAG_PREFIX = "v"  # tags are formatted as v{version}, e.g. v0.4.2a7
+# OIDC identity template — {version} is substituted at verification time
+IDENTITY_TEMPLATE = (
+    f"https://github.com/{REPO_SLUG}"
+    f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{{version}}"
+)
 
 PYPI_INDEX_DIRS = ["pypi", "testpypi"]
 
@@ -102,6 +123,50 @@ def collect_local(version: str) -> dict[str, Path]:
     }
 
 
+def _extract_san_from_bundle(bundle_path: Path) -> str | None:
+    """Extract the SAN URI from a sigstore bundle's signing certificate."""
+    try:
+        bundle_data = json.loads(bundle_path.read_text(encoding="utf-8"))
+        cert_b64 = (
+            bundle_data.get("verificationMaterial", {}).get("certificate", {}).get("rawBytes", "")
+        )
+        if not cert_b64:
+            return None
+        cert_der = base64.b64decode(cert_b64)
+        cert = x509.load_der_x509_certificate(cert_der)
+        san_ext = cert.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+        san_val = cast(SubjectAlternativeName, san_ext.value)
+        sans = san_val.get_values_for_type(UniformResourceIdentifier)
+        if sans:
+            return sans[0]
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        ExtensionNotFound,
+        json.JSONDecodeError,
+    ) as exc:
+        fail(f"  could not parse bundle certificate: {exc}")
+        return None
+    return None
+
+
+def _verify_bundle_identity(bundle_path: Path, expected_identity: str, label: str) -> bool:
+    """Extract SAN from bundle and compare against expected identity. Returns False on failure."""
+    san = _extract_san_from_bundle(bundle_path)
+    if not san:
+        fail(f"{label}: could not extract SAN from bundle certificate")
+        return False
+    if san != expected_identity:
+        fail(f"{label}: identity mismatch")
+        fail(f"  certificate SAN: {san}")
+        fail(f"  expected: {expected_identity}")
+        return False
+    return True
+
+
 def header(title: str) -> None:
     console.print()
     console.rule(f"[bold blue]{title}[/]")
@@ -129,8 +194,10 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
         info(f"No sigstore bundle for {path.name}")
         return True  # not a failure, just not available
 
-    # Use exact identity for the specific tag
-    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    # Extract and verify identity from bundle certificate before cosign check
+    identity = IDENTITY_TEMPLATE.format(version=version)
+    if not _verify_bundle_identity(bundle, identity, f"cosign verify-blob: {path.name}"):
+        return False
 
     result = run(
         [
@@ -145,21 +212,6 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
             str(path),
         ]
     )
-    if result.returncode != 0:
-        # Try with regexp fallback
-        result = run(
-            [
-                "cosign",
-                "verify-blob",
-                "--certificate-oidc-issuer",
-                OIDC_ISSUER,
-                "--certificate-identity-regexp",
-                f"https://github.com/{REPO_SLUG}/",
-                "--bundle",
-                str(bundle),
-                str(path),
-            ]
-        )
 
     artifact_hash = sha256(path)
     if result.returncode != 0:
@@ -232,7 +284,10 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
             fail(f"Could not parse GH attestation: {exc}")
             return False
 
-    identity = f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
+    identity = IDENTITY_TEMPLATE.format(version=version)
+    if not _verify_bundle_identity(bundle_file, identity, f"cosign GH attestation: {path.name}"):
+        return False
+
     result = run(
         [
             "cosign",
@@ -263,7 +318,12 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
 
 
 def _restructure_pep740_to_cosign(att: dict) -> dict:
-    """Restructure a PEP 740 attestation into a cosign-compatible sigstore bundle."""
+    """Restructure a PEP 740 attestation into a cosign-compatible sigstore bundle.
+
+    Required PEP 740 keys: verification_material.{certificate, transparency_entries},
+    envelope.{statement, signature}. KeyError on missing keys is intentional —
+    malformed attestations should fail loudly.
+    """
     vm = att.get("verification_material", {})
     return {
         "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
@@ -284,6 +344,7 @@ def verify_pypi_attestation(
     path: Path,
     provenance: dict,
     index_name: str,
+    version: str,
 ) -> bool:
     """Verify PyPI PEP 740 attestation using cosign + pypi-attestations inspect."""
     index_dir = "testpypi" if index_name == "TestPyPI" else "pypi"
@@ -311,14 +372,21 @@ def verify_pypi_attestation(
             if not att_file.exists():
                 att_file.write_text(json.dumps(att))
 
+            identity = IDENTITY_TEMPLATE.format(version=version)
+            if not _verify_bundle_identity(
+                bundle_file, identity, f"cosign {index_name} PEP 740: {path.name}"
+            ):
+                all_ok = False
+                continue
+
             result = run(
                 [
                     "cosign",
                     "verify-blob-attestation",
                     "--certificate-oidc-issuer",
                     OIDC_ISSUER,
-                    "--certificate-identity-regexp",
-                    f"https://github.com/{REPO_SLUG}/",
+                    "--certificate-identity",
+                    identity,
                     "--type",
                     "https://docs.pypi.org/attestations/publish/v1",
                     "--bundle",
@@ -546,7 +614,7 @@ def main() -> int:
                 fail(f"{index_name}: invalid provenance for {name}: {exc}")
                 failures += 1
                 continue
-            if not verify_pypi_attestation(path, prov, index_name):
+            if not verify_pypi_attestation(path, prov, index_name, version):
                 failures += 1
 
     # -- Summary -------------------------------------------------------
