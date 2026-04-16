@@ -274,6 +274,8 @@ def main() -> int:
     fetch_gh_attestations(version)
 
     # 3. PyPI / TestPyPI provenance + extraction
+    # Intentionally let RuntimeError propagate with full traceback —
+    # fetch failures must be visible and loud.
     print("\nFetching PyPI/TestPyPI provenance...")
     extract_pypi_proofs(version)
 
