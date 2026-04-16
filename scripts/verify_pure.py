@@ -489,7 +489,8 @@ def main() -> int:
             )
         proofs_dir = REPO_ROOT / "proofs" / index_dir
         if not proofs_dir.is_dir():
-            info(f"{index_name}: no proofs directory (run download_release.py first)")
+            fail(f"{index_name}: no proofs directory (run download_release.py first)")
+            failures += 1
             continue
         for name, path in artifacts.items():
             prov_file = proofs_dir / f"{name}.provenance.json"
@@ -497,8 +498,8 @@ def main() -> int:
                 info(f"{index_name}: no attestation for {name}")
                 continue
             try:
-                prov = json.loads(prov_file.read_text())
-            except (OSError, json.JSONDecodeError) as exc:
+                prov = json.loads(prov_file.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
                 fail(f"{index_name}: invalid provenance for {name}: {exc}")
                 failures += 1
                 continue
