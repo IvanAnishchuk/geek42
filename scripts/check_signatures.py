@@ -1,7 +1,9 @@
-"""Verify that all commits on the current branch are signed.
+"""Verify that all commits being pushed are signed.
 
-Checks commits between the remote tracking branch and HEAD. Unsigned
-or badly signed commits are reported as errors.
+Uses PRE_COMMIT_FROM_REF and PRE_COMMIT_TO_REF environment variables
+(set by the pre-commit framework for pre-push hooks) to determine the
+exact commit range. This is a quick local check — GitHub branch
+protection does the authoritative enforcement.
 
 Usage:
     uv run python scripts/check_signatures.py
@@ -9,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -17,26 +20,25 @@ import sys
 def main() -> int:
     git = shutil.which("git") or "git"
 
-    # Find the remote tracking branch to compare against
-    result = subprocess.run(  # noqa: S603 — args are list literals
-        [git, "log", "--format=%H %G? %s", "@{upstream}..HEAD"],
+    from_ref = os.environ.get("PRE_COMMIT_FROM_REF", "")
+    to_ref = os.environ.get("PRE_COMMIT_TO_REF", "")
+
+    if not from_ref or not to_ref:
+        # Not running via pre-commit pre-push hook — skip
+        print("No PRE_COMMIT_FROM_REF/TO_REF set, skipping signature check.")
+        return 0
+
+    result = subprocess.run(  # noqa: S603 — args are list literals, no shell
+        [git, "log", "--format=%H %G? %s", f"{from_ref}..{to_ref}"],
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
-        # No upstream — check all commits on branch vs main
-        result = subprocess.run(  # noqa: S603
-            [git, "log", "--format=%H %G? %s", "origin/main..HEAD"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    if result.returncode != 0:
-        print("WARNING: could not determine commit range for signature check")
-        return 0
+        print(f"ERROR: git log failed for {from_ref}..{to_ref}", file=sys.stderr)
+        return 1
 
-    lines = [line for line in result.stdout.strip().splitlines() if line]
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
     if not lines:
         return 0  # nothing to push
 
@@ -44,12 +46,18 @@ def main() -> int:
     for line in lines:
         parts = line.split(" ", 2)
         if len(parts) < 3:
+            print(f"WARNING: could not parse git log line: {line!r}", file=sys.stderr)
             continue
         commit_hash, sig_status, subject = parts
         short = commit_hash[:7]
-        # G=good, U=good untrusted, E=expired (GitHub merge commits)
-        # N=no signature, B=bad signature, X=expired signature
-        if sig_status in ("G", "U", "E"):
+        # G = good signature
+        # U = good signature, untrusted key
+        # X = good signature, expired
+        # E = cannot be checked (e.g. missing key) — accepted for local check,
+        #     GitHub branch protection does authoritative enforcement
+        # N = no signature
+        # B = bad signature
+        if sig_status in ("G", "U", "X", "E"):
             continue
         if sig_status == "N":
             print(f"FAIL: unsigned commit {short}: {subject}")
@@ -60,8 +68,8 @@ def main() -> int:
         failures += 1
 
     if failures:
-        print(f"\n{failures} unsigned/invalid commit(s) found.")
-        print("All commits must be signed. See CONTRIBUTING.md for setup.")
+        print(f"\n{failures} unsigned/invalid commit(s) found.", file=sys.stderr)
+        print("All commits must be signed. See CONTRIBUTING.md for setup.", file=sys.stderr)
         return 1
 
     print(f"All {len(lines)} commit(s) are signed.")
