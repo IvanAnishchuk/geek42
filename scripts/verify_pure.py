@@ -232,7 +232,7 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
             fail(f"  artifact: {artifact_hash}")
             fail(f"  subjects: {subject_hashes}")
             return False
-    except (KeyError, ValueError, json.JSONDecodeError) as exc:
+    except (KeyError, ValueError, TypeError) as exc:
         fail(f"SLSA L3 provenance: could not verify subject match: {exc}")
         return False
 
@@ -276,8 +276,9 @@ def verify_slsa_provenance(path: Path, provenance_path: Path, version: str) -> b
 
             console.print()
             console.print(table)
-    except (KeyError, ValueError, json.JSONDecodeError) as exc:
-        info(f"  (could not display provenance details: {exc})")
+    except (KeyError, ValueError, TypeError) as exc:
+        fail(f"SLSA L3 provenance: could not parse provenance details: {exc}")
+        return False
 
     return True
 
