@@ -57,7 +57,10 @@ def _validate_version(version: str) -> None:
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError:
+        return 1
     _validate_version(version)
     gentoo_version = pep440_to_gentoo(version)
 

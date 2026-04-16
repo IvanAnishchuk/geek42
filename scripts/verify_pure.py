@@ -388,7 +388,10 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError:
+        return 1
     console.print(
         Panel(
             f"Verifying [bold]{PACKAGE_NAME} {version}[/] with Python libraries\n"

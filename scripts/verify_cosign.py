@@ -459,7 +459,10 @@ def verify_checksums(artifacts: dict[str, Path], sums_file: Path) -> bool:
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError:
+        return 1
     console.print(
         Panel(
             f"Verifying [bold]{PACKAGE_NAME} {version}[/] with cosign\n"

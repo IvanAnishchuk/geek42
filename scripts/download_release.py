@@ -267,7 +267,10 @@ def extract_pypi_proofs(version: str) -> None:
 
 
 def main() -> int:
-    version = get_version()
+    try:
+        version = get_version()
+    except ValueError:
+        return 1
     tag = f"{TAG_PREFIX}{version}"
 
     DIST_DIR.mkdir(exist_ok=True)
