@@ -49,10 +49,17 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    console.print(f"[bold red]Cannot derive trust anchors from pyproject.toml: {exc}[/]")
+    console.print(
+        "[dim]Ensure pyproject.toml exists with [project].name and [project.urls].Repository[/]"
+    )
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
     console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
@@ -146,7 +153,7 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
         ]
     )
     if result.returncode != 0:
-        # Try with regexp fallback
+        # Try with workflow-scoped regexp fallback (any tag, but only release workflow)
         result = run(
             [
                 "cosign",
@@ -154,7 +161,7 @@ def verify_sigstore_blob(path: Path, bundle: Path, version: str) -> bool:
                 "--certificate-oidc-issuer",
                 OIDC_ISSUER,
                 "--certificate-identity-regexp",
-                f"https://github.com/{REPO_SLUG}/",
+                f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@",
                 "--bundle",
                 str(bundle),
                 str(path),
@@ -263,7 +270,12 @@ def verify_gh_attestation(path: Path, gh_proofs: Path, version: str) -> bool:
 
 
 def _restructure_pep740_to_cosign(att: dict) -> dict:
-    """Restructure a PEP 740 attestation into a cosign-compatible sigstore bundle."""
+    """Restructure a PEP 740 attestation into a cosign-compatible sigstore bundle.
+
+    Required PEP 740 keys: verification_material.{certificate, transparency_entries},
+    envelope.{statement, signature}. KeyError on missing keys is intentional —
+    malformed attestations should fail loudly.
+    """
     vm = att.get("verification_material", {})
     return {
         "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
@@ -318,7 +330,7 @@ def verify_pypi_attestation(
                     "--certificate-oidc-issuer",
                     OIDC_ISSUER,
                     "--certificate-identity-regexp",
-                    f"https://github.com/{REPO_SLUG}/",
+                    f"https://github.com/{REPO_SLUG}/.github/workflows/{RELEASE_WORKFLOW}@",
                     "--type",
                     "https://docs.pypi.org/attestations/publish/v1",
                     "--bundle",

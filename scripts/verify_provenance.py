@@ -52,10 +52,17 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    console.print(f"[bold red]Cannot derive trust anchors from pyproject.toml: {exc}[/]")
+    console.print(
+        "[dim]Ensure pyproject.toml exists with [project].name and [project.urls].Repository[/]"
+    )
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     console.print(f"[bold red]Unknown repository host: {_repo_host}[/]")
     console.print(f"[dim]Known hosts: {', '.join(KNOWN_HOSTS)}[/]")
@@ -553,13 +560,15 @@ def verify_pypi_attestation(
         f"/.github/workflows/{RELEASE_WORKFLOW}@refs/tags/{TAG_PREFIX}{version}"
     )
 
-    # Warn if publisher data doesn't match trust anchors
+    # Fail closed on publisher mismatch — do not continue verification
     pub_repo = publisher_data.get("repository", "")
     pub_wf = publisher_data.get("workflow", "")
     if pub_repo and pub_repo != REPO_SLUG:
         fail(f"Publisher repo mismatch: {pub_repo} != {REPO_SLUG}")
+        return False
     if pub_wf and pub_wf != RELEASE_WORKFLOW:
         fail(f"Publisher workflow mismatch: {pub_wf} != {RELEASE_WORKFLOW}")
+        return False
 
     # Verify with pypi-attestations CLI
     # CLI expects {artifact}.publish.attestation next to the artifact,

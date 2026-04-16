@@ -39,10 +39,15 @@ KNOWN_HOSTS = {
 
 # -- Trust anchors (derived from pyproject.toml) ---------------------------
 
-_pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
-PACKAGE_NAME = _pyproject["project"]["name"]
-_repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
-_repo_host = _repo_url.hostname
+try:
+    _pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
+    PACKAGE_NAME = _pyproject["project"]["name"]
+    _repo_url = urllib.parse.urlparse(_pyproject["project"]["urls"]["Repository"])
+    _repo_host = _repo_url.hostname
+except (FileNotFoundError, tomllib.TOMLDecodeError, KeyError) as exc:
+    print(f"Error: Cannot derive trust anchors from pyproject.toml: {exc}")
+    print("Ensure pyproject.toml exists with [project].name and [project.urls].Repository")
+    sys.exit(1)
 if _repo_host not in KNOWN_HOSTS:
     print(f"Error: Unknown repository host: {_repo_host}")
     print(f"Known hosts: {', '.join(KNOWN_HOSTS)}")
@@ -122,6 +127,7 @@ def download_github_release(version: str) -> bool:
 
 def fetch_gh_attestations(version: str) -> None:
     """Fetch and extract GitHub attestation bundles for each dist file."""
+    print(f"  Fetching GH attestations for {TAG_PREFIX}{version}...")
     gh = shutil.which("gh") or "gh"
     for f in sorted(DIST_DIR.iterdir()):
         if not is_dist_file(f.name):
@@ -234,7 +240,9 @@ def extract_pypi_proofs(version: str) -> None:
                 att_file.write_text(json.dumps(att))
                 print(f"  {index_name}: {f.name} — .publish.attestation extracted")
 
-                # Restructure into cosign-compatible bundle
+                # Restructure into cosign-compatible bundle.
+                # Keys are required by PEP 740 — KeyError is a legitimate
+                # failure indicating a malformed attestation.
                 vm = att.get("verification_material", {})
                 cosign_bundle = {
                     "mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",

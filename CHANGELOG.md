@@ -36,6 +36,12 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   `download_release.py`'s `fetch_pypi_provenance` (#48).
 - Guard `stderr.splitlines()[-1]` against empty/whitespace-only stderr
   to prevent `IndexError` crash in verify scripts (#50).
+- Publisher mismatch in verify_provenance.py now fails closed instead
+  of warning and continuing (#71).
+- Tighten cosign identity regexp to match only the release workflow,
+  not any workflow in the repo (#71).
+- Wrap trust anchor derivation from pyproject.toml in try/except with
+  clear error messages across all verify/download scripts (#71).
 - Catch `ValueError` (covers `binascii.Error`) in SLSA provenance
   base64 decoding to prevent crash on malformed payloads (#56).
 
