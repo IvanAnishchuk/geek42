@@ -40,7 +40,7 @@ now installed. `.github/settings.yml` declares:
   type check, audit, OSV scan, test, CodeQL, secret scan,
   dependency review
 - Signed commits required
-- Enforce for admins (no bypass)
+- Admins may bypass review requirement (`--admin`) but not CI checks
 - Linear history required
 - No force pushes, no branch deletion
 - Conversation resolution required
