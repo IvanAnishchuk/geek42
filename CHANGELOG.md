@@ -8,6 +8,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ## [Unreleased]
 
+## [0.4.2a10] - 2026-04-16
+
 ### Added
 
 - Version consistency pre-commit hook that checks `pyproject.toml` and

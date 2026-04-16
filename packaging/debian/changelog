@@ -1,3 +1,12 @@
+geek42 (0.4.2~a10-1) unstable; urgency=medium
+
+  * New upstream pre-release.
+  * Supply-chain hardening, Dependabot uv, dynamic badges,
+    version consistency, signature verification hook.
+  * See CHANGELOG.md for details.
+
+ -- Ivan Anishchuk <ivan@agorism.org>  Thu, 16 Apr 2026 00:00:00 +0000
+
 geek42 (0.4.2~a9-1) unstable; urgency=medium
 
   * New upstream pre-release.
