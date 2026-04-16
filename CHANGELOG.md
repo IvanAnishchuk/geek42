@@ -38,7 +38,6 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   to prevent `IndexError` crash in verify scripts (#50).
 - Fix CodeQL mixed-returns alert: `get_version()` now raises `ValueError`
   instead of calling `sys.exit()` (#63).
-- Fix CodeQL incomplete-URL-substring alert in test_site.py (#63).
 - Publisher mismatch in verify_provenance.py now fails closed instead
   of warning and continuing (#71).
 - Tighten cosign identity regexp to match only the release workflow,

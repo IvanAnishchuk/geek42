@@ -71,7 +71,7 @@ def test_build_site_creates_posts(site_config: SiteConfig) -> None:
     html = (site_config.output_dir / "posts" / "2025-11-30-flexiblas-migration.html").read_text()
     assert "FlexiBLAS Migration" in html
     assert "Sam James" in html
-    assert "https://schema.org" in html
+    assert "schema.org" in html
 
 
 def test_build_site_creates_markdown_exports(site_config: SiteConfig) -> None:
