@@ -280,8 +280,8 @@ def verify_sigstore(path: Path, bundle: Path | None, version: str) -> bool:
     if result.returncode != 0:
         fail(f"sigstore verify: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr:
-            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+        if stderr := result.stderr.strip():
+            fail(f"  error: {stderr.splitlines()[-1]}")
         return False
     ok(f"sigstore verify: {path.name} ({artifact_hash})")
     info(f"  signed by: {san}")
@@ -300,8 +300,8 @@ def verify_gh_attestation(path: Path) -> dict | None:
     if result.returncode != 0:
         fail(f"gh attestation verify: {path.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr:
-            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+        if stderr := result.stderr.strip():
+            fail(f"  error: {stderr.splitlines()[-1]}")
         return None
     ok(f"gh attestation verify: {path.name} ({artifact_hash})")
     info(f"  trust root: {OIDC_ISSUER} (via GitHub)")
@@ -409,8 +409,8 @@ def verify_slsa_provenance(artifact: Path, provenance: Path, version: str) -> bo
     if result.returncode != 0:
         fail(f"slsa-verifier: {artifact.name}")
         fail(f"  artifact: {artifact_hash}")
-        if result.stderr:
-            fail(f"  error: {result.stderr.strip().splitlines()[-1]}")
+        if stderr := result.stderr.strip():
+            fail(f"  error: {stderr.splitlines()[-1]}")
         return False
     ok(f"slsa-verifier: {artifact.name} ({artifact_hash})")
     info("  signed by: slsa-framework/slsa-github-generator@v2.1.0")
