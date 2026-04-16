@@ -53,7 +53,7 @@ Summary:        %{summary}
 %{_bindir}/geek42
 
 %changelog
-* Wed Apr 16 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a10-1
+* Thu Apr 16 2026 Ivan Anishchuk <ivan@agorism.org> - 0.4.2~a10-1
 - Pre-release: supply-chain hardening, Dependabot uv, dynamic badges,
   version consistency, signature verification hook.
 
