@@ -390,7 +390,8 @@ def verify_pypi_attestation(path: Path, provenance: dict, index_name: str) -> bo
 def main() -> int:
     try:
         version = get_version()
-    except ValueError:
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
         return 1
     console.print(
         Panel(

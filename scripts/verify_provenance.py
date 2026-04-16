@@ -652,7 +652,8 @@ def verify_pypi_attestation(
 def main() -> int:
     try:
         version = get_version()
-    except ValueError:
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
         return 1
     console.print(Panel(f"Verifying supply-chain security for [bold]{PACKAGE_NAME} {version}[/]"))
 

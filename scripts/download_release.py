@@ -269,7 +269,8 @@ def extract_pypi_proofs(version: str) -> None:
 def main() -> int:
     try:
         version = get_version()
-    except ValueError:
+    except ValueError as exc:
+        print(f"Error: {exc}")
         return 1
     tag = f"{TAG_PREFIX}{version}"
 
