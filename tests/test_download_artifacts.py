@@ -403,6 +403,26 @@ def test_pypi_returns_1_on_fetch_error(monkeypatch, config):
     assert download_from_pypi(config, "99", (".whl",)) == 1
 
 
+def test_gh_unsafe_filename_returns_1(config, monkeypatch, fake_download):
+    monkeypatch.setattr(
+        "pyscv.download_artifacts.fetch_gh_release_assets",
+        lambda *_a, **_kw: [
+            GhReleaseAsset(name="../evil.whl", browser_download_url="https://github.com/x"),
+        ],
+    )
+    assert download_from_gh(config, "1.0.0", (".whl",)) == 1
+
+
+def test_pypi_unsafe_filename_returns_1(config, monkeypatch, fake_download):
+    monkeypatch.setattr(
+        "pyscv.download_artifacts.fetch_pypi_release_files",
+        lambda *_a, **_kw: [
+            PypiFileInfo(filename="../evil.whl", url="https://pypi.org/x"),
+        ],
+    )
+    assert download_from_pypi(config, "1.0.0", (".whl",)) == 1
+
+
 # -- atomic_download -------------------------------------------------------
 
 
@@ -725,6 +745,21 @@ proofs-dir = "proofs"
     result = cli_runner.invoke(app, ["--pyproject", str(p)])
     assert result.exit_code == 1
     assert "missing required fields" in result.output
+
+
+def test_cli_default_version_from_pyproject(cli_runner, cli_pyproject, monkeypatch):
+    """When no version argument is given, use version from pyproject.toml."""
+    captured = {}
+
+    def fake_fetch(config, tag):
+        captured["tag"] = tag
+        return []
+
+    monkeypatch.setattr("pyscv.download_artifacts.fetch_gh_release_assets", fake_fetch)
+    result = cli_runner.invoke(app, ["--dry-run", "--pyproject", str(cli_pyproject)])
+    assert result.exit_code == 0
+    assert captured["tag"] == "v1.0.0"
+    assert "1.0.0" in result.output
 
 
 def test_cli_version_override(cli_runner, cli_pyproject, monkeypatch):

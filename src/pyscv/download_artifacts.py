@@ -157,7 +157,11 @@ def download_from_gh(
     downloaded = 0
     skipped = 0
     for asset in assets:
-        name = _safe_filename(asset.name)
+        try:
+            name = _safe_filename(asset.name)
+        except ValueError as exc:
+            console.print(f"  [red]FAIL[/] {asset.name}: {exc}")
+            return 1
         if not any(name.endswith(ext) for ext in extensions):
             if verbose:
                 console.print(f"  [dim]skip {name} (not a dist file)[/]")
@@ -220,7 +224,11 @@ def download_from_pypi(
     downloaded = 0
     skipped = 0
     for file_info in files:
-        filename = _safe_filename(file_info.filename)
+        try:
+            filename = _safe_filename(file_info.filename)
+        except ValueError as exc:
+            console.print(f"  [red]FAIL[/] {file_info.filename}: {exc}")
+            return 1
         if not any(filename.endswith(ext) for ext in extensions):
             if verbose:
                 console.print(f"  [dim]skip {filename} (not matching extensions)[/]")
@@ -275,9 +283,9 @@ app = typer.Typer(add_completion=False)
 @app.command()
 def main(
     version: Annotated[
-        str,
+        str | None,
         typer.Argument(help="Version to download (e.g. 0.4.2a10). Default: from pyproject.toml."),
-    ] = "",
+    ] = None,
     source: Annotated[
         Source,
         typer.Option(help="Download source."),
