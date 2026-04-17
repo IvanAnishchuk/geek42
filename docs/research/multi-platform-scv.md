@@ -54,7 +54,7 @@ for extending `pyscv` beyond GitHub.
 
 GitLab has a Releases API with direct asset download:
 
-```
+```http
 GET /api/v4/projects/:id/releases/:tag_name
 GET /api/v4/projects/:id/releases/:tag_name/assets/links
 ```
@@ -65,12 +65,14 @@ Release assets can be:
 - **Package Registry files** — linked from GitLab's built-in package registry
 
 Direct download URLs follow the pattern:
-```
+
+```text
 https://gitlab.com/{group}/{project}/-/releases/{tag}/downloads/{filename}
 ```
 
 For the Generic Package Registry:
-```
+
+```text
 https://gitlab.com/api/v4/projects/:id/packages/generic/:name/:version/:filename
 ```
 
@@ -78,7 +80,7 @@ https://gitlab.com/api/v4/projects/:id/packages/generic/:name/:version/:filename
 - Project identifier is numeric ID or URL-encoded path (`group%2Fproject`)
 - Release links are separate from release metadata (two API calls)
 - Generic Package Registry is often used instead of release assets
-- Rate limits: 2000 req/min authenticated, 500 req/min unauthenticated (vs GitHub's 5000/hr authenticated, 60/hr unauthenticated)
+- Rate limits: ~2000 req/min authenticated, ~500 req/min unauthenticated on gitlab.com (varies by plan, instance, and authentication context — consult target instance docs)
 
 **Refs:**
 - https://docs.gitlab.com/ee/api/releases/
@@ -115,8 +117,11 @@ The token includes claims like:
 
 #### Sigstore Integration
 
-Sigstore's Fulcio CA accepts GitLab OIDC tokens. The `sigstore-python` and
-`cosign` tools work with GitLab CI OIDC out of the box.
+Sigstore's Fulcio CA accepts OIDC tokens from `gitlab.com`. The
+`sigstore-python` and `cosign` tools work with GitLab CI OIDC out of
+the box for `gitlab.com`. Self-hosted GitLab instances require their
+issuer URL to be explicitly added to Fulcio's configuration, which
+requires coordination with the sigstore project.
 
 GitLab published a guide for sigstore container signing in CI:
 
@@ -181,7 +186,7 @@ Configuration on PyPI:
 
 Bitbucket has a **Downloads API** (not releases):
 
-```
+```http
 GET /2.0/repositories/{workspace}/{repo_slug}/downloads
 POST /2.0/repositories/{workspace}/{repo_slug}/downloads
 ```
@@ -230,7 +235,7 @@ Fulcio-compatible OIDC.
 Gitea (and Forgejo, which powers Codeberg) has a GitHub-compatible
 Releases API:
 
-```
+```http
 GET /api/v1/repos/{owner}/{repo}/releases/tags/{tag}
 ```
 
@@ -444,7 +449,7 @@ With concrete implementations:
 Not all platforms support all verification methods. pyscv should
 support a **verification chain** that degrades gracefully:
 
-```
+```text
 Full verification (GitHub, GitLab+GCP):
   sigstore → SLSA L3 → PEP 740 → checksums
 
@@ -488,8 +493,8 @@ self-hosted instances add their own:
 # GitHub (fixed)
 {"api.github.com", "github.com", "objects.githubusercontent.com", ...}
 
-# GitLab (configurable base)
-{"gitlab.com", "*.gitlab.com"}  # or self-hosted: {"git.example.com"}
+# GitLab (configurable base — explicit hosts, no wildcards)
+{"gitlab.com"}  # or self-hosted: {"git.example.com"}
 
 # Codeberg/Gitea (configurable)
 {"codeberg.org"}  # or self-hosted: {"gitea.example.com"}

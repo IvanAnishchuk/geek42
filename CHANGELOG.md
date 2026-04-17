@@ -14,6 +14,8 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   `--ext`, `--force`, `--dry-run`, `--verbose` options (#120).
 - `[tool.pyscv]` section in pyproject.toml for supply-chain verification
   trust anchors.
+- Research document analyzing multi-platform supply-chain verification
+  support (GitLab, Bitbucket, Codeberg/Gitea, SourceHut, GCP Cloud Build).
 
 ### Fixed
 
