@@ -177,7 +177,13 @@ def _mock_response(json_data: dict) -> MagicMock:
     return resp
 
 
-def test_fetch_gh_builds_correct_url(monkeypatch, config):
+@pytest.fixture()
+def no_resolve(monkeypatch):
+    """Mock _resolve_url to return the URL unchanged (no HEAD requests)."""
+    monkeypatch.setattr("pyscv.download_artifacts._resolve_url", lambda url, **_kw: url)
+
+
+def test_fetch_gh_builds_correct_url(monkeypatch, config, no_resolve):
     captured = {}
 
     def fake_get(url, **kw):
@@ -189,7 +195,7 @@ def test_fetch_gh_builds_correct_url(monkeypatch, config):
     assert captured["url"] == "https://api.github.com/repos/owner/repo/releases/tags/v1.0.0"
 
 
-def test_fetch_gh_returns_assets(monkeypatch, config):
+def test_fetch_gh_returns_assets(monkeypatch, config, no_resolve):
     resp = _mock_response(
         {
             "assets": [
@@ -204,7 +210,7 @@ def test_fetch_gh_returns_assets(monkeypatch, config):
     assert assets[0].name == "a.whl"
 
 
-def test_fetch_gh_propagates_http_error(monkeypatch, config):
+def test_fetch_gh_propagates_http_error(monkeypatch, config, no_resolve):
     def explode(*_a, **_kw):
         raise httpx.HTTPStatusError(
             "boom", request=MagicMock(), response=MagicMock(status_code=404)
@@ -218,7 +224,7 @@ def test_fetch_gh_propagates_http_error(monkeypatch, config):
 # -- fetch_pypi_release_files ----------------------------------------------
 
 
-def test_fetch_pypi_uses_configured_base_url(monkeypatch):
+def test_fetch_pypi_uses_configured_base_url(monkeypatch, no_resolve):
     cfg = PyscvConfig(package_name="mypkg", version="1", repo_slug="o/r", use_testpypi=True)
     captured = {}
 
@@ -231,7 +237,7 @@ def test_fetch_pypi_uses_configured_base_url(monkeypatch):
     assert captured["url"] == "https://test.pypi.org/pypi/mypkg/1.0/json"
 
 
-def test_fetch_pypi_returns_files(monkeypatch, config):
+def test_fetch_pypi_returns_files(monkeypatch, config, no_resolve):
     resp = _mock_response(
         {
             "urls": [
@@ -246,7 +252,7 @@ def test_fetch_pypi_returns_files(monkeypatch, config):
     assert files[0].filename == "x.whl"
 
 
-def test_fetch_pypi_propagates_http_error(monkeypatch, config):
+def test_fetch_pypi_propagates_http_error(monkeypatch, config, no_resolve):
     def explode(*_a, **_kw):
         raise httpx.HTTPStatusError(
             "boom", request=MagicMock(), response=MagicMock(status_code=404)
@@ -257,7 +263,7 @@ def test_fetch_pypi_propagates_http_error(monkeypatch, config):
         fetch_pypi_release_files(config, "99")
 
 
-def test_fetch_gh_rejects_unexpected_redirect(monkeypatch, config):
+def test_fetch_gh_rejects_unexpected_redirect(monkeypatch, config, no_resolve):
     resp = MagicMock()
     resp.is_redirect = True
     resp.raise_for_status = MagicMock()
@@ -266,7 +272,7 @@ def test_fetch_gh_rejects_unexpected_redirect(monkeypatch, config):
         fetch_gh_release_assets(config, "v1")
 
 
-def test_fetch_pypi_rejects_unexpected_redirect(monkeypatch, config):
+def test_fetch_pypi_rejects_unexpected_redirect(monkeypatch, config, no_resolve):
     resp = MagicMock()
     resp.is_redirect = True
     resp.raise_for_status = MagicMock()

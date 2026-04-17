@@ -79,9 +79,11 @@ def _safe_filename(name: str) -> str:
 
 
 MAX_REDIRECTS = 5
+API_TIMEOUT = 30
+DOWNLOAD_TIMEOUT = 60
 
 
-def _resolve_url(url: str, timeout: float = 30) -> str:
+def _resolve_url(url: str, timeout: float = API_TIMEOUT) -> str:
     """Validate URL, follow redirect chain (each hop validated), return final URL."""
     _validate_url(url)
     start_url = url
@@ -104,7 +106,7 @@ def _resolve_url(url: str, timeout: float = 30) -> str:
 def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsset]:
     """Fetch asset list from GitHub Releases API."""
     url = _resolve_url(f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}")
-    resp = httpx.get(url, timeout=30, follow_redirects=False, headers=GH_API_HEADERS)
+    resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False, headers=GH_API_HEADERS)
     resp.raise_for_status()
     if resp.is_redirect:
         msg = f"Unexpected redirect from {url}"
@@ -116,7 +118,7 @@ def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsse
 def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[PypiFileInfo]:
     """Fetch file list from PyPI JSON API."""
     url = _resolve_url(f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json")
-    resp = httpx.get(url, timeout=30, follow_redirects=False)
+    resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False)
     resp.raise_for_status()
     if resp.is_redirect:
         msg = f"Unexpected redirect from {url}"
@@ -134,7 +136,9 @@ def atomic_download(url: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmpdir:
         tmp_file = Path(tmpdir) / dest.name
-        with httpx.stream("GET", final_url, timeout=60, follow_redirects=False) as stream:
+        with httpx.stream(
+            "GET", final_url, timeout=DOWNLOAD_TIMEOUT, follow_redirects=False
+        ) as stream:
             stream.raise_for_status()
             if stream.is_redirect:
                 msg = f"Unexpected redirect from {final_url}"
