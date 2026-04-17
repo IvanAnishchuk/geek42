@@ -20,6 +20,7 @@ DEFAULT_EXTENSIONS = (".whl", ".tar.gz")
 
 ALLOWED_HOSTS = frozenset(
     {
+        "api.github.com",
         "github.com",
         "objects.githubusercontent.com",
         "pypi.org",
@@ -54,6 +55,7 @@ def _validate_url(url: str) -> None:
 def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[dict]:
     """Fetch asset list from GitHub Releases API."""
     url = f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}"
+    _validate_url(url)
     resp = httpx.get(url, timeout=30, follow_redirects=True, headers=GH_API_HEADERS)
     resp.raise_for_status()
     return resp.json().get("assets", [])
@@ -62,6 +64,7 @@ def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[dict]:
 def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[dict]:
     """Fetch file list from PyPI JSON API."""
     url = f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json"
+    _validate_url(url)
     resp = httpx.get(url, timeout=30, follow_redirects=True)
     resp.raise_for_status()
     return resp.json().get("urls", [])

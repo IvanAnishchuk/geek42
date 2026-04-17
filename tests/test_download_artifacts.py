@@ -116,12 +116,10 @@ def test_from_pyproject_parses_all_fields(minimal_pyproject):
     assert cfg.dist_dir == minimal_pyproject.parent / "dist"
 
 
-def test_from_pyproject_defaults_without_pyscv(bare_pyproject):
-    cfg = PyscvConfig.from_pyproject(bare_pyproject)
-    assert cfg.package_name == "bare"
-    assert cfg.repo_slug == ""
-    assert cfg.tag_prefix == "v"
-    assert cfg.use_testpypi is False
+def test_from_pyproject_without_pyscv_fails_validation(bare_pyproject):
+    """No [tool.pyscv] means no repo_slug — validate_required catches it."""
+    with pytest.raises(ValueError, match="missing required fields"):
+        PyscvConfig.from_pyproject(bare_pyproject)
 
 
 @pytest.mark.parametrize(
@@ -459,12 +457,12 @@ def test_from_pyproject_missing_file(tmp_path):
 def test_from_pyproject_invalid_toml(tmp_path):
     p = tmp_path / "pyproject.toml"
     p.write_text("this is not valid toml [[[")
-    with pytest.raises(ValueError, match="missing required field"):
+    with pytest.raises(ValueError, match="not valid TOML"):
         PyscvConfig.from_pyproject(p)
 
 
-def test_from_pyproject_missing_project_key(tmp_path):
+def test_from_pyproject_missing_package_name(tmp_path):
     p = tmp_path / "pyproject.toml"
     p.write_text("[tool]\nfoo = 1\n")
-    with pytest.raises(ValueError, match="missing required field"):
+    with pytest.raises(ValueError, match="missing required fields"):
         PyscvConfig.from_pyproject(p)

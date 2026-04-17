@@ -9,12 +9,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PyscvConfig(BaseModel):
-    """Supply-chain verification config from pyproject.toml [tool.pyscv]."""
+    """Supply-chain verification config.
+
+    All fields default to empty/safe values. Config is built in phases:
+    1. Load from [tool.pyscv] (all optional, kebab-case aliases)
+    2. Augment with [project] fallbacks (name, version)
+    3. Validate required fields before use
+
+    This supports multiple config sources (TOML, CLI args, env vars)
+    being layered before final validation.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
-    package_name: str
-    version: str
+    package_name: str = Field(default="", alias="package-name")
+    version: str = ""
     repo_slug: str = Field(default="", alias="repo-slug")
     tag_prefix: str = Field(default="v", alias="tag-prefix")
     release_workflow: str = Field(default="release.yml", alias="release-workflow")
@@ -36,23 +45,45 @@ class PyscvConfig(BaseModel):
     def tag(self, version: str | None = None) -> str:
         return f"{self.tag_prefix}{version or self.version}"
 
+    def validate_required(self) -> None:
+        """Validate that required fields are set. Call after all config sources applied."""
+        missing = []
+        if not self.package_name:
+            missing.append("package_name")
+        if not self.repo_slug:
+            missing.append("repo_slug")
+        if missing:
+            msg = f"pyscv config missing required fields: {', '.join(missing)}"
+            raise ValueError(msg)
+
+    def augment_from_project(self, project: dict) -> PyscvConfig:
+        """Fill in empty package_name and version from [project] section."""
+        updates = {}
+        if not self.package_name and project.get("name"):
+            updates["package_name"] = project["name"]
+        if not self.version and project.get("version"):
+            updates["version"] = project["version"]
+        if updates:
+            return self.model_copy(update=updates)
+        return self
+
     @classmethod
     def from_pyproject(cls, path: Path) -> PyscvConfig:
+        """Load config from pyproject.toml, validate, and return."""
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
-            project = data["project"]
         except FileNotFoundError as exc:
             msg = f"pyproject.toml not found: {path}"
             raise ValueError(msg) from exc
-        except (tomllib.TOMLDecodeError, KeyError) as exc:
-            msg = f"pyproject.toml missing required field: {exc}"
+        except tomllib.TOMLDecodeError as exc:
+            msg = f"pyproject.toml is not valid TOML: {exc}"
             raise ValueError(msg) from exc
 
         pyscv = data.get("tool", {}).get("pyscv", {})
+        config = cls(dist_dir=path.parent / "dist", **pyscv)
 
-        return cls(
-            package_name=project["name"],
-            version=project["version"],
-            dist_dir=path.parent / "dist",
-            **pyscv,
-        )
+        project = data.get("project", {})
+        config = config.augment_from_project(project)
+
+        config.validate_required()
+        return config
