@@ -257,6 +257,24 @@ def test_fetch_pypi_propagates_http_error(monkeypatch, config):
         fetch_pypi_release_files(config, "99")
 
 
+def test_fetch_gh_rejects_unexpected_redirect(monkeypatch, config):
+    resp = MagicMock()
+    resp.is_redirect = True
+    resp.raise_for_status = MagicMock()
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.get", lambda *_a, **_kw: resp)
+    with pytest.raises(ValueError, match="Unexpected redirect"):
+        fetch_gh_release_assets(config, "v1")
+
+
+def test_fetch_pypi_rejects_unexpected_redirect(monkeypatch, config):
+    resp = MagicMock()
+    resp.is_redirect = True
+    resp.raise_for_status = MagicMock()
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.get", lambda *_a, **_kw: resp)
+    with pytest.raises(ValueError, match="Unexpected redirect"):
+        fetch_pypi_release_files(config, "1.0")
+
+
 # -- download_from_gh -----------------------------------------------------
 
 
@@ -436,6 +454,7 @@ def _make_mock_stream(chunks: list[bytes]):
     """Create a mock context manager for httpx.stream."""
     stream = MagicMock()
     stream.raise_for_status = MagicMock()
+    stream.is_redirect = False
     stream.iter_bytes.return_value = chunks
     stream.__enter__ = MagicMock(return_value=stream)
     stream.__exit__ = MagicMock(return_value=False)
@@ -476,11 +495,25 @@ def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch, no_re
 
     stream = MagicMock()
     stream.raise_for_status = MagicMock()
+    stream.is_redirect = False
     stream.iter_bytes = exploding_iter
     stream.__enter__ = MagicMock(return_value=stream)
     stream.__exit__ = MagicMock(return_value=False)
     monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
     with pytest.raises(ConnectionError):
+        atomic_download("https://github.com/f.whl", dest)
+    assert not dest.exists()
+
+
+def test_atomic_download_rejects_unexpected_redirect(tmp_path, monkeypatch, no_redirects):
+    dest = tmp_path / "output.whl"
+    stream = MagicMock()
+    stream.raise_for_status = MagicMock()
+    stream.is_redirect = True
+    stream.__enter__ = MagicMock(return_value=stream)
+    stream.__exit__ = MagicMock(return_value=False)
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
+    with pytest.raises(ValueError, match="Unexpected redirect"):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
 

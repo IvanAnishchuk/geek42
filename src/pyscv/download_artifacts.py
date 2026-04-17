@@ -105,6 +105,9 @@ def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsse
     url = _resolve_url(f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}")
     resp = httpx.get(url, timeout=30, follow_redirects=False, headers=GH_API_HEADERS)
     resp.raise_for_status()
+    if resp.is_redirect:
+        msg = f"Unexpected redirect from {url}"
+        raise ValueError(msg)
     raw_assets = resp.json().get("assets", [])
     return [GhReleaseAsset.model_validate(a) for a in raw_assets]
 
@@ -114,6 +117,9 @@ def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[PypiFile
     url = _resolve_url(f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json")
     resp = httpx.get(url, timeout=30, follow_redirects=False)
     resp.raise_for_status()
+    if resp.is_redirect:
+        msg = f"Unexpected redirect from {url}"
+        raise ValueError(msg)
     raw_files = resp.json().get("urls", [])
     return [PypiFileInfo.model_validate(f) for f in raw_files]
 
@@ -129,6 +135,9 @@ def atomic_download(url: str, dest: Path) -> None:
         tmp_file = Path(tmpdir) / dest.name
         with httpx.stream("GET", final_url, timeout=60, follow_redirects=False) as stream:
             stream.raise_for_status()
+            if stream.is_redirect:
+                msg = f"Unexpected redirect from {final_url}"
+                raise ValueError(msg)
             with tmp_file.open("wb") as fh:
                 for chunk in stream.iter_bytes():
                     fh.write(chunk)
