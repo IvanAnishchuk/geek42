@@ -12,10 +12,7 @@ from pyscv.config import PyscvConfig
 from pyscv.download_artifacts import (
     GhReleaseAsset,
     PypiFileInfo,
-    _safe_filename,
-    _validate_url,
     app,
-    atomic_download,
     download_from_gh,
     download_from_pypi,
     fetch_gh_release_assets,
@@ -179,8 +176,8 @@ def _mock_response(json_data: dict) -> MagicMock:
 
 @pytest.fixture()
 def no_resolve(monkeypatch):
-    """Mock _resolve_url to return the URL unchanged (no HEAD requests)."""
-    monkeypatch.setattr("pyscv.download_artifacts._resolve_url", lambda url, **_kw: url)
+    """Mock resolve_url to return the URL unchanged (no HEAD requests)."""
+    monkeypatch.setattr("pyscv.download_artifacts.resolve_url", lambda url, **_kw: url)
 
 
 def test_fetch_gh_builds_correct_url(monkeypatch, config, no_resolve):
@@ -459,111 +456,8 @@ def test_pypi_raises_if_dist_dir_is_none():
         download_from_pypi(cfg, "1.0", (".whl",))
 
 
-# -- atomic_download -------------------------------------------------------
-
-
-@pytest.fixture()
-def no_redirects(monkeypatch):
-    """Mock _resolve_url to return the URL unchanged (no redirects)."""
-    monkeypatch.setattr("pyscv.download_artifacts._resolve_url", lambda url, **_kw: url)
-
-
-def _make_mock_stream(chunks: list[bytes]):
-    """Create a mock context manager for httpx.stream."""
-    stream = MagicMock()
-    stream.raise_for_status = MagicMock()
-    stream.is_redirect = False
-    stream.iter_bytes.return_value = chunks
-    stream.__enter__ = MagicMock(return_value=stream)
-    stream.__exit__ = MagicMock(return_value=False)
-    return stream
-
-
-def test_atomic_download_writes_complete_file(tmp_path, monkeypatch, no_redirects):
-    dest = tmp_path / "output.whl"
-    monkeypatch.setattr(
-        "pyscv.download_artifacts.httpx.stream",
-        lambda *_a, **_kw: _make_mock_stream([b"chunk1", b"chunk2"]),
-    )
-    atomic_download("https://github.com/f.whl", dest)
-    assert dest.read_bytes() == b"chunk1chunk2"
-
-
-def test_atomic_download_no_partial_on_status_error(tmp_path, monkeypatch, no_redirects):
-    dest = tmp_path / "output.whl"
-    stream = MagicMock()
-    stream.raise_for_status.side_effect = httpx.HTTPStatusError(
-        "500", request=MagicMock(), response=MagicMock(status_code=500)
-    )
-    stream.__enter__ = MagicMock(return_value=stream)
-    stream.__exit__ = MagicMock(return_value=False)
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
-    with pytest.raises(httpx.HTTPStatusError):
-        atomic_download("https://github.com/f.whl", dest)
-    assert not dest.exists()
-
-
-def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch, no_redirects):
-    """If iter_bytes fails mid-write, dest must not exist."""
-    dest = tmp_path / "output.whl"
-
-    def exploding_iter():
-        yield b"partial"
-        raise ConnectionError
-
-    stream = MagicMock()
-    stream.raise_for_status = MagicMock()
-    stream.is_redirect = False
-    stream.iter_bytes = exploding_iter
-    stream.__enter__ = MagicMock(return_value=stream)
-    stream.__exit__ = MagicMock(return_value=False)
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
-    with pytest.raises(ConnectionError):
-        atomic_download("https://github.com/f.whl", dest)
-    assert not dest.exists()
-
-
-def test_atomic_download_rejects_unexpected_redirect(tmp_path, monkeypatch, no_redirects):
-    dest = tmp_path / "output.whl"
-    stream = MagicMock()
-    stream.raise_for_status = MagicMock()
-    stream.is_redirect = True
-    stream.__enter__ = MagicMock(return_value=stream)
-    stream.__exit__ = MagicMock(return_value=False)
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
-    with pytest.raises(ValueError, match="Unexpected redirect"):
-        atomic_download("https://github.com/f.whl", dest)
-    assert not dest.exists()
-
-
-# -- URL validation --------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://github.com/file.whl",
-        "https://objects.githubusercontent.com/file.whl",
-        "https://pypi.org/file.whl",
-        "https://test.pypi.org/file.whl",
-        "https://files.pythonhosted.org/file.whl",
-    ],
-)
-def test_validate_url_allows_known_hosts(url):
-    _validate_url(url)  # should not raise
-
-
-@pytest.mark.parametrize(
-    ("url", "match"),
-    [
-        ("http://github.com/file.whl", "non-HTTPS"),
-        ("https://evil.com/file.whl", "unexpected host"),
-        ("ftp://pypi.org/file.whl", "non-HTTPS"),
-    ],
-)
-def test_validate_url_rejects_bad_urls(url, match):
-    with pytest.raises(ValueError, match=match):
-        _validate_url(url)
+# (URL validation, safe_filename, resolve_url, and atomic_download tests
+# are in tests/test_net.py — they test pyscv.net primitives directly.)
 
 
 # -- Config error handling -------------------------------------------------
@@ -624,82 +518,6 @@ def test_with_overrides_allows_falsy():
     cfg = PyscvConfig(package_name="pkg", version="1.0", repo_slug="o/r", use_testpypi=True)
     updated = cfg.with_overrides(use_testpypi=False)
     assert updated.use_testpypi is False  # False is not None, so it overrides
-
-
-def test_safe_filename_accepts_normal():
-    assert _safe_filename("pkg-1.0.whl") == "pkg-1.0.whl"
-
-
-@pytest.mark.parametrize("name", ["../evil.whl", "sub/dir.whl", "..\\evil.whl"])
-def test_safe_filename_rejects_traversal(name):
-    with pytest.raises(ValueError, match="unsafe filename"):
-        _safe_filename(name)
-
-
-# -- _resolve_url ----------------------------------------------------------
-
-
-def test_resolve_url_no_redirect(monkeypatch):
-    from pyscv.download_artifacts import _resolve_url
-
-    resp = MagicMock()
-    resp.is_redirect = False
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
-    assert _resolve_url("https://github.com/file.whl") == "https://github.com/file.whl"
-
-
-def test_resolve_url_follows_valid_redirect(monkeypatch):
-    from pyscv.download_artifacts import _resolve_url
-
-    call_count = {"n": 0}
-
-    def fake_head(url, **kw):
-        call_count["n"] += 1
-        resp = MagicMock()
-        if call_count["n"] == 1:
-            resp.is_redirect = True
-            resp.headers = {"location": "https://release-assets.githubusercontent.com/file"}
-        else:
-            resp.is_redirect = False
-        return resp
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", fake_head)
-    result = _resolve_url("https://github.com/file.whl")
-    assert result == "https://release-assets.githubusercontent.com/file"
-
-
-def test_resolve_url_rejects_bad_redirect(monkeypatch):
-    from pyscv.download_artifacts import _resolve_url
-
-    resp = MagicMock()
-    resp.is_redirect = True
-    resp.headers = {"location": "https://evil.com/steal"}
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
-    with pytest.raises(ValueError, match="unexpected host"):
-        _resolve_url("https://github.com/file.whl")
-
-
-def test_resolve_url_too_many_redirects(monkeypatch):
-    from pyscv.download_artifacts import _resolve_url
-
-    resp = MagicMock()
-    resp.is_redirect = True
-    resp.headers = {"location": "https://github.com/next"}
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
-    with pytest.raises(ValueError, match="Too many redirects"):
-        _resolve_url("https://github.com/start")
-
-
-def test_resolve_url_missing_location_header(monkeypatch):
-    from pyscv.download_artifacts import _resolve_url
-
-    resp = MagicMock()
-    resp.is_redirect = True
-    resp.status_code = 302
-    resp.headers = {}
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
-    with pytest.raises(ValueError, match="missing Location header"):
-        _resolve_url("https://github.com/file.whl")
 
 
 def test_gh_returns_1_on_value_error(monkeypatch, config):

@@ -6,11 +6,9 @@ Does not touch proofs/ or perform any transformations.
 
 from __future__ import annotations
 
-import tempfile
 from enum import StrEnum
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Annotated
-from urllib.parse import urljoin, urlparse
 
 import httpx
 import typer
@@ -18,28 +16,17 @@ from pydantic import BaseModel
 from rich.console import Console
 
 from pyscv.config import PyscvConfig
+from pyscv.net import (
+    API_TIMEOUT,
+    GH_API_HEADERS,
+    atomic_download,
+    resolve_url,
+    safe_filename,
+)
 
 console = Console()
 
 DEFAULT_EXTENSIONS = (".whl", ".tar.gz")
-
-ALLOWED_HOSTS = frozenset(
-    {
-        "api.github.com",
-        "github.com",
-        "objects.githubusercontent.com",
-        "release-assets.githubusercontent.com",
-        "pypi.org",
-        "test.pypi.org",
-        "files.pythonhosted.org",
-        "test-files.pythonhosted.org",
-    }
-)
-
-GH_API_HEADERS = {
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-}
 
 
 # -- API response models ---------------------------------------------------
@@ -55,57 +42,12 @@ class PypiFileInfo(BaseModel):
     url: str
 
 
-# -- Download helpers ------------------------------------------------------
-
-
-def _validate_url(url: str) -> None:
-    """Validate that a URL uses HTTPS and an allowed host."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        msg = f"Refusing non-HTTPS URL: {url}"
-        raise ValueError(msg)
-    if parsed.hostname not in ALLOWED_HOSTS:
-        msg = f"Refusing URL from unexpected host {parsed.hostname}: {url}"
-        raise ValueError(msg)
-
-
-def _safe_filename(name: str) -> str:
-    """Validate filename has no path traversal components."""
-    safe = PurePosixPath(name).name
-    if safe != name or ".." in name or "/" in name or "\\" in name:
-        msg = f"Refusing unsafe filename: {name!r}"
-        raise ValueError(msg)
-    return safe
-
-
-MAX_REDIRECTS = 5
-API_TIMEOUT = 30
-DOWNLOAD_TIMEOUT = 60
-
-
-def _resolve_url(url: str, timeout: float = API_TIMEOUT) -> str:
-    """Validate URL, follow redirect chain (each hop validated), return final URL."""
-    _validate_url(url)
-    start_url = url
-    for _ in range(MAX_REDIRECTS):
-        resp = httpx.head(url, follow_redirects=False, timeout=timeout)
-        if not resp.is_redirect:
-            return url
-        location = resp.headers.get("location")
-        if not location:
-            msg = f"Redirect {resp.status_code} from {url} missing Location header"
-            raise ValueError(msg)
-        # urljoin handles both absolute and relative Location headers:
-        # absolute → returned as-is, relative → resolved against current url
-        url = urljoin(url, location)
-        _validate_url(url)
-    msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {start_url}"
-    raise ValueError(msg)
+# -- Fetch helpers ---------------------------------------------------------
 
 
 def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsset]:
     """Fetch asset list from GitHub Releases API."""
-    url = _resolve_url(f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}")
+    url = resolve_url(f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}")
     resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False, headers=GH_API_HEADERS)
     resp.raise_for_status()
     if resp.is_redirect:
@@ -117,7 +59,7 @@ def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsse
 
 def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[PypiFileInfo]:
     """Fetch file list from PyPI JSON API."""
-    url = _resolve_url(f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json")
+    url = resolve_url(f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json")
     resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False)
     resp.raise_for_status()
     if resp.is_redirect:
@@ -125,28 +67,6 @@ def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[PypiFile
         raise ValueError(msg)
     raw_files = resp.json().get("urls", [])
     return [PypiFileInfo.model_validate(f) for f in raw_files]
-
-
-def atomic_download(url: str, dest: Path) -> None:
-    """Download a file atomically — write to temp dir then replace.
-
-    Validates URL and all redirect destinations before downloading.
-    """
-    final_url = _resolve_url(url)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=dest.parent) as tmpdir:
-        tmp_file = Path(tmpdir) / dest.name
-        with httpx.stream(
-            "GET", final_url, timeout=DOWNLOAD_TIMEOUT, follow_redirects=False
-        ) as stream:
-            stream.raise_for_status()
-            if stream.is_redirect:
-                msg = f"Unexpected redirect from {final_url}"
-                raise ValueError(msg)
-            with tmp_file.open("wb") as fh:
-                for chunk in stream.iter_bytes():
-                    fh.write(chunk)
-        tmp_file.replace(dest)
 
 
 # -- Source downloaders ----------------------------------------------------
@@ -178,7 +98,7 @@ def download_from_gh(
     skipped = 0
     for asset in assets:
         try:
-            name = _safe_filename(asset.name)
+            name = safe_filename(asset.name)
         except ValueError as exc:
             console.print(f"  [red]FAIL[/] {asset.name}: {exc}")
             return 1
@@ -247,7 +167,7 @@ def download_from_pypi(
     skipped = 0
     for file_info in files:
         try:
-            filename = _safe_filename(file_info.filename)
+            filename = safe_filename(file_info.filename)
         except ValueError as exc:
             console.print(f"  [red]FAIL[/] {file_info.filename}: {exc}")
             return 1

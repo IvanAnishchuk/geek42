@@ -106,6 +106,7 @@ ignore = [
 [tool.pytest.ini_options]
 addopts = [
     "--cov=geek42",
+    "--cov=pyscv",
     "--cov-config=pyproject.toml",
     "--cov-report=term-missing",
     "--cov-report=html:.reports/test/htmlcov",
@@ -118,7 +119,7 @@ junit_logging = "all"
 junit_log_passing_tests = false
 
 [tool.coverage.run]
-source_pkgs = ["geek42"]
+source_pkgs = ["geek42", "pyscv"]
 branch = true
 relative_files = true
 
