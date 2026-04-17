@@ -639,6 +639,34 @@ def test_resolve_url_too_many_redirects(monkeypatch):
         _resolve_url("https://github.com/start")
 
 
+def test_resolve_url_missing_location_header(monkeypatch):
+    from pyscv.download_artifacts import _resolve_url
+
+    resp = MagicMock()
+    resp.is_redirect = True
+    resp.status_code = 302
+    resp.headers = {}
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
+    with pytest.raises(ValueError, match="missing Location header"):
+        _resolve_url("https://github.com/file.whl")
+
+
+def test_gh_returns_1_on_value_error(monkeypatch, config):
+    def explode(*_a, **_kw):
+        raise ValueError
+
+    monkeypatch.setattr("pyscv.download_artifacts.fetch_gh_release_assets", explode)
+    assert download_from_gh(config, "1.0.0", (".whl",)) == 1
+
+
+def test_pypi_returns_1_on_value_error(monkeypatch, config):
+    def explode(*_a, **_kw):
+        raise ValueError
+
+    monkeypatch.setattr("pyscv.download_artifacts.fetch_pypi_release_files", explode)
+    assert download_from_pypi(config, "1.0.0", (".whl",)) == 1
+
+
 # -- CLI (typer app) -------------------------------------------------------
 
 

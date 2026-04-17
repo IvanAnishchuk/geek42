@@ -88,9 +88,13 @@ def _resolve_url(url: str, timeout: float = 30) -> str:
         resp = httpx.head(url, follow_redirects=False, timeout=timeout)
         if not resp.is_redirect:
             return url
+        location = resp.headers.get("location")
+        if not location:
+            msg = f"Redirect {resp.status_code} from {url} missing Location header"
+            raise ValueError(msg)
         # urljoin handles both absolute and relative Location headers:
         # absolute → returned as-is, relative → resolved against current url
-        url = urljoin(url, str(resp.headers["location"]))
+        url = urljoin(url, location)
         _validate_url(url)
     msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {url}"
     raise ValueError(msg)
@@ -148,7 +152,7 @@ def download_from_gh(
     tag = config.tag(version)
     try:
         assets = fetch_gh_release_assets(config, tag)
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
         console.print(f"[red]ERROR: failed to fetch GitHub Release {tag}: {exc}[/]")
         return 1
 
@@ -215,7 +219,7 @@ def download_from_pypi(
     assert config.dist_dir is not None  # noqa: S101 — type narrowing, checked by validate_required
     try:
         files = fetch_pypi_release_files(config, version)
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
         console.print(f"[red]ERROR: failed to fetch from {config.pypi_label}: {exc}[/]")
         return 1
 
