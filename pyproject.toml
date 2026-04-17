@@ -141,3 +141,5 @@ release-workflow = "release.yml"
 oidc-issuer = "https://token.actions.githubusercontent.com"
 identity-template = "https://github.com/{repo_slug}/.github/workflows/{release_workflow}@refs/tags/{tag_prefix}{version}"
 use-testpypi = true  # set to false for production releases
+dist-dir = "dist"
+proofs-dir = "proofs"

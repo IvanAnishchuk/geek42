@@ -5,7 +5,7 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
 class PyscvConfig(BaseModel):
@@ -32,7 +32,8 @@ class PyscvConfig(BaseModel):
     )
     identity_template: str = Field(default="", alias="identity-template")
     use_testpypi: bool = Field(default=False, alias="use-testpypi")
-    dist_dir: Path = Path("dist")
+    dist_dir: Path | None = Field(default=None, alias="dist-dir")
+    proofs_dir: Path | None = Field(default=None, alias="proofs-dir")
 
     @property
     def pypi_base_url(self) -> str:
@@ -46,8 +47,8 @@ class PyscvConfig(BaseModel):
         return f"{self.tag_prefix}{version or self.version}"
 
     def with_overrides(self, **kwargs: object) -> PyscvConfig:
-        """Return a copy with non-empty overrides applied (e.g. from CLI args)."""
-        updates = {k: v for k, v in kwargs.items() if v}
+        """Return a copy with overrides applied. Only None values are skipped."""
+        updates = {k: v for k, v in kwargs.items() if v is not None}
         return self.model_copy(update=updates) if updates else self
 
     def validate_required(self) -> None:
@@ -59,6 +60,10 @@ class PyscvConfig(BaseModel):
             missing.append("version")
         if not self.repo_slug:
             missing.append("repo_slug")
+        if not self.dist_dir:
+            missing.append("dist_dir")
+        if not self.proofs_dir:
+            missing.append("proofs_dir")
         if missing:
             msg = f"pyscv config missing required fields: {', '.join(missing)}"
             raise ValueError(msg)
@@ -87,7 +92,18 @@ class PyscvConfig(BaseModel):
             raise ValueError(msg) from exc
 
         pyscv = data.get("tool", {}).get("pyscv", {})
-        config = cls(dist_dir=path.parent / "dist", **pyscv)
+        try:
+            config = cls(**pyscv)
+        except ValidationError as exc:
+            msg = f"invalid [tool.pyscv] config: {exc}"
+            raise ValueError(msg) from exc
+
+        # Resolve relative dir paths against pyproject.toml location
+        root = path.resolve().parent
+        if config.dist_dir and not config.dist_dir.is_absolute():
+            config = config.model_copy(update={"dist_dir": root / config.dist_dir})
+        if config.proofs_dir and not config.proofs_dir.is_absolute():
+            config = config.model_copy(update={"proofs_dir": root / config.proofs_dir})
 
         project = data.get("project", {})
         return config.augment_from_project(project)

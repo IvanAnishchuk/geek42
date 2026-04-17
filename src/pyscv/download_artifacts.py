@@ -10,7 +10,7 @@ import tempfile
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Annotated
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 import typer
@@ -88,7 +88,9 @@ def _resolve_url(url: str, timeout: float = 30) -> str:
         resp = httpx.head(url, follow_redirects=False, timeout=timeout)
         if not resp.is_redirect:
             return url
-        url = str(resp.headers["location"])
+        # urljoin handles both absolute and relative Location headers:
+        # absolute → returned as-is, relative → resolved against current url
+        url = urljoin(url, str(resp.headers["location"]))
         _validate_url(url)
     msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {url}"
     raise ValueError(msg)
@@ -142,6 +144,7 @@ def download_from_gh(
     verbose: bool = False,
 ) -> int:
     """Download artifacts from GitHub Release via API + httpx."""
+    assert config.dist_dir is not None  # noqa: S101 — type narrowing, checked by validate_required
     tag = config.tag(version)
     try:
         assets = fetch_gh_release_assets(config, tag)
@@ -205,6 +208,7 @@ def download_from_pypi(
     verbose: bool = False,
 ) -> int:
     """Download artifacts from PyPI (or TestPyPI if configured)."""
+    assert config.dist_dir is not None  # noqa: S101 — type narrowing, checked by validate_required
     try:
         files = fetch_pypi_release_files(config, version)
     except httpx.HTTPError as exc:

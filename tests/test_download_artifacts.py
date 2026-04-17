@@ -107,7 +107,7 @@ def minimal_pyproject(tmp_path: Path) -> Path:
         '[project]\nname = "mypkg"\nversion = "2.3.4"\n'
         "[project.urls]\n"
         '[tool.pyscv]\nrepo-slug = "me/mypkg"\ntag-prefix = "release-"\n'
-        "use-testpypi = true\n"
+        'use-testpypi = true\ndist-dir = "dist"\nproofs-dir = "proofs"\n'
     )
     return p
 
@@ -127,7 +127,8 @@ def test_from_pyproject_parses_all_fields(minimal_pyproject):
     assert cfg.repo_slug == "me/mypkg"
     assert cfg.tag_prefix == "release-"
     assert cfg.use_testpypi is True
-    assert cfg.dist_dir == minimal_pyproject.parent / "dist"
+    assert cfg.dist_dir == minimal_pyproject.resolve().parent / "dist"
+    assert cfg.proofs_dir == minimal_pyproject.resolve().parent / "proofs"
 
 
 def test_from_pyproject_without_pyscv_uses_project_fallbacks(bare_pyproject):
@@ -482,15 +483,15 @@ def test_validate_url_allows_known_hosts(url):
 
 
 @pytest.mark.parametrize(
-    "url",
+    ("url", "match"),
     [
-        "http://github.com/file.whl",
-        "https://evil.com/file.whl",
-        "ftp://pypi.org/file.whl",
+        ("http://github.com/file.whl", "non-HTTPS"),
+        ("https://evil.com/file.whl", "unexpected host"),
+        ("ftp://pypi.org/file.whl", "non-HTTPS"),
     ],
 )
-def test_validate_url_rejects_bad_urls(url):
-    with pytest.raises(ValueError):
+def test_validate_url_rejects_bad_urls(url, match):
+    with pytest.raises(ValueError, match=match):
         _validate_url(url)
 
 
@@ -506,6 +507,22 @@ def test_from_pyproject_invalid_toml(tmp_path):
     p = tmp_path / "pyproject.toml"
     p.write_text("this is not valid toml [[[")
     with pytest.raises(ValueError, match="not valid TOML"):
+        PyscvConfig.from_pyproject(p)
+
+
+def test_from_pyproject_invalid_pyscv_values(tmp_path):
+    """Bad field types in [tool.pyscv] raise ValueError."""
+    p = tmp_path / "pyproject.toml"
+    p.write_text("""\
+[project]
+name = "pkg"
+version = "1.0"
+
+[tool.pyscv]
+repo-slug = "o/r"
+use-testpypi = "not-a-bool"
+""")
+    with pytest.raises(ValueError, match="invalid"):
         PyscvConfig.from_pyproject(p)
 
 
@@ -526,10 +543,16 @@ def test_with_overrides_fills_version():
     assert updated.version == "1.2.3"
 
 
-def test_with_overrides_skips_empty():
+def test_with_overrides_skips_none():
     cfg = PyscvConfig(package_name="pkg", version="1.0", repo_slug="o/r")
-    same = cfg.with_overrides(version="")
-    assert same.version == "1.0"  # empty string doesn't override
+    same = cfg.with_overrides(version=None)
+    assert same.version == "1.0"  # None doesn't override
+
+
+def test_with_overrides_allows_falsy():
+    cfg = PyscvConfig(package_name="pkg", version="1.0", repo_slug="o/r", use_testpypi=True)
+    updated = cfg.with_overrides(use_testpypi=False)
+    assert updated.use_testpypi is False  # False is not None, so it overrides
 
 
 def test_safe_filename_accepts_normal():
@@ -603,9 +626,16 @@ def test_resolve_url_too_many_redirects(monkeypatch):
 def cli_pyproject(tmp_path: Path) -> Path:
     """Write a valid pyproject.toml for CLI tests."""
     p = tmp_path / "pyproject.toml"
-    p.write_text(
-        '[project]\nname = "clipkg"\nversion = "1.0.0"\n[tool.pyscv]\nrepo-slug = "owner/clipkg"\n'
-    )
+    p.write_text("""\
+[project]
+name = "clipkg"
+version = "1.0.0"
+
+[tool.pyscv]
+repo-slug = "owner/clipkg"
+dist-dir = "dist"
+proofs-dir = "proofs"
+""")
     return p
 
 
@@ -630,10 +660,17 @@ def test_cli_gh_dry_run(cli_runner, cli_pyproject, monkeypatch):
 
 def test_cli_pypi_dry_run_with_testpypi_warning(cli_runner, tmp_path, monkeypatch):
     p = tmp_path / "pyproject.toml"
-    p.write_text(
-        '[project]\nname = "clipkg"\nversion = "1.0.0"\n'
-        '[tool.pyscv]\nrepo-slug = "owner/clipkg"\nuse-testpypi = true\n'
-    )
+    p.write_text("""\
+[project]
+name = "clipkg"
+version = "1.0.0"
+
+[tool.pyscv]
+repo-slug = "owner/clipkg"
+use-testpypi = true
+dist-dir = "dist"
+proofs-dir = "proofs"
+""")
     monkeypatch.setattr(
         "pyscv.download_artifacts.fetch_pypi_release_files",
         lambda *_a, **_kw: [],
@@ -648,10 +685,17 @@ def test_cli_pypi_dry_run_with_testpypi_warning(cli_runner, tmp_path, monkeypatc
 
 def test_cli_no_testpypi_warning_for_gh(cli_runner, tmp_path, monkeypatch):
     p = tmp_path / "pyproject.toml"
-    p.write_text(
-        '[project]\nname = "clipkg"\nversion = "1.0.0"\n'
-        '[tool.pyscv]\nrepo-slug = "owner/clipkg"\nuse-testpypi = true\n'
-    )
+    p.write_text("""\
+[project]
+name = "clipkg"
+version = "1.0.0"
+
+[tool.pyscv]
+repo-slug = "owner/clipkg"
+use-testpypi = true
+dist-dir = "dist"
+proofs-dir = "proofs"
+""")
     monkeypatch.setattr(
         "pyscv.download_artifacts.fetch_gh_release_assets",
         lambda *_a, **_kw: [],
@@ -669,7 +713,15 @@ def test_cli_missing_pyproject(cli_runner, tmp_path):
 
 def test_cli_missing_version_fails_validation(cli_runner, tmp_path):
     p = tmp_path / "pyproject.toml"
-    p.write_text('[project]\nname = "clipkg"\n[tool.pyscv]\nrepo-slug = "owner/clipkg"\n')
+    p.write_text("""\
+[project]
+name = "clipkg"
+
+[tool.pyscv]
+repo-slug = "owner/clipkg"
+dist-dir = "dist"
+proofs-dir = "proofs"
+""")
     result = cli_runner.invoke(app, ["--pyproject", str(p)])
     assert result.exit_code == 1
     assert "missing required fields" in result.output

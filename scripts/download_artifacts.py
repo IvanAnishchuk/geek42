@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Download distribution artifacts from GitHub Release or PyPI.
 
 Usage:
