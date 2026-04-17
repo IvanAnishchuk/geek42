@@ -7,9 +7,14 @@ Does not touch proofs/ or perform any transformations.
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
+from enum import StrEnum
+from pathlib import Path, PurePosixPath
+from typing import Annotated, Any
+from urllib.parse import urlparse
 
 import httpx
+import typer
+from pydantic import BaseModel
 from rich.console import Console
 
 from pyscv.config import PyscvConfig
@@ -23,6 +28,7 @@ ALLOWED_HOSTS = frozenset(
         "api.github.com",
         "github.com",
         "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
         "pypi.org",
         "test.pypi.org",
         "files.pythonhosted.org",
@@ -36,13 +42,24 @@ GH_API_HEADERS = {
 }
 
 
+# -- API response models ---------------------------------------------------
+
+
+class GhReleaseAsset(BaseModel):
+    name: str
+    browser_download_url: str
+
+
+class PypiFileInfo(BaseModel):
+    filename: str
+    url: str
+
+
 # -- Download helpers ------------------------------------------------------
 
 
 def _validate_url(url: str) -> None:
-    """Validate that a download URL uses HTTPS and an allowed host."""
-    from urllib.parse import urlparse
-
+    """Validate that a URL uses HTTPS and an allowed host."""
     parsed = urlparse(url)
     if parsed.scheme != "https":
         msg = f"Refusing non-HTTPS URL: {url}"
@@ -52,35 +69,71 @@ def _validate_url(url: str) -> None:
         raise ValueError(msg)
 
 
-def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[dict]:
+def _safe_filename(name: str) -> str:
+    """Validate filename has no path traversal components."""
+    safe = PurePosixPath(name).name
+    if safe != name or ".." in name or "/" in name or "\\" in name:
+        msg = f"Refusing unsafe filename: {name!r}"
+        raise ValueError(msg)
+    return safe
+
+
+def _validated_get(url: str, **kwargs: Any) -> httpx.Response:
+    """GET with URL validation and validated redirect following."""
+    _validate_url(url)
+    resp = httpx.get(url, follow_redirects=False, **kwargs)
+    if resp.is_redirect:
+        redirect_url = str(resp.headers["location"])
+        _validate_url(redirect_url)
+        resp = httpx.get(redirect_url, follow_redirects=False, **kwargs)
+    resp.raise_for_status()
+    return resp
+
+
+def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsset]:
     """Fetch asset list from GitHub Releases API."""
     url = f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}"
-    _validate_url(url)
-    resp = httpx.get(url, timeout=30, follow_redirects=True, headers=GH_API_HEADERS)
-    resp.raise_for_status()
-    return resp.json().get("assets", [])
+    resp = _validated_get(url, timeout=30, headers=GH_API_HEADERS)
+    raw_assets = resp.json().get("assets", [])
+    return [GhReleaseAsset.model_validate(a) for a in raw_assets]
 
 
-def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[dict]:
+def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[PypiFileInfo]:
     """Fetch file list from PyPI JSON API."""
     url = f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json"
+    resp = _validated_get(url, timeout=30)
+    raw_files = resp.json().get("urls", [])
+    return [PypiFileInfo.model_validate(f) for f in raw_files]
+
+
+def _validated_stream(url: str, **kwargs: Any) -> httpx.Response:
+    """Open a streaming GET with URL validation and validated redirect following."""
     _validate_url(url)
-    resp = httpx.get(url, timeout=30, follow_redirects=True)
+    resp = httpx.stream("GET", url, follow_redirects=False, **kwargs).__enter__()
+    if resp.is_redirect:
+        redirect_url = str(resp.headers["location"])
+        _validate_url(redirect_url)
+        resp.close()
+        resp = httpx.stream("GET", redirect_url, follow_redirects=False, **kwargs).__enter__()
     resp.raise_for_status()
-    return resp.json().get("urls", [])
+    return resp
 
 
 def atomic_download(url: str, dest: Path) -> None:
-    """Download a file atomically — write to temp dir then replace."""
-    _validate_url(url)
+    """Download a file atomically — write to temp dir then replace.
+
+    Validates URL and redirect destinations before downloading.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmpdir:
         tmp_file = Path(tmpdir) / dest.name
-        with httpx.stream("GET", url, timeout=60, follow_redirects=True) as stream:
-            stream.raise_for_status()
+        stream = _validated_stream(url, timeout=60)
+        try:
             with tmp_file.open("wb") as fh:
                 for chunk in stream.iter_bytes():
                     fh.write(chunk)
+        finally:
+            stream.close()
         tmp_file.replace(dest)
 
 
@@ -101,7 +154,7 @@ def download_from_gh(
     try:
         assets = fetch_gh_release_assets(config, tag)
     except httpx.HTTPError as exc:
-        console.print(f"[red]ERROR: GitHub Release {tag} not found: {exc}[/]")
+        console.print(f"[red]ERROR: failed to fetch GitHub Release {tag}: {exc}[/]")
         return 1
 
     if not dry_run:
@@ -109,7 +162,7 @@ def download_from_gh(
     downloaded = 0
     skipped = 0
     for asset in assets:
-        name = asset["name"]
+        name = _safe_filename(asset.name)
         if not any(name.endswith(ext) for ext in extensions):
             if verbose:
                 console.print(f"  [dim]skip {name} (not a dist file)[/]")
@@ -132,12 +185,11 @@ def download_from_gh(
             skipped += 1
             continue
 
-        download_url = asset["browser_download_url"]
         if verbose:
             console.print(f"  [dim]downloading {name}...[/]")
         try:
-            atomic_download(download_url, dest)
-        except (httpx.HTTPError, ValueError) as exc:
+            atomic_download(asset.browser_download_url, dest)
+        except (httpx.HTTPError, ValueError, OSError) as exc:
             console.print(f"  [red]FAIL[/] {name}: {exc}")
             return 1
         console.print(f"  [green]OK[/] {name}")
@@ -164,7 +216,7 @@ def download_from_pypi(
     try:
         files = fetch_pypi_release_files(config, version)
     except httpx.HTTPError as exc:
-        console.print(f"[red]ERROR: could not fetch from {config.pypi_label}: {exc}[/]")
+        console.print(f"[red]ERROR: failed to fetch from {config.pypi_label}: {exc}[/]")
         return 1
 
     if not dry_run:
@@ -172,7 +224,7 @@ def download_from_pypi(
     downloaded = 0
     skipped = 0
     for file_info in files:
-        filename = file_info["filename"]
+        filename = _safe_filename(file_info.filename)
         if not any(filename.endswith(ext) for ext in extensions):
             if verbose:
                 console.print(f"  [dim]skip {filename} (not matching extensions)[/]")
@@ -195,12 +247,11 @@ def download_from_pypi(
             skipped += 1
             continue
 
-        download_url = file_info["url"]
         if verbose:
             console.print(f"  [dim]downloading {filename}...[/]")
         try:
-            atomic_download(download_url, dest)
-        except (httpx.HTTPError, ValueError) as exc:
+            atomic_download(file_info.url, dest)
+        except (httpx.HTTPError, ValueError, OSError) as exc:
             console.print(f"  [red]FAIL[/] {filename}: {exc}")
             return 1
         console.print(f"  [green]OK[/] {filename}")
@@ -212,3 +263,84 @@ def download_from_pypi(
         summary += f", {skipped} skipped"
     console.print(f"\n[bold]{summary}[/] from {config.pypi_label}")
     return 0
+
+
+# -- CLI -------------------------------------------------------------------
+
+
+class Source(StrEnum):
+    gh = "gh"
+    pypi = "pypi"
+
+
+app = typer.Typer(add_completion=False)
+
+
+@app.command()
+def main(
+    version: Annotated[
+        str,
+        typer.Argument(help="Version to download (e.g. 0.4.2a10). Default: from pyproject.toml."),
+    ] = "",
+    source: Annotated[
+        Source,
+        typer.Option(help="Download source."),
+    ] = Source.gh,
+    ext: Annotated[
+        list[str] | None,
+        typer.Option(help="File extensions to download (repeatable)."),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Overwrite existing files."),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", "-n", help="Show what would be downloaded."),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed progress."),
+    ] = False,
+    pyproject: Annotated[
+        Path,
+        typer.Option(help="Path to pyproject.toml."),
+    ] = Path("pyproject.toml"),
+) -> None:
+    """Download distribution artifacts from GitHub Release or PyPI."""
+    try:
+        config = PyscvConfig.from_pyproject(pyproject)
+    except ValueError as exc:
+        console.print(f"[red]ERROR: {exc}[/]")
+        raise typer.Exit(1) from exc
+
+    config = config.with_overrides(version=version)
+    try:
+        config.validate_required()
+    except ValueError as exc:
+        console.print(f"[red]ERROR: {exc}[/]")
+        raise typer.Exit(1) from exc
+
+    extensions = tuple(ext) if ext else DEFAULT_EXTENSIONS
+
+    if config.use_testpypi and source == Source.pypi:
+        console.print(
+            "[bold yellow]WARNING: using TestPyPI (use-testpypi = true in pyproject.toml)[/]"
+        )
+
+    source_label = config.pypi_label if source == Source.pypi else source.value
+    console.print(
+        f"[bold]Downloading {config.package_name} {config.version}[/] from [cyan]{source_label}[/]"
+        + (" [yellow](dry run)[/]" if dry_run else "")
+    )
+
+    if source == Source.gh:
+        code = download_from_gh(
+            config, config.version, extensions, force=force, dry_run=dry_run, verbose=verbose
+        )
+    else:
+        code = download_from_pypi(
+            config, config.version, extensions, force=force, dry_run=dry_run, verbose=verbose
+        )
+
+    raise typer.Exit(code)

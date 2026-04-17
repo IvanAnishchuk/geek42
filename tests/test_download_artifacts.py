@@ -10,7 +10,11 @@ import pytest
 
 from pyscv.config import PyscvConfig
 from pyscv.download_artifacts import (
+    GhReleaseAsset,
+    PypiFileInfo,
+    _safe_filename,
     _validate_url,
+    app,
     atomic_download,
     download_from_gh,
     download_from_pypi,
@@ -33,20 +37,30 @@ def config(tmp_path: Path) -> PyscvConfig:
 
 
 @pytest.fixture()
-def gh_assets() -> list[dict]:
+def gh_assets() -> list[GhReleaseAsset]:
     return [
-        {"name": "pkg-1.0.0.whl", "browser_download_url": "https://gh.example/pkg-1.0.0.whl"},
-        {"name": "pkg-1.0.0.tar.gz", "browser_download_url": "https://gh.example/pkg-1.0.0.tar.gz"},
-        {"name": "pkg-1.0.0-SHA256SUMS.txt", "browser_download_url": "https://gh.example/sums"},
-        {"name": "pkg-1.0.0.whl.sigstore.json", "browser_download_url": "https://gh.example/sig"},
+        GhReleaseAsset(
+            name="pkg-1.0.0.whl", browser_download_url="https://github.com/pkg-1.0.0.whl"
+        ),
+        GhReleaseAsset(
+            name="pkg-1.0.0.tar.gz", browser_download_url="https://github.com/pkg-1.0.0.tar.gz"
+        ),
+        GhReleaseAsset(
+            name="pkg-1.0.0-SHA256SUMS.txt", browser_download_url="https://github.com/sums"
+        ),
+        GhReleaseAsset(
+            name="pkg-1.0.0.whl.sigstore.json", browser_download_url="https://github.com/sig"
+        ),
     ]
 
 
 @pytest.fixture()
-def pypi_files() -> list[dict]:
+def pypi_files() -> list[PypiFileInfo]:
     return [
-        {"filename": "pkg-1.0.0.whl", "url": "https://pypi.example/pkg-1.0.0.whl"},
-        {"filename": "pkg-1.0.0.tar.gz", "url": "https://pypi.example/pkg-1.0.0.tar.gz"},
+        PypiFileInfo(filename="pkg-1.0.0.whl", url="https://files.pythonhosted.org/pkg-1.0.0.whl"),
+        PypiFileInfo(
+            filename="pkg-1.0.0.tar.gz", url="https://files.pythonhosted.org/pkg-1.0.0.tar.gz"
+        ),
     ]
 
 
@@ -116,10 +130,13 @@ def test_from_pyproject_parses_all_fields(minimal_pyproject):
     assert cfg.dist_dir == minimal_pyproject.parent / "dist"
 
 
-def test_from_pyproject_without_pyscv_fails_validation(bare_pyproject):
-    """No [tool.pyscv] means no repo_slug — validate_required catches it."""
+def test_from_pyproject_without_pyscv_uses_project_fallbacks(bare_pyproject):
+    """No [tool.pyscv] — package_name comes from [project], repo_slug empty."""
+    cfg = PyscvConfig.from_pyproject(bare_pyproject)
+    assert cfg.package_name == "bare"
+    assert cfg.repo_slug == ""
     with pytest.raises(ValueError, match="missing required fields"):
-        PyscvConfig.from_pyproject(bare_pyproject)
+        cfg.validate_required()
 
 
 @pytest.mark.parametrize(
@@ -151,14 +168,20 @@ def test_tag_formatting(prefix, version, override, expected):
 # -- fetch_gh_release_assets -----------------------------------------------
 
 
+def _mock_response(json_data: dict) -> MagicMock:
+    """Create a mock httpx response (no redirect)."""
+    resp = MagicMock()
+    resp.is_redirect = False
+    resp.json.return_value = json_data
+    return resp
+
+
 def test_fetch_gh_builds_correct_url(monkeypatch, config):
     captured = {}
 
     def fake_get(url, **kw):
         captured["url"] = url
-        resp = MagicMock()
-        resp.json.return_value = {"assets": []}
-        return resp
+        return _mock_response({"assets": []})
 
     monkeypatch.setattr("pyscv.download_artifacts.httpx.get", fake_get)
     fetch_gh_release_assets(config, "v1.0.0")
@@ -166,10 +189,18 @@ def test_fetch_gh_builds_correct_url(monkeypatch, config):
 
 
 def test_fetch_gh_returns_assets(monkeypatch, config):
-    resp = MagicMock()
-    resp.json.return_value = {"assets": [{"name": "a.whl"}, {"name": "b.tar.gz"}]}
+    resp = _mock_response(
+        {
+            "assets": [
+                {"name": "a.whl", "browser_download_url": "https://github.com/a.whl"},
+                {"name": "b.tar.gz", "browser_download_url": "https://github.com/b.tar.gz"},
+            ]
+        }
+    )
     monkeypatch.setattr("pyscv.download_artifacts.httpx.get", lambda *a, **kw: resp)
-    assert len(fetch_gh_release_assets(config, "v1")) == 2
+    assets = fetch_gh_release_assets(config, "v1")
+    assert len(assets) == 2
+    assert assets[0].name == "a.whl"
 
 
 def test_fetch_gh_propagates_http_error(monkeypatch, config):
@@ -192,9 +223,7 @@ def test_fetch_pypi_uses_configured_base_url(monkeypatch):
 
     def fake_get(url, **kw):
         captured["url"] = url
-        resp = MagicMock()
-        resp.json.return_value = {"urls": []}
-        return resp
+        return _mock_response({"urls": []})
 
     monkeypatch.setattr("pyscv.download_artifacts.httpx.get", fake_get)
     fetch_pypi_release_files(cfg, "1.0")
@@ -202,10 +231,18 @@ def test_fetch_pypi_uses_configured_base_url(monkeypatch):
 
 
 def test_fetch_pypi_returns_files(monkeypatch, config):
-    resp = MagicMock()
-    resp.json.return_value = {"urls": [{"filename": "x.whl"}, {"filename": "x.tar.gz"}]}
+    resp = _mock_response(
+        {
+            "urls": [
+                {"filename": "x.whl", "url": "https://files.pythonhosted.org/x.whl"},
+                {"filename": "x.tar.gz", "url": "https://files.pythonhosted.org/x.tar.gz"},
+            ]
+        }
+    )
     monkeypatch.setattr("pyscv.download_artifacts.httpx.get", lambda *a, **kw: resp)
-    assert len(fetch_pypi_release_files(config, "1")) == 2
+    files = fetch_pypi_release_files(config, "1")
+    assert len(files) == 2
+    assert files[0].filename == "x.whl"
 
 
 def test_fetch_pypi_propagates_http_error(monkeypatch, config):
@@ -368,29 +405,36 @@ def test_pypi_returns_1_on_fetch_error(monkeypatch, config):
 # -- atomic_download -------------------------------------------------------
 
 
+def _make_mock_stream(chunks: list[bytes] | None = None, error: Exception | None = None):
+    """Create a mock stream response for _validated_stream."""
+    stream = MagicMock()
+    stream.close = MagicMock()
+    if error:
+        stream.raise_for_status.side_effect = error
+    else:
+        stream.raise_for_status = MagicMock()
+        if chunks is not None:
+            stream.iter_bytes.return_value = chunks
+    return stream
+
+
 def test_atomic_download_writes_complete_file(tmp_path, monkeypatch):
     dest = tmp_path / "output.whl"
-    mock_stream = MagicMock()
-    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
-    mock_stream.__exit__ = MagicMock(return_value=False)
-    mock_stream.raise_for_status = MagicMock()
-    mock_stream.iter_bytes.return_value = [b"chunk1", b"chunk2"]
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *a, **kw: mock_stream)
+    monkeypatch.setattr(
+        "pyscv.download_artifacts._validated_stream",
+        lambda *_a, **_kw: _make_mock_stream([b"chunk1", b"chunk2"]),
+    )
     atomic_download("https://github.com/f.whl", dest)
     assert dest.read_bytes() == b"chunk1chunk2"
 
 
 def test_atomic_download_no_partial_on_status_error(tmp_path, monkeypatch):
     dest = tmp_path / "output.whl"
-    mock_stream = MagicMock()
-    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
-    mock_stream.__exit__ = MagicMock(return_value=False)
-    mock_stream.raise_for_status.side_effect = httpx.HTTPStatusError(
-        "500", request=MagicMock(), response=MagicMock(status_code=500)
-    )
 
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: mock_stream)
+    def raise_on_stream(*_a, **_kw):
+        raise httpx.HTTPStatusError("500", request=MagicMock(), response=MagicMock(status_code=500))
+
+    monkeypatch.setattr("pyscv.download_artifacts._validated_stream", raise_on_stream)
     with pytest.raises(httpx.HTTPStatusError):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
@@ -404,13 +448,12 @@ def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch):
         yield b"partial"
         raise ConnectionError
 
-    mock_stream = MagicMock()
-    mock_stream.__enter__ = MagicMock(return_value=mock_stream)
-    mock_stream.__exit__ = MagicMock(return_value=False)
-    mock_stream.raise_for_status = MagicMock()
-    mock_stream.iter_bytes = exploding_iter
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: mock_stream)
+    stream = _make_mock_stream()
+    stream.iter_bytes = exploding_iter
+    monkeypatch.setattr(
+        "pyscv.download_artifacts._validated_stream",
+        lambda *_a, **_kw: stream,
+    )
     with pytest.raises(ConnectionError):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
@@ -461,8 +504,237 @@ def test_from_pyproject_invalid_toml(tmp_path):
         PyscvConfig.from_pyproject(p)
 
 
-def test_from_pyproject_missing_package_name(tmp_path):
+def test_validate_required_catches_missing_fields(tmp_path):
+    """No [project] and no [tool.pyscv] — validate_required catches it."""
     p = tmp_path / "pyproject.toml"
     p.write_text("[tool]\nfoo = 1\n")
+    config = PyscvConfig.from_pyproject(p)
+    assert config.package_name == ""
     with pytest.raises(ValueError, match="missing required fields"):
-        PyscvConfig.from_pyproject(p)
+        config.validate_required()
+
+
+def test_with_overrides_fills_version():
+    cfg = PyscvConfig(package_name="pkg", repo_slug="o/r")
+    assert cfg.version == ""
+    updated = cfg.with_overrides(version="1.2.3")
+    assert updated.version == "1.2.3"
+
+
+def test_with_overrides_skips_empty():
+    cfg = PyscvConfig(package_name="pkg", version="1.0", repo_slug="o/r")
+    same = cfg.with_overrides(version="")
+    assert same.version == "1.0"  # empty string doesn't override
+
+
+def test_safe_filename_accepts_normal():
+    assert _safe_filename("pkg-1.0.whl") == "pkg-1.0.whl"
+
+
+@pytest.mark.parametrize("name", ["../evil.whl", "sub/dir.whl", "..\\evil.whl"])
+def test_safe_filename_rejects_traversal(name):
+    with pytest.raises(ValueError, match="unsafe filename"):
+        _safe_filename(name)
+
+
+# -- Redirect validation ---------------------------------------------------
+
+
+def test_validated_get_follows_valid_redirect(monkeypatch, config):
+    """_validated_get follows a redirect to an allowed host."""
+    from pyscv.download_artifacts import _validated_get
+
+    redirect_resp = MagicMock()
+    redirect_resp.is_redirect = True
+    redirect_resp.headers = {"location": "https://github.com/redirected"}
+
+    final_resp = _mock_response({"result": "ok"})
+
+    call_count = {"n": 0}
+
+    def fake_get(url, **kw):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return redirect_resp
+        return final_resp
+
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.get", fake_get)
+    resp = _validated_get("https://api.github.com/test", timeout=10)
+    assert resp.json() == {"result": "ok"}
+
+
+def test_validated_get_rejects_bad_redirect(monkeypatch, config):
+    """_validated_get rejects redirect to untrusted host."""
+    from pyscv.download_artifacts import _validated_get
+
+    redirect_resp = MagicMock()
+    redirect_resp.is_redirect = True
+    redirect_resp.headers = {"location": "https://evil.com/steal"}
+
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.get", lambda *a, **kw: redirect_resp)
+    with pytest.raises(ValueError, match="unexpected host"):
+        _validated_get("https://api.github.com/test", timeout=10)
+
+
+def test_validated_stream_follows_valid_redirect(monkeypatch):
+    """_validated_stream follows redirect to allowed host."""
+    from pyscv.download_artifacts import _validated_stream
+
+    redirect_resp = MagicMock()
+    redirect_resp.is_redirect = True
+    redirect_resp.headers = {"location": "https://release-assets.githubusercontent.com/file"}
+    redirect_resp.close = MagicMock()
+
+    final_resp = MagicMock()
+    final_resp.is_redirect = False
+    final_resp.raise_for_status = MagicMock()
+    final_resp.iter_bytes.return_value = [b"data"]
+
+    call_count = {"n": 0}
+
+    def fake_stream(method, url, **kw):
+        call_count["n"] += 1
+        ctx = MagicMock()
+        ctx.__enter__ = MagicMock(
+            return_value=redirect_resp if call_count["n"] == 1 else final_resp
+        )
+        ctx.__exit__ = MagicMock(return_value=False)
+        return ctx
+
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", fake_stream)
+    resp = _validated_stream("https://github.com/file.whl", timeout=60)
+    assert list(resp.iter_bytes()) == [b"data"]
+
+
+def test_validated_stream_no_redirect(monkeypatch):
+    """_validated_stream handles direct response (no redirect)."""
+    from pyscv.download_artifacts import _validated_stream
+
+    direct_resp = MagicMock()
+    direct_resp.is_redirect = False
+    direct_resp.raise_for_status = MagicMock()
+    direct_resp.iter_bytes.return_value = [b"direct"]
+
+    def fake_stream(method, url, **kw):
+        ctx = MagicMock()
+        ctx.__enter__ = MagicMock(return_value=direct_resp)
+        ctx.__exit__ = MagicMock(return_value=False)
+        return ctx
+
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", fake_stream)
+    resp = _validated_stream("https://github.com/file.whl", timeout=60)
+    assert list(resp.iter_bytes()) == [b"direct"]
+    direct_resp.raise_for_status.assert_called_once()
+
+
+def test_validated_stream_rejects_bad_redirect(monkeypatch):
+    """_validated_stream rejects redirect to untrusted host."""
+    from pyscv.download_artifacts import _validated_stream
+
+    redirect_resp = MagicMock()
+    redirect_resp.is_redirect = True
+    redirect_resp.headers = {"location": "https://evil.com/steal"}
+    redirect_resp.close = MagicMock()
+
+    def fake_stream(method, url, **kw):
+        ctx = MagicMock()
+        ctx.__enter__ = MagicMock(return_value=redirect_resp)
+        ctx.__exit__ = MagicMock(return_value=False)
+        return ctx
+
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", fake_stream)
+    with pytest.raises(ValueError, match="unexpected host"):
+        _validated_stream("https://github.com/file.whl", timeout=60)
+
+
+# -- CLI (typer app) -------------------------------------------------------
+
+
+@pytest.fixture()
+def cli_pyproject(tmp_path: Path) -> Path:
+    """Write a valid pyproject.toml for CLI tests."""
+    p = tmp_path / "pyproject.toml"
+    p.write_text(
+        '[project]\nname = "clipkg"\nversion = "1.0.0"\n[tool.pyscv]\nrepo-slug = "owner/clipkg"\n'
+    )
+    return p
+
+
+@pytest.fixture()
+def cli_runner():
+    from typer.testing import CliRunner
+
+    return CliRunner()
+
+
+def test_cli_gh_dry_run(cli_runner, cli_pyproject, monkeypatch):
+    monkeypatch.setattr(
+        "pyscv.download_artifacts.fetch_gh_release_assets",
+        lambda *_a, **_kw: [
+            GhReleaseAsset(name="clipkg-1.0.0.whl", browser_download_url="https://github.com/x"),
+        ],
+    )
+    result = cli_runner.invoke(app, ["1.0.0", "--dry-run", "--pyproject", str(cli_pyproject)])
+    assert result.exit_code == 0
+    assert "clipkg-1.0.0.whl" in result.output
+
+
+def test_cli_pypi_dry_run_with_testpypi_warning(cli_runner, tmp_path, monkeypatch):
+    p = tmp_path / "pyproject.toml"
+    p.write_text(
+        '[project]\nname = "clipkg"\nversion = "1.0.0"\n'
+        '[tool.pyscv]\nrepo-slug = "owner/clipkg"\nuse-testpypi = true\n'
+    )
+    monkeypatch.setattr(
+        "pyscv.download_artifacts.fetch_pypi_release_files",
+        lambda *_a, **_kw: [],
+    )
+    result = cli_runner.invoke(
+        app, ["1.0.0", "--source", "pypi", "--dry-run", "--pyproject", str(p)]
+    )
+    assert result.exit_code == 0
+    assert "TestPyPI" in result.output
+    assert "WARNING" in result.output
+
+
+def test_cli_no_testpypi_warning_for_gh(cli_runner, tmp_path, monkeypatch):
+    p = tmp_path / "pyproject.toml"
+    p.write_text(
+        '[project]\nname = "clipkg"\nversion = "1.0.0"\n'
+        '[tool.pyscv]\nrepo-slug = "owner/clipkg"\nuse-testpypi = true\n'
+    )
+    monkeypatch.setattr(
+        "pyscv.download_artifacts.fetch_gh_release_assets",
+        lambda *_a, **_kw: [],
+    )
+    result = cli_runner.invoke(app, ["1.0.0", "--dry-run", "--pyproject", str(p)])
+    assert result.exit_code == 0
+    assert "WARNING" not in result.output
+
+
+def test_cli_missing_pyproject(cli_runner, tmp_path):
+    result = cli_runner.invoke(app, ["1.0.0", "--pyproject", str(tmp_path / "nope.toml")])
+    assert result.exit_code == 1
+    assert "not found" in result.output
+
+
+def test_cli_missing_version_fails_validation(cli_runner, tmp_path):
+    p = tmp_path / "pyproject.toml"
+    p.write_text('[project]\nname = "clipkg"\n[tool.pyscv]\nrepo-slug = "owner/clipkg"\n')
+    result = cli_runner.invoke(app, ["--pyproject", str(p)])
+    assert result.exit_code == 1
+    assert "missing required fields" in result.output
+
+
+def test_cli_version_override(cli_runner, cli_pyproject, monkeypatch):
+    captured = {}
+
+    def fake_fetch(config, tag):
+        captured["tag"] = tag
+        return []
+
+    monkeypatch.setattr("pyscv.download_artifacts.fetch_gh_release_assets", fake_fetch)
+    result = cli_runner.invoke(app, ["9.9.9", "--dry-run", "--pyproject", str(cli_pyproject)])
+    assert result.exit_code == 0
+    assert captured["tag"] == "v9.9.9"
+    assert "9.9.9" in result.output

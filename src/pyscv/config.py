@@ -45,11 +45,18 @@ class PyscvConfig(BaseModel):
     def tag(self, version: str | None = None) -> str:
         return f"{self.tag_prefix}{version or self.version}"
 
+    def with_overrides(self, **kwargs: object) -> PyscvConfig:
+        """Return a copy with non-empty overrides applied (e.g. from CLI args)."""
+        updates = {k: v for k, v in kwargs.items() if v}
+        return self.model_copy(update=updates) if updates else self
+
     def validate_required(self) -> None:
         """Validate that required fields are set. Call after all config sources applied."""
         missing = []
         if not self.package_name:
             missing.append("package_name")
+        if not self.version:
+            missing.append("version")
         if not self.repo_slug:
             missing.append("repo_slug")
         if missing:
@@ -69,7 +76,7 @@ class PyscvConfig(BaseModel):
 
     @classmethod
     def from_pyproject(cls, path: Path) -> PyscvConfig:
-        """Load config from pyproject.toml, validate, and return."""
+        """Load config from pyproject.toml with [project] fallbacks. Does not validate."""
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError as exc:
@@ -83,7 +90,4 @@ class PyscvConfig(BaseModel):
         config = cls(dist_dir=path.parent / "dist", **pyscv)
 
         project = data.get("project", {})
-        config = config.augment_from_project(project)
-
-        config.validate_required()
-        return config
+        return config.augment_from_project(project)
