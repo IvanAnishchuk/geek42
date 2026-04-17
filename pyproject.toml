@@ -27,6 +27,7 @@ dependencies = [
     "rich>=13.0",
     "markdown>=3.5",
     "gemato>=20",
+    "httpx>=0.28",
 ]
 
 [project.urls]
@@ -57,7 +58,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/geek42"]
+packages = ["src/geek42", "src/pyscv"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -131,3 +132,14 @@ exclude_lines = [
 
 [tool.ty.environment]
 python-version = "3.13"
+
+[tool.pyscv]
+# Supply-chain verification trust anchors
+repo-slug = "IvanAnishchuk/geek42"
+tag-prefix = "v"
+release-workflow = "release.yml"
+oidc-issuer = "https://token.actions.githubusercontent.com"
+identity-template = "https://github.com/{repo_slug}/.github/workflows/{release_workflow}@refs/tags/{tag_prefix}{version}"
+use-testpypi = true  # set to false for production releases
+dist-dir = "dist"
+proofs-dir = "proofs"
