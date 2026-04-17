@@ -405,42 +405,47 @@ def test_pypi_returns_1_on_fetch_error(monkeypatch, config):
 # -- atomic_download -------------------------------------------------------
 
 
-def _make_mock_stream(chunks: list[bytes] | None = None, error: Exception | None = None):
-    """Create a mock stream response for _validated_stream."""
+@pytest.fixture()
+def no_redirects(monkeypatch):
+    """Mock _resolve_url to return the URL unchanged (no redirects)."""
+    monkeypatch.setattr("pyscv.download_artifacts._resolve_url", lambda url, **_kw: url)
+
+
+def _make_mock_stream(chunks: list[bytes]):
+    """Create a mock context manager for httpx.stream."""
     stream = MagicMock()
-    stream.close = MagicMock()
-    if error:
-        stream.raise_for_status.side_effect = error
-    else:
-        stream.raise_for_status = MagicMock()
-        if chunks is not None:
-            stream.iter_bytes.return_value = chunks
+    stream.raise_for_status = MagicMock()
+    stream.iter_bytes.return_value = chunks
+    stream.__enter__ = MagicMock(return_value=stream)
+    stream.__exit__ = MagicMock(return_value=False)
     return stream
 
 
-def test_atomic_download_writes_complete_file(tmp_path, monkeypatch):
+def test_atomic_download_writes_complete_file(tmp_path, monkeypatch, no_redirects):
     dest = tmp_path / "output.whl"
     monkeypatch.setattr(
-        "pyscv.download_artifacts._validated_stream",
+        "pyscv.download_artifacts.httpx.stream",
         lambda *_a, **_kw: _make_mock_stream([b"chunk1", b"chunk2"]),
     )
     atomic_download("https://github.com/f.whl", dest)
     assert dest.read_bytes() == b"chunk1chunk2"
 
 
-def test_atomic_download_no_partial_on_status_error(tmp_path, monkeypatch):
+def test_atomic_download_no_partial_on_status_error(tmp_path, monkeypatch, no_redirects):
     dest = tmp_path / "output.whl"
-
-    def raise_on_stream(*_a, **_kw):
-        raise httpx.HTTPStatusError("500", request=MagicMock(), response=MagicMock(status_code=500))
-
-    monkeypatch.setattr("pyscv.download_artifacts._validated_stream", raise_on_stream)
+    stream = MagicMock()
+    stream.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "500", request=MagicMock(), response=MagicMock(status_code=500)
+    )
+    stream.__enter__ = MagicMock(return_value=stream)
+    stream.__exit__ = MagicMock(return_value=False)
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
     with pytest.raises(httpx.HTTPStatusError):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
 
 
-def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch):
+def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch, no_redirects):
     """If iter_bytes fails mid-write, dest must not exist."""
     dest = tmp_path / "output.whl"
 
@@ -448,12 +453,12 @@ def test_atomic_download_no_partial_on_stream_error(tmp_path, monkeypatch):
         yield b"partial"
         raise ConnectionError
 
-    stream = _make_mock_stream()
+    stream = MagicMock()
+    stream.raise_for_status = MagicMock()
     stream.iter_bytes = exploding_iter
-    monkeypatch.setattr(
-        "pyscv.download_artifacts._validated_stream",
-        lambda *_a, **_kw: stream,
-    )
+    stream.__enter__ = MagicMock(return_value=stream)
+    stream.__exit__ = MagicMock(return_value=False)
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", lambda *_a, **_kw: stream)
     with pytest.raises(ConnectionError):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
@@ -537,114 +542,58 @@ def test_safe_filename_rejects_traversal(name):
         _safe_filename(name)
 
 
-# -- Redirect validation ---------------------------------------------------
+# -- _resolve_url ----------------------------------------------------------
 
 
-def test_validated_get_follows_valid_redirect(monkeypatch, config):
-    """_validated_get follows a redirect to an allowed host."""
-    from pyscv.download_artifacts import _validated_get
+def test_resolve_url_no_redirect(monkeypatch):
+    from pyscv.download_artifacts import _resolve_url
 
-    redirect_resp = MagicMock()
-    redirect_resp.is_redirect = True
-    redirect_resp.headers = {"location": "https://github.com/redirected"}
+    resp = MagicMock()
+    resp.is_redirect = False
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
+    assert _resolve_url("https://github.com/file.whl") == "https://github.com/file.whl"
 
-    final_resp = _mock_response({"result": "ok"})
+
+def test_resolve_url_follows_valid_redirect(monkeypatch):
+    from pyscv.download_artifacts import _resolve_url
 
     call_count = {"n": 0}
 
-    def fake_get(url, **kw):
+    def fake_head(url, **kw):
         call_count["n"] += 1
+        resp = MagicMock()
         if call_count["n"] == 1:
-            return redirect_resp
-        return final_resp
+            resp.is_redirect = True
+            resp.headers = {"location": "https://release-assets.githubusercontent.com/file"}
+        else:
+            resp.is_redirect = False
+        return resp
 
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.get", fake_get)
-    resp = _validated_get("https://api.github.com/test", timeout=10)
-    assert resp.json() == {"result": "ok"}
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", fake_head)
+    result = _resolve_url("https://github.com/file.whl")
+    assert result == "https://release-assets.githubusercontent.com/file"
 
 
-def test_validated_get_rejects_bad_redirect(monkeypatch, config):
-    """_validated_get rejects redirect to untrusted host."""
-    from pyscv.download_artifacts import _validated_get
+def test_resolve_url_rejects_bad_redirect(monkeypatch):
+    from pyscv.download_artifacts import _resolve_url
 
-    redirect_resp = MagicMock()
-    redirect_resp.is_redirect = True
-    redirect_resp.headers = {"location": "https://evil.com/steal"}
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.get", lambda *a, **kw: redirect_resp)
+    resp = MagicMock()
+    resp.is_redirect = True
+    resp.headers = {"location": "https://evil.com/steal"}
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
     with pytest.raises(ValueError, match="unexpected host"):
-        _validated_get("https://api.github.com/test", timeout=10)
+        _resolve_url("https://github.com/file.whl")
 
 
-def test_validated_stream_follows_valid_redirect(monkeypatch):
-    """_validated_stream follows redirect to allowed host."""
-    from pyscv.download_artifacts import _validated_stream
+def test_resolve_url_too_many_redirects(monkeypatch):
+    from pyscv.download_artifacts import _resolve_url
 
-    redirect_resp = MagicMock()
-    redirect_resp.is_redirect = True
-    redirect_resp.headers = {"location": "https://release-assets.githubusercontent.com/file"}
-    redirect_resp.close = MagicMock()
-
-    final_resp = MagicMock()
-    final_resp.is_redirect = False
-    final_resp.raise_for_status = MagicMock()
-    final_resp.iter_bytes.return_value = [b"data"]
-
-    call_count = {"n": 0}
-
-    def fake_stream(method, url, **kw):
-        call_count["n"] += 1
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(
-            return_value=redirect_resp if call_count["n"] == 1 else final_resp
-        )
-        ctx.__exit__ = MagicMock(return_value=False)
-        return ctx
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", fake_stream)
-    resp = _validated_stream("https://github.com/file.whl", timeout=60)
-    assert list(resp.iter_bytes()) == [b"data"]
-
-
-def test_validated_stream_no_redirect(monkeypatch):
-    """_validated_stream handles direct response (no redirect)."""
-    from pyscv.download_artifacts import _validated_stream
-
-    direct_resp = MagicMock()
-    direct_resp.is_redirect = False
-    direct_resp.raise_for_status = MagicMock()
-    direct_resp.iter_bytes.return_value = [b"direct"]
-
-    def fake_stream(method, url, **kw):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=direct_resp)
-        ctx.__exit__ = MagicMock(return_value=False)
-        return ctx
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", fake_stream)
-    resp = _validated_stream("https://github.com/file.whl", timeout=60)
-    assert list(resp.iter_bytes()) == [b"direct"]
-    direct_resp.raise_for_status.assert_called_once()
-
-
-def test_validated_stream_rejects_bad_redirect(monkeypatch):
-    """_validated_stream rejects redirect to untrusted host."""
-    from pyscv.download_artifacts import _validated_stream
-
-    redirect_resp = MagicMock()
-    redirect_resp.is_redirect = True
-    redirect_resp.headers = {"location": "https://evil.com/steal"}
-    redirect_resp.close = MagicMock()
-
-    def fake_stream(method, url, **kw):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=redirect_resp)
-        ctx.__exit__ = MagicMock(return_value=False)
-        return ctx
-
-    monkeypatch.setattr("pyscv.download_artifacts.httpx.stream", fake_stream)
-    with pytest.raises(ValueError, match="unexpected host"):
-        _validated_stream("https://github.com/file.whl", timeout=60)
+    resp = MagicMock()
+    resp.is_redirect = True
+    resp.headers = {"location": "https://github.com/next"}
+    monkeypatch.setattr("pyscv.download_artifacts.httpx.head", lambda *_a, **_kw: resp)
+    with pytest.raises(ValueError, match="Too many redirects"):
+        _resolve_url("https://github.com/start")
 
 
 # -- CLI (typer app) -------------------------------------------------------

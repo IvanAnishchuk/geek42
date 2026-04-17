@@ -9,7 +9,7 @@ from __future__ import annotations
 import tempfile
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import Annotated, Any
+from typing import Annotated
 from urllib.parse import urlparse
 
 import httpx
@@ -78,62 +78,54 @@ def _safe_filename(name: str) -> str:
     return safe
 
 
-def _validated_get(url: str, **kwargs: Any) -> httpx.Response:
-    """GET with URL validation and validated redirect following."""
+MAX_REDIRECTS = 5
+
+
+def _resolve_url(url: str, timeout: float = 30) -> str:
+    """Validate URL, follow redirect chain (each hop validated), return final URL."""
     _validate_url(url)
-    resp = httpx.get(url, follow_redirects=False, **kwargs)
-    if resp.is_redirect:
-        redirect_url = str(resp.headers["location"])
-        _validate_url(redirect_url)
-        resp = httpx.get(redirect_url, follow_redirects=False, **kwargs)
-    resp.raise_for_status()
-    return resp
+    for _ in range(MAX_REDIRECTS):
+        resp = httpx.head(url, follow_redirects=False, timeout=timeout)
+        if not resp.is_redirect:
+            return url
+        url = str(resp.headers["location"])
+        _validate_url(url)
+    msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {url}"
+    raise ValueError(msg)
 
 
 def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsset]:
     """Fetch asset list from GitHub Releases API."""
-    url = f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}"
-    resp = _validated_get(url, timeout=30, headers=GH_API_HEADERS)
+    url = _resolve_url(f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}")
+    resp = httpx.get(url, timeout=30, follow_redirects=False, headers=GH_API_HEADERS)
+    resp.raise_for_status()
     raw_assets = resp.json().get("assets", [])
     return [GhReleaseAsset.model_validate(a) for a in raw_assets]
 
 
 def fetch_pypi_release_files(config: PyscvConfig, version: str) -> list[PypiFileInfo]:
     """Fetch file list from PyPI JSON API."""
-    url = f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json"
-    resp = _validated_get(url, timeout=30)
+    url = _resolve_url(f"{config.pypi_base_url}/pypi/{config.package_name}/{version}/json")
+    resp = httpx.get(url, timeout=30, follow_redirects=False)
+    resp.raise_for_status()
     raw_files = resp.json().get("urls", [])
     return [PypiFileInfo.model_validate(f) for f in raw_files]
-
-
-def _validated_stream(url: str, **kwargs: Any) -> httpx.Response:
-    """Open a streaming GET with URL validation and validated redirect following."""
-    _validate_url(url)
-    resp = httpx.stream("GET", url, follow_redirects=False, **kwargs).__enter__()
-    if resp.is_redirect:
-        redirect_url = str(resp.headers["location"])
-        _validate_url(redirect_url)
-        resp.close()
-        resp = httpx.stream("GET", redirect_url, follow_redirects=False, **kwargs).__enter__()
-    resp.raise_for_status()
-    return resp
 
 
 def atomic_download(url: str, dest: Path) -> None:
     """Download a file atomically — write to temp dir then replace.
 
-    Validates URL and redirect destinations before downloading.
+    Validates URL and all redirect destinations before downloading.
     """
+    final_url = _resolve_url(url)
     dest.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dest.parent) as tmpdir:
         tmp_file = Path(tmpdir) / dest.name
-        stream = _validated_stream(url, timeout=60)
-        try:
+        with httpx.stream("GET", final_url, timeout=60, follow_redirects=False) as stream:
+            stream.raise_for_status()
             with tmp_file.open("wb") as fh:
                 for chunk in stream.iter_bytes():
                     fh.write(chunk)
-        finally:
-            stream.close()
         tmp_file.replace(dest)
 
 
