@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 import tempfile
 from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlparse
@@ -93,18 +91,3 @@ def atomic_download(url: str, dest: Path) -> None:
                 for chunk in stream.iter_bytes():
                     fh.write(chunk)
         tmp_file.replace(dest)
-
-
-def run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run a ``gh`` CLI command and return the CompletedProcess.
-
-    Locates ``gh`` via shutil.which, falls back to bare "gh".
-    Does not raise on non-zero exit — caller decides.
-    """
-    gh = shutil.which("gh") or "gh"
-    return subprocess.run(  # noqa: S603 — args are list, no shell
-        [gh, *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )

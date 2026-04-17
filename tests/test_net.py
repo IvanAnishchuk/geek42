@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from unittest.mock import MagicMock
 
 import httpx
@@ -11,7 +10,6 @@ import pytest
 from pyscv.net import (
     atomic_download,
     resolve_url,
-    run_gh,
     safe_filename,
     validate_url,
 )
@@ -190,45 +188,3 @@ def test_atomic_download_rejects_unexpected_redirect(tmp_path, monkeypatch, no_r
     with pytest.raises(ValueError, match="Unexpected redirect"):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
-
-
-# -- run_gh ----------------------------------------------------------------
-
-
-def test_run_gh_returns_completed_process(monkeypatch):
-    monkeypatch.setattr("pyscv.net.shutil.which", lambda _: "/usr/bin/gh")
-    monkeypatch.setattr(
-        "pyscv.net.subprocess.run",
-        lambda *a, **kw: subprocess.CompletedProcess(
-            args=a[0], returncode=0, stdout="ok", stderr=""
-        ),
-    )
-    result = run_gh(["version"])
-    assert result.returncode == 0
-    assert result.stdout == "ok"
-
-
-def test_run_gh_nonzero_exit(monkeypatch):
-    monkeypatch.setattr("pyscv.net.shutil.which", lambda _: "/usr/bin/gh")
-    monkeypatch.setattr(
-        "pyscv.net.subprocess.run",
-        lambda *a, **kw: subprocess.CompletedProcess(
-            args=a[0], returncode=1, stdout="", stderr="not found"
-        ),
-    )
-    result = run_gh(["release", "download", "v99"])
-    assert result.returncode == 1
-    assert "not found" in result.stderr
-
-
-def test_run_gh_falls_back_to_bare_gh(monkeypatch):
-    monkeypatch.setattr("pyscv.net.shutil.which", lambda _: None)
-    captured = {}
-
-    def fake_run(cmd, **kw):
-        captured["cmd"] = cmd
-        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
-
-    monkeypatch.setattr("pyscv.net.subprocess.run", fake_run)
-    run_gh(["version"])
-    assert captured["cmd"][0] == "gh"
