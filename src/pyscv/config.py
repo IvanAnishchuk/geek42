@@ -84,8 +84,8 @@ class PyscvConfig(BaseModel):
         """Load config from pyproject.toml with [project] fallbacks. Does not validate."""
         try:
             data = tomllib.loads(path.read_text(encoding="utf-8"))
-        except FileNotFoundError as exc:
-            msg = f"pyproject.toml not found: {path}"
+        except OSError as exc:
+            msg = f"cannot read pyproject.toml: {path}: {exc}"
             raise ValueError(msg) from exc
         except tomllib.TOMLDecodeError as exc:
             msg = f"pyproject.toml is not valid TOML: {exc}"

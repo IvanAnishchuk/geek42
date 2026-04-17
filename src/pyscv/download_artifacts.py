@@ -84,6 +84,7 @@ MAX_REDIRECTS = 5
 def _resolve_url(url: str, timeout: float = 30) -> str:
     """Validate URL, follow redirect chain (each hop validated), return final URL."""
     _validate_url(url)
+    start_url = url
     for _ in range(MAX_REDIRECTS):
         resp = httpx.head(url, follow_redirects=False, timeout=timeout)
         if not resp.is_redirect:
@@ -96,7 +97,7 @@ def _resolve_url(url: str, timeout: float = 30) -> str:
         # absolute → returned as-is, relative → resolved against current url
         url = urljoin(url, location)
         _validate_url(url)
-    msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {url}"
+    msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {start_url}"
     raise ValueError(msg)
 
 
@@ -157,7 +158,9 @@ def download_from_gh(
     verbose: bool = False,
 ) -> int:
     """Download artifacts from GitHub Release via API + httpx."""
-    assert config.dist_dir is not None  # noqa: S101 — type narrowing, checked by validate_required
+    if config.dist_dir is None:
+        msg = "dist_dir is required — call validate_required() first"
+        raise ValueError(msg)
     tag = config.tag(version)
     try:
         assets = fetch_gh_release_assets(config, tag)
@@ -225,7 +228,9 @@ def download_from_pypi(
     verbose: bool = False,
 ) -> int:
     """Download artifacts from PyPI (or TestPyPI if configured)."""
-    assert config.dist_dir is not None  # noqa: S101 — type narrowing, checked by validate_required
+    if config.dist_dir is None:
+        msg = "dist_dir is required — call validate_required() first"
+        raise ValueError(msg)
     try:
         files = fetch_pypi_release_files(config, version)
     except (httpx.HTTPError, ValueError) as exc:

@@ -441,6 +441,18 @@ def test_pypi_unsafe_filename_returns_1(config, monkeypatch, fake_download):
     assert download_from_pypi(config, "1.0.0", (".whl",)) == 1
 
 
+def test_gh_raises_if_dist_dir_is_none():
+    cfg = PyscvConfig(package_name="pkg", version="1.0", repo_slug="o/r")
+    with pytest.raises(ValueError, match="dist_dir is required"):
+        download_from_gh(cfg, "1.0", (".whl",))
+
+
+def test_pypi_raises_if_dist_dir_is_none():
+    cfg = PyscvConfig(package_name="pkg", version="1.0", repo_slug="o/r")
+    with pytest.raises(ValueError, match="dist_dir is required"):
+        download_from_pypi(cfg, "1.0", (".whl",))
+
+
 # -- atomic_download -------------------------------------------------------
 
 
@@ -552,7 +564,7 @@ def test_validate_url_rejects_bad_urls(url, match):
 
 
 def test_from_pyproject_missing_file(tmp_path):
-    with pytest.raises(ValueError, match="not found"):
+    with pytest.raises(ValueError, match="cannot read"):
         PyscvConfig.from_pyproject(tmp_path / "nonexistent.toml")
 
 
@@ -789,7 +801,7 @@ proofs-dir = "proofs"
 def test_cli_missing_pyproject(cli_runner, tmp_path):
     result = cli_runner.invoke(app, ["1.0.0", "--pyproject", str(tmp_path / "nope.toml")])
     assert result.exit_code == 1
-    assert "not found" in result.output
+    assert "cannot read" in result.output
 
 
 def test_cli_missing_version_fails_validation(cli_runner, tmp_path):
