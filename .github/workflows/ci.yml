@@ -523,6 +523,17 @@ jobs:
           COVERAGE_DATA_BRANCH: python-coverage-comment-action-data
           MINIMUM_GREEN: 90
           MINIMUM_ORANGE: 75
+          ANNOTATE_MISSING_LINES: true
+          ANNOTATION_TYPE: warning
+          COMMENT_TEMPLATE: |
+            {% extends "base" %}
+            {% block coverage_badges %}
+            {{ super() }}
+            {% if coverage.meta.branch_coverage %}
+
+            **Branch coverage:** {{ coverage.info.covered_branches }}/{{ coverage.info.num_branches }} branches covered ({{ coverage.info.missing_branches }} missing, {{ coverage.info.num_partial_branches }} partial)
+            {% endif %}
+            {% endblock coverage_badges %}
 
       - name: Upload test + coverage artifacts
         if: always()

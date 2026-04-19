@@ -17,6 +17,11 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - Research document analyzing multi-platform supply-chain verification
   support (GitLab, Bitbucket, Codeberg/Gitea, SourceHut, GCP Cloud Build).
 
+### Changed
+
+- Coverage PR comments now include branch/conditional coverage metrics.
+- Enable inline annotations on lines with missing coverage in PRs.
+
 ### Fixed
 
 - Fix `download_release.py` crash when `dist/` contains subdirectories (#118).
