@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from geek42.models import NewsItem
-from geek42.tracker import ReadTracker
+from geek42.tracker import ReadTracker, _coverage_test_noop
 
 
 def _item(item_id: str) -> NewsItem:
@@ -89,3 +89,12 @@ def test_creates_data_dir(tmp_path: Path) -> None:
     tracker = ReadTracker(nested)
     tracker.mark_read("item")
     assert (nested / "read.txt").exists()
+
+
+# -- Temporary: test coverage annotations (will revert) --------------------
+
+
+def test_coverage_noop_partial() -> None:
+    """Only cover some branches to test partial coverage annotations."""
+    assert _coverage_test_noop(50) == "medium"
+    assert _coverage_test_noop(5) == "small"
