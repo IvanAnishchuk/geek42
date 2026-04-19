@@ -529,9 +529,14 @@ jobs:
             {% extends "base" %}
             {% block coverage_badges %}
             {{ super() }}
-            {% if coverage.meta.branch_coverage %}
+            {% if coverage.meta.branch_coverage and coverage.info.num_branches > 0 %}
 
-            **Branch coverage:** {{ coverage.info.covered_branches }}/{{ coverage.info.num_branches }} branches covered ({{ coverage.info.missing_branches }} missing, {{ coverage.info.num_partial_branches }} partial)
+            | Metric | Covered | Total | Percentage |
+            |--------|---------|-------|------------|
+            | Statements | {{ coverage.info.covered_lines }} | {{ coverage.info.num_statements }} | {{ "%.1f" | format(coverage.info.covered_lines / coverage.info.num_statements * 100) }}% |
+            | Branches | {{ coverage.info.covered_branches }} | {{ coverage.info.num_branches }} | {{ "%.1f" | format(coverage.info.covered_branches / coverage.info.num_branches * 100) }}% |
+
+            <sub>{{ coverage.info.missing_lines }} statements missing, {{ coverage.info.missing_branches }} branches missing, {{ coverage.info.num_partial_branches }} partially covered</sub>
             {% endif %}
             {% endblock coverage_badges %}
 
