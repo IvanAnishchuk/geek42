@@ -68,3 +68,15 @@ class ReadTracker:
             "\n".join(sorted(self.read_ids)) + "\n",
             encoding="utf-8",
         )
+
+
+def _coverage_test_noop(x: int) -> str:
+    """Temporary function to test coverage annotations. Will be reverted."""
+    if x > 10:
+        if x > 100:
+            return "big"
+        return "medium"
+    elif x > 0:
+        return "small"
+    else:
+        return "zero"
