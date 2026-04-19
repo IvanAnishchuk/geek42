@@ -70,8 +70,8 @@ class ReadTracker:
         )
 
 
-def _coverage_test_noop(x: int) -> str:
-    """Temporary function to test coverage annotations. Will be reverted."""
+def _cov_test_branches(x: int) -> str:
+    """Nested if/elif/else — some branches taken, some not."""
     if x > 10:
         if x > 100:
             return "big"
@@ -80,3 +80,33 @@ def _coverage_test_noop(x: int) -> str:
         return "small"
     else:
         return "zero"
+
+
+def _cov_test_ternary(x: int) -> int:
+    """Ternary on a single line — partial branch, line is 'covered'."""
+    return x if x > 0 else -x
+
+
+def _cov_test_short_circuit(a: bool, b: bool) -> str:
+    """Short-circuit boolean — hidden branch when first operand decides."""
+    if a and b:
+        return "both"
+    return "nope"
+
+
+def _cov_test_comprehension(items: list[int]) -> list[int]:
+    """Comprehension with filter — branch inside the filter expression."""
+    return [x for x in items if x > 0]
+
+
+def _cov_test_try_except(x: int) -> str:
+    """Try/except where except never fires."""
+    try:
+        return str(100 // x)
+    except ZeroDivisionError:
+        return "inf"
+
+
+def _cov_test_or_default(val: str | None) -> str:
+    """Or-default pattern — implicit branch."""
+    return val or "default"
