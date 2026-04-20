@@ -83,7 +83,7 @@ jobs:
               if [ "$count" = "0" ]; then
                 echo "**ruff S/BLE/TRY**: clean ✅"
               else
-                by_code=$(jq -r 'group_by(.code) | map("\(.[0].code): \(length)") | join(", ")' "${REPORTS_DIR}/security-lint/ruff-security.json")
+                by_code=$(jq -r 'sort_by(.code) | group_by(.code) | map("\(.[0].code): \(length)") | join(", ")' "${REPORTS_DIR}/security-lint/ruff-security.json")
                 echo "**ruff S/BLE/TRY**: **$count** finding(s)"
                 echo ""
                 echo "Breakdown: $by_code"
