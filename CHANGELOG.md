@@ -17,6 +17,15 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - Research document analyzing multi-platform supply-chain verification
   support (GitLab, Bitbucket, Codeberg/Gitea, SourceHut, GCP Cloud Build).
 
+### Changed
+
+- Split monolithic `ci.yml` into per-concern workflow files (pre-commit,
+  lint, security-lint, typecheck, audit, osv-scan, test).
+- Coverage reporting moved to dedicated `workflow_run` workflow
+  (`coverage-comment.yml`) triggered by test completion.
+- Coverage PR comments now include branch/conditional coverage metrics.
+- Enable inline annotations on lines with missing coverage in PRs.
+
 ### Fixed
 
 - Fix `download_release.py` crash when `dist/` contains subdirectories (#118).

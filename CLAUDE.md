@@ -47,7 +47,7 @@ uv run python scripts/verify_pure.py 0.4.2a7
 - ty for type checking
 - pytest with coverage (75% floor)
 - Conventional Commits enforced by pre-commit hook
-- All CI checks must pass before merge (see .github/workflows/ci.yml)
+- All CI checks must pass before merge (see .github/workflows/)
 - No checked-in shell scripts or Makefiles — prefer Python scripts for tooling
 
 ## Critical workflow rules

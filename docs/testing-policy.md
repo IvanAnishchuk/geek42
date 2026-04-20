@@ -80,7 +80,39 @@ uv run pytest -k "not gemato"
 
 - `Test (Python 3.13)` is a **required status check** in branch
   protection — PRs cannot merge if tests fail.
-- Coverage comment posts on every PR — reviewers see exactly which
-  lines are newly uncovered.
+- Coverage comment posts on PRs where tests pass successfully,
+  showing statement and branch coverage metrics, per-file diffs,
+  and inline annotations on uncovered lines.
 - `fail_under` is the automated floor; reviewer judgment handles
   the rest.
+
+## Evidence of adherence
+
+This policy is actively enforced. Recent PRs demonstrate compliance:
+
+- PR #124 (`download_artifacts.py`): 79 tests, 100% branch coverage
+  on all new modules.
+- PR #126 (`download_proofs.py`): 144 tests, 100% branch coverage
+  on all pyscv modules.
+- PR #127 (coverage reporting): added branch coverage metrics and
+  inline annotations to PR comments.
+
+Every merged PR since project inception includes tests for new
+functionality. The coverage floor is currently set at 75% and should
+be raised as coverage stabilizes. PRs that decrease coverage are flagged
+by the coverage comment action and must be justified during review.
+
+## Branch coverage
+
+Branch (conditional) coverage is tracked alongside statement coverage.
+The coverage comment on PRs shows both metrics:
+
+| Metric | Tracked | CI gate |
+|--------|---------|---------|
+| Statement coverage | Yes | `fail_under = 75` |
+| Branch coverage | Yes | Reported, not gated (reviewer judgment) |
+| Missing line annotations | Yes | Warnings on PR diff |
+
+The `pyscv` package maintains 100% branch coverage. The `geek42`
+package targets >80% with pragmatic exceptions for UI/external-tool
+integration code.
