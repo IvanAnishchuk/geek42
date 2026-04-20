@@ -1,0 +1,109 @@
+name: Dependency audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REPORTS_DIR: .reports
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@6c3c2f2c1c457b00c10c4848d6f5491db3b629df # v2.18.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v4.2.0
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen --dev
+
+      - name: Run supply-chain audit script
+        id: audit_script
+        run: uv run python scripts/audit.py
+        continue-on-error: true
+
+      - name: Copy committed requirements into reports dir
+        if: always()
+        run: |
+          mkdir -p "${REPORTS_DIR}/audit"
+          cp requirements.txt "${REPORTS_DIR}/audit/requirements.txt"
+          cp requirements-dev.txt "${REPORTS_DIR}/audit/requirements-dev.txt"
+
+      - name: Write audit summary
+        if: always()
+        run: |
+          {
+            echo "## Dependency audit"
+            echo ""
+            echo "| Check | Result |"
+            echo "|---|---|"
+            if [ "${{ steps.audit_script.outcome }}" = "success" ]; then
+              echo "| Supply-chain audit | ✅ passed |"
+            else
+              echo "| Supply-chain audit | ❌ failed — see logs |"
+            fi
+            if [ -f "${REPORTS_DIR}/audit/sbom.cdx.json" ]; then
+              components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom.cdx.json")
+              echo "| SBOM (prod) components | $components |"
+            fi
+            if [ -f "${REPORTS_DIR}/audit/sbom-dev.cdx.json" ]; then
+              components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom-dev.cdx.json")
+              echo "| SBOM (prod + dev) components | $components |"
+            fi
+            echo ""
+            if [ -s "${REPORTS_DIR}/audit/pip-audit.log" ]; then
+              echo "<details><summary>pip-audit (prod) output</summary>"
+              echo ""
+              echo '```'
+              cat "${REPORTS_DIR}/audit/pip-audit.log"
+              echo '```'
+              echo "</details>"
+            fi
+            if [ -s "${REPORTS_DIR}/audit/pip-audit-dev.log" ]; then
+              echo ""
+              echo "<details><summary>pip-audit (prod + dev) output</summary>"
+              echo ""
+              echo '```'
+              cat "${REPORTS_DIR}/audit/pip-audit-dev.log"
+              echo '```'
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dependency-audit
+          path: |
+            .reports/audit/
+            requirements.txt
+            requirements-dev.txt
+          retention-days: 90  # SBOM retained for compliance window
+
+      - name: Fail if audit script reported errors
+        if: steps.audit_script.outcome != 'success'
+        run: |
+          echo "Supply-chain audit failed — see logs above and artifacts."
+          exit 1
