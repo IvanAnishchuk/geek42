@@ -80,9 +80,9 @@ uv run pytest -k "not gemato"
 
 - `Test (Python 3.13)` is a **required status check** in branch
   protection — PRs cannot merge if tests fail.
-- Coverage comment posts on every PR showing statement and branch
-  coverage metrics, per-file diffs, and inline annotations on
-  uncovered lines.
+- Coverage comment posts on PRs where tests pass successfully,
+  showing statement and branch coverage metrics, per-file diffs,
+  and inline annotations on uncovered lines.
 - `fail_under` is the automated floor; reviewer judgment handles
   the rest.
 

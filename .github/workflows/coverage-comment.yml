@@ -11,6 +11,10 @@ permissions: {}
 env:
   PRIMARY_PYTHON: "3.13"
 
+concurrency:
+  group: coverage-comment-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
 jobs:
   coverage:
     name: Coverage comment + badge
@@ -26,9 +30,9 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
+      # No actions/checkout needed — the coverage action uses
+      # GITHUB_TOKEN directly for all git operations. See:
+      # https://github.com/py-cov-action/python-coverage-comment-action#workflow_run
 
       - name: Download test artifacts
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8

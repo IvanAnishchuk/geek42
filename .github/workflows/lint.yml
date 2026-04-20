@@ -59,8 +59,10 @@ jobs:
 
       - name: Ruff format check
         run: |
+          set +e
           uv run ruff format --check --diff src/ tests/ \
-            | tee "${REPORTS_DIR}/lint/ruff-format.log" || true
+            | tee "${REPORTS_DIR}/lint/ruff-format.log"
+          echo "format_exit=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
 
       - name: Write lint summary
         if: always()
@@ -104,6 +106,10 @@ jobs:
       - name: Fail if ruff found issues
         run: |
           if [ "${ruff_exit:-0}" != "0" ]; then
-            echo "Ruff reported issues — see logs above."
+            echo "Ruff check reported issues — see logs above."
+            exit 1
+          fi
+          if [ "${format_exit:-0}" != "0" ]; then
+            echo "Ruff format check failed — see diff above."
             exit 1
           fi

@@ -190,7 +190,7 @@ The `baseline-compiler` tool already converts YAML to Markdown and
 NIST OSCAL JSON. A similar compiler could produce shields.io badge
 JSON and OpenSSF form update URLs.
 
-### Current geek42 compliance with OSPS
+### Current geek42 compliance with OSPS (snapshot: 2026-04-19)
 
 | Level | Controls met | Controls unmet | Notes |
 |-------|-------------|----------------|-------|

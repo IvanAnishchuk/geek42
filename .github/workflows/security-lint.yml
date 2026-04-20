@@ -107,3 +107,10 @@ jobs:
           name: security-lint-logs
           path: .reports/security-lint/
           retention-days: 30
+
+      - name: Fail if scanner did not produce output
+        run: |
+          if [ ! -f "${REPORTS_DIR}/security-lint/ruff-security.sarif" ]; then
+            echo "Security scanner failed to produce SARIF — ruff may have crashed."
+            exit 1
+          fi

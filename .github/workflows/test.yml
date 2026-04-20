@@ -73,6 +73,7 @@ jobs:
             if [ -f "${REPORTS_DIR}/test/coverage.xml" ]; then
               line_rate=$(grep -oP 'line-rate="\K[0-9.]+' "${REPORTS_DIR}/test/coverage.xml" | head -1)
               branch_rate=$(grep -oP 'branch-rate="\K[0-9.]+' "${REPORTS_DIR}/test/coverage.xml" | head -1)
+              line_rate=${line_rate:-0}; branch_rate=${branch_rate:-0}
               line_pct=$(awk "BEGIN {printf \"%.2f\", $line_rate * 100}")
               branch_pct=$(awk "BEGIN {printf \"%.2f\", $branch_rate * 100}")
               echo "### Coverage"
