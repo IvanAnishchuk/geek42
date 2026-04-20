@@ -76,7 +76,9 @@ jobs:
           {
             echo "## Security lint report"
             echo ""
-            if [ -s "${REPORTS_DIR}/security-lint/ruff-security.json" ]; then
+            if [ ! -f "${REPORTS_DIR}/security-lint/ruff-security.json" ]; then
+              echo "**ruff S/BLE/TRY**: ⚠️ scanner did not produce output — check logs"
+            elif [ -s "${REPORTS_DIR}/security-lint/ruff-security.json" ]; then
               count=$(jq 'length' "${REPORTS_DIR}/security-lint/ruff-security.json")
               if [ "$count" = "0" ]; then
                 echo "**ruff S/BLE/TRY**: clean ✅"

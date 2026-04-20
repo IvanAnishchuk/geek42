@@ -68,7 +68,9 @@ jobs:
           {
             echo "## Lint report"
             echo ""
-            if [ -s "${REPORTS_DIR}/lint/ruff.json" ]; then
+            if [ ! -f "${REPORTS_DIR}/lint/ruff.json" ]; then
+              echo "**ruff**: ⚠️ scanner did not produce output — check logs"
+            elif [ -s "${REPORTS_DIR}/lint/ruff.json" ]; then
               count=$(jq length "${REPORTS_DIR}/lint/ruff.json")
               echo "**ruff** found **$count** issue(s)"
             else

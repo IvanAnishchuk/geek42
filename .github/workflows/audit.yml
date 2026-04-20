@@ -47,8 +47,8 @@ jobs:
         if: always()
         run: |
           mkdir -p "${REPORTS_DIR}/audit"
-          cp requirements.txt "${REPORTS_DIR}/audit/requirements.txt"
-          cp requirements-dev.txt "${REPORTS_DIR}/audit/requirements-dev.txt"
+          cp requirements.txt "${REPORTS_DIR}/audit/requirements.txt" 2>/dev/null || echo "WARNING: requirements.txt not found"
+          cp requirements-dev.txt "${REPORTS_DIR}/audit/requirements-dev.txt" 2>/dev/null || echo "WARNING: requirements-dev.txt not found"
 
       - name: Write audit summary
         if: always()
