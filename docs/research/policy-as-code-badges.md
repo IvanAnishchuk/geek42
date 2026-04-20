@@ -65,7 +65,7 @@ badge = "badges/security.json"
 
 ## Architecture
 
-```
+```text
 policy.toml
     ↓ (read by)
 CI workflows (test.yml, lint.yml, etc.)

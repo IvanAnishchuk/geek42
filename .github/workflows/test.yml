@@ -63,6 +63,7 @@ jobs:
               failures=$(grep -oP 'failures="\K[0-9]+' "${REPORTS_DIR}/test/test-results.xml" | head -1)
               errors=$(grep -oP 'errors="\K[0-9]+' "${REPORTS_DIR}/test/test-results.xml" | head -1)
               skipped=$(grep -oP 'skipped="\K[0-9]+' "${REPORTS_DIR}/test/test-results.xml" | head -1)
+              total=${total:-0}; failures=${failures:-0}; errors=${errors:-0}; skipped=${skipped:-0}
               passed=$((total - failures - errors - skipped))
               echo "| Total | Passed | Failed | Errors | Skipped |"
               echo "|---|---|---|---|---|"
@@ -94,7 +95,7 @@ jobs:
           retention-days: 14
 
       - name: Fail if tests did not pass
-        if: steps.pytest.outputs.exit != '0'
+        if: steps.pytest.outputs.exit != '0' || steps.pytest.outcome == 'failure'
         run: |
           echo "pytest reported failures — see test-results artifact and PR check."
           exit 1
