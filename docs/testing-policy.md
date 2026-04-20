@@ -98,8 +98,8 @@ This policy is actively enforced. Recent PRs demonstrate compliance:
   inline annotations to PR comments.
 
 Every merged PR since project inception includes tests for new
-functionality. The coverage floor has been raised from the initial
-75% as coverage improved. PRs that decrease coverage are flagged
+functionality. The coverage floor is currently set at 75% and should
+be raised as coverage stabilizes. PRs that decrease coverage are flagged
 by the coverage comment action and must be justified during review.
 
 ## Branch coverage
