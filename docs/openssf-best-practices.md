@@ -148,31 +148,43 @@ floor only catches regressions when total coverage drops below 75%.
 
 ## Items still "?" or needing action on the form
 
-### Can be marked Met now (evidence exists)
+### Can be marked Met now — form update guide
 
-These items have `?` status on the badge form but are actually met:
+These items have `?` status on the badge form but are actually met.
+Copy the justification text into the form field for each criterion.
 
-1. **documentation_interface** — CLI `--help` output + `docs/user-guide.md` + `README.md` Quickstart. Mark **Met**, justification: "CLI --help for all commands; docs/user-guide.md for workflow; README.md for quickstart"
-2. **tests_documented_added** — `CONTRIBUTING.md` PR checklist + `docs/testing-policy.md`. Mark **Met**, justification: "CONTRIBUTING.md PR checklist requires tests; docs/testing-policy.md is the full policy"
-3. **warnings_fixed** — CI fails on any ruff/ty warning, zero warnings on main. Mark **Met**, justification: "CI fails on any ruff or ty diagnostic; zero warnings on current main"
-4. **warnings_strict** — ruff with 500+ rules, security rules, line-length 100. Mark **Met**, justification: "ruff with S/BLE/TRY security rules, line-length 100; ty type checker; all enforced in CI and pre-commit"
-5. **know_secure_design** — Link to SECURITY.md + docs/security.md + CODEOWNERS. Mark **Met**, justification: "Primary developer maintains SECURITY.md, docs/security.md threat model, and configures ruff security rules (flake8-bandit) + CodeQL SAST"
-6. **know_common_errors** — ruff S rules + CodeQL cover OWASP patterns. Mark **Met**, justification: "ruff S rules (flake8-bandit) cover injection, path traversal, subprocess risks; CodeQL security-extended queries; documented in docs/security.md"
-7. **crypto_published** — All standard algorithms. Mark **Met**, justification: "GPG (RFC 4880), Ed25519 (RFC 8032), sigstore, SHA-256/512, BLAKE2B — all industry-standard and publicly reviewed"
-8. **crypto_call** — No custom crypto. Mark **Met**, justification: "All crypto delegated to gpg, sigstore-python, cosign, gemato — no custom implementations"
-9. **crypto_floss** — All FLOSS. Mark **Met**, justification: "gpg (GPL), sigstore-python (Apache-2.0), cosign (Apache-2.0), gemato (GPL-2.0)"
-10. **crypto_keylength** — Ed25519/RSA-4096. Mark **Met**, justification: "Signing uses Ed25519 (256-bit) or RSA-4096; SHA-256 minimum for hashes — all NIST-approved through 2030+"
-11. **crypto_working** — No broken algorithms. Mark **Met**, justification: "SHA-256/512, BLAKE2B, Ed25519/RSA-4096. No MD5, single DES, RC4, or Dual_EC_DRBG"
-12. **crypto_weaknesses** — No SHA-1. Mark **Met**, justification: "No SHA-1 for integrity verification. No CBC mode. Only modern algorithms"
-13. **crypto_random** — N/A. Mark **N/A**, justification: "Project does not generate keys or nonces"
-14. **delivery_unsigned** — Signed hashes only. Mark **Met**, justification: "SHA256SUMS.txt distributed with sigstore bundles; manifest verification requires GPG signatures via gemato"
-15. **no_leaked_credentials** — gitleaks. Mark **Met**, justification: "gitleaks in pre-commit + CI workflow; GitHub secret scanning + push protection enabled"
-16. **static_analysis_common_vulnerabilities** — ruff S + CodeQL. Mark **Met**, justification: "ruff S rules (flake8-bandit) for Python-specific vulns; CodeQL security-extended for broader analysis"
+#### Quality section
 
-### Cannot be marked Met yet (needs work)
+| Criterion | Mark | Justification (paste into form) |
+|-----------|------|-------------------------------|
+| `documentation_interface` | **Met** | CLI `--help` for all commands; user guide at https://github.com/IvanAnishchuk/geek42/blob/main/docs/user-guide.md; README quickstart at https://github.com/IvanAnishchuk/geek42/blob/main/README.md |
+| `tests_documented_added` | **Met** | PR checklist in CONTRIBUTING.md requires "Tests added/updated": https://github.com/IvanAnishchuk/geek42/blob/main/CONTRIBUTING.md#pull-request-checklist — Full testing policy: https://github.com/IvanAnishchuk/geek42/blob/main/docs/testing-policy.md |
+| `warnings_fixed` | **Met** | CI fails on any ruff or ty diagnostic. Lint workflow: https://github.com/IvanAnishchuk/geek42/actions/workflows/lint.yml — Type check: https://github.com/IvanAnishchuk/geek42/actions/workflows/typecheck.yml — Zero warnings on current main |
+| `warnings_strict` | **Met** | ruff configured with 500+ rules including security (S, BLE, TRY), line-length 100. ty type checker with no suppressions. Both enforced in CI and pre-commit. Config: https://github.com/IvanAnishchuk/geek42/blob/main/pyproject.toml |
 
-1. **tests_are_added** — Policy exists but no automated CI gate on new-code coverage. Currently relies on reviewer judgment from coverage comment. **Action needed**: add diff-based coverage gate (e.g., `insightsengineering/coverage-action` with `fail-below-threshold`) to block PRs that add significant uncovered code.
-2. **floss_license_osi** — CC0-1.0 is not on OSI's approved list (it's a public domain dedication, not a traditional license). This is arguably OSI's classification gap. Mark **Met** with justification: "CC0-1.0 is OSI-recognized as functionally equivalent to permissive FLOSS; approved by FSF and widely used in FLOSS projects"
+#### Security section
+
+| Criterion | Mark | Justification (paste into form) |
+|-----------|------|-------------------------------|
+| `know_secure_design` | **Met** | Primary developer maintains security policy (https://github.com/IvanAnishchuk/geek42/blob/main/SECURITY.md), threat model (https://github.com/IvanAnishchuk/geek42/blob/main/docs/security.md), and configures ruff security rules + CodeQL SAST. CODEOWNERS: https://github.com/IvanAnishchuk/geek42/blob/main/.github/CODEOWNERS |
+| `know_common_errors` | **Met** | ruff S rules (flake8-bandit) catch injection, path traversal, subprocess risks — OWASP Top 10 Python patterns. CodeQL security-extended queries run weekly + on every PR. Security lint workflow: https://github.com/IvanAnishchuk/geek42/actions/workflows/security-lint.yml — CodeQL: https://github.com/IvanAnishchuk/geek42/actions/workflows/codeql.yml |
+| `crypto_published` | **Met** | GPG (RFC 4880), Ed25519 (RFC 8032), sigstore (https://sigstore.dev), SHA-256/512 (FIPS 180-4), BLAKE2B (RFC 7693). All industry-standard, publicly reviewed. No proprietary or unpublished algorithms |
+| `crypto_call` | **Met** | All crypto delegated to established libraries: gpg, sigstore-python (https://github.com/sigstore/sigstore-python), cosign (https://github.com/sigstore/cosign), gemato (https://github.com/projg2/gemato). No custom implementations. Manifest hash verification: https://github.com/IvanAnishchuk/geek42/blob/main/src/geek42/manifest.py |
+| `crypto_floss` | **Met** | gpg (GPL-3.0), sigstore-python (Apache-2.0), cosign (Apache-2.0), gemato (GPL-2.0). All FLOSS. Dependencies listed in https://github.com/IvanAnishchuk/geek42/blob/main/pyproject.toml |
+| `crypto_keylength` | **Met** | Signing uses Ed25519 (256-bit, NIST-approved through 2030+) or RSA-4096. SHA-256 minimum for all hashes. Signing instructions: https://github.com/IvanAnishchuk/geek42/blob/main/CONTRIBUTING.md#signed-commits-are-required |
+| `crypto_working` | **Met** | SHA-256, SHA-512, BLAKE2B for hashes. Ed25519 or RSA-4096 for signing. No MD5, single DES, RC4, or Dual_EC_DRBG anywhere in codebase. Verified by grep across all source files |
+| `crypto_weaknesses` | **Met** | No SHA-1 for integrity verification (only used internally by git). No CBC mode. No deprecated algorithms in any signing or verification path. Sigstore uses modern Fulcio/Rekor infrastructure |
+| `crypto_random` | **N/A** | Project does not generate cryptographic keys or nonces. Key generation is delegated to gpg or ssh-keygen by the user per CONTRIBUTING.md |
+| `delivery_unsigned` | **Met** | SHA256SUMS.txt distributed alongside sigstore bundles (*.sigstore.json) in every GitHub Release. Manifest verification uses gemato with GPG signatures — never plain hashes over HTTP. Release workflow: https://github.com/IvanAnishchuk/geek42/blob/main/.github/workflows/release.yml |
+| `no_leaked_credentials` | **Met** | gitleaks runs in pre-commit hooks and CI workflow (https://github.com/IvanAnishchuk/geek42/blob/main/.github/workflows/gitleaks.yml). GitHub secret scanning + push protection enabled in repository settings |
+| `static_analysis_common_vulnerabilities` | **Met** | ruff S rules (flake8-bandit) for Python-specific vulnerabilities (injection, path traversal, subprocess, hardcoded passwords). CodeQL security-extended queries for broader SAST. OSV-Scanner for known CVEs. All three run on every PR: https://github.com/IvanAnishchuk/geek42/actions |
+
+### Cannot be marked Met yet (needs automated enforcement)
+
+| Criterion | Issue | Action needed |
+|-----------|-------|--------------|
+| `tests_are_added` | Policy exists (`docs/testing-policy.md`) and reviewer judgment enforced via coverage comment, but **no automated CI gate** blocks PRs with insufficient new-code coverage | Add diff-based coverage gate (e.g., `insightsengineering/coverage-action` with `fail-below-threshold: true`) to block PRs where <90% of new lines are covered |
+| `floss_license_osi` | CC0-1.0 is not on OSI's approved list (public domain dedication, not a traditional license). OSI classification gap — CC0 is approved by FSF and widely used in FLOSS. Currently marked `?` on form | Can arguably mark **Met** with justification, but may remain yellow until OSI updates their list |
 
 ### Already met (no change needed on form)
 
