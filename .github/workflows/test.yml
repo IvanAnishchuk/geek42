@@ -22,9 +22,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: write  # test-report comments
-      checks: write         # publish test result check
-      issues: write         # test reporter creates a check
     strategy:
       fail-fast: false
       matrix:
@@ -83,15 +80,6 @@ jobs:
               echo "- Branches: **${branch_pct}%**"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Publish test results (PR annotations)
-        if: always() && github.event_name == 'pull_request'
-        uses: EnricoMi/publish-unit-test-result-action@c950f6fb443cb5af20a377fd0dfaa78838901040 # v2.23.0
-        with:
-          files: .reports/test/test-results.xml
-          check_name: "Pytest report (${{ matrix.python-version }})"
-          comment_mode: always
-          compare_to_earlier_commit: true
 
       - name: Copy .coverage into reports dir
         if: always()
