@@ -263,9 +263,9 @@ email-validator==2.3.0 \
     --hash=sha256:80f13f623413e6b197ae73bb10bf4eb0908faf509ad8362c5edeb0be7fd450b4 \
     --hash=sha256:9fc05c37f2f6cf439ff414f8fc46d917929974a82244c20eb10231ba60c54426
     # via pydantic
-filelock==3.29.0 \
-    --hash=sha256:69974355e960702e789734cb4871f884ea6fe50bd8404051a3530bc07809cf90 \
-    --hash=sha256:96f5f6344709aa1572bbf631c640e4ebeeb519e08da902c39a001882f30ac258
+filelock==3.25.2 \
+    --hash=sha256:b64ece2b38f4ca29dd3e810287aa8c48182bbecd1ae6e9ae126c9b35f1382694 \
+    --hash=sha256:ca8afb0da15f229774c9ad1b455ed96e85a81373065fb10446672f64444ddf70
     # via
     #   cachecontrol
     #   python-discovery
@@ -290,9 +290,9 @@ id==1.6.1 \
     --hash=sha256:d0732d624fb46fd4e7bc4e5152f00214450953b9e772c182c1c22964def1a069 \
     --hash=sha256:f5ec41ed2629a508f5d0988eda142e190c9c6da971100612c4de9ad9f9b237ca
     # via sigstore
-identify==2.6.19 \
-    --hash=sha256:20e6a87f786f768c092a721ad107fc9df0eb89347be9396cadf3f4abbd1fb78a \
-    --hash=sha256:6be5020c38fcb07da56c53733538a3081ea5aa70d36a156f83044bfbf9173842
+identify==2.6.18 \
+    --hash=sha256:873ac56a5e3fd63e7438a7ecbc4d91aca692eb3fefa4534db2b7913f3fc352fd \
+    --hash=sha256:8db9d3c8ea9079db92cafb0ebf97abdc09d52e97f4dcf773a2e694048b7cd737
     # via pre-commit
 idna==3.11 \
     --hash=sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea \
@@ -411,9 +411,9 @@ packageurl-python==0.17.6 \
     --hash=sha256:1252ce3a102372ca6f86eb968e16f9014c4ba511c5c37d95a7f023e2ca6e5c25 \
     --hash=sha256:31a85c2717bc41dd818f3c62908685ff9eebcb68588213745b14a6ee9e7df7c9
     # via cyclonedx-python-lib
-packaging==26.1 \
-    --hash=sha256:5d9c0669c6285e491e0ced2eee587eaf67b670d94a19e94e3984a481aba6802f \
-    --hash=sha256:f042152b681c4bfac5cae2742a55e103d27ab2ec0f3d88037136b6bfe7c9c5de
+packaging==26.0 \
+    --hash=sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4 \
+    --hash=sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529
     # via
     #   pip-audit
     #   pip-requirements-parser
@@ -769,7 +769,7 @@ uv==0.11.7 \
     --hash=sha256:f422d39530516b1dfb28bb6e90c32bb7dacd50f6a383cd6e40c1a859419fbc8c \
     --hash=sha256:f97e9f4e4d44fb5c4dfaa05e858ef3414a96416a2e4af270ecd88a3e5fb049a9 \
     --hash=sha256:fab0bb43fbbc0ee5b5fee212078d2300c371b725faff7cf72eeaafa0bff0606b
-virtualenv==21.2.4 \
-    --hash=sha256:29d21e941795206138d0f22f4e45ff7050e5da6c6472299fb7103318763861ac \
-    --hash=sha256:b294ef68192638004d72524ce7ef303e9d0cf5a44c95ce2e54a7500a6381cada
+virtualenv==21.2.0 \
+    --hash=sha256:1720dc3a62ef5b443092e3f499228599045d7fea4c79199770499df8becf9098 \
+    --hash=sha256:1bd755b504931164a5a496d217c014d098426cddc79363ad66ac78125f9d908f
     # via pre-commit
