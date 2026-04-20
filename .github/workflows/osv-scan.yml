@@ -37,7 +37,7 @@ jobs:
         run: mkdir -p "${REPORTS_DIR}/osv"
 
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@eb5b619bb565d10623076caba5263750fde3c790 # main 2026-04-10
+        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
         with:
           scan-args: |-
             --output=.reports/osv/osv-results.sarif
