@@ -42,7 +42,9 @@ jobs:
         run: mkdir -p "${REPORTS_DIR}/typecheck"
 
       - name: ty check
-        run: uv run ty check 2>&1 | tee "${REPORTS_DIR}/typecheck/ty.log"
+        run: |
+          set -o pipefail
+          uv run ty check 2>&1 | tee "${REPORTS_DIR}/typecheck/ty.log"
 
       - name: Upload ty log
         if: always()
