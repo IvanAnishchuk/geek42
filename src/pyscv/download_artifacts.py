@@ -18,8 +18,8 @@ from rich.console import Console
 from pyscv.config import PyscvConfig
 from pyscv.net import (
     API_TIMEOUT,
-    GH_API_HEADERS,
     atomic_download,
+    gh_api_headers,
     resolve_url,
     safe_filename,
 )
@@ -48,7 +48,7 @@ class PypiFileInfo(BaseModel):
 def fetch_gh_release_assets(config: PyscvConfig, tag: str) -> list[GhReleaseAsset]:
     """Fetch asset list from GitHub Releases API."""
     url = resolve_url(f"https://api.github.com/repos/{config.repo_slug}/releases/tags/{tag}")
-    resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False, headers=GH_API_HEADERS)
+    resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False, headers=gh_api_headers())
     resp.raise_for_status()
     if resp.is_redirect:
         msg = f"Unexpected redirect from {url}"

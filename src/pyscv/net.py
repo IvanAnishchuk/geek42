@@ -35,9 +35,6 @@ def gh_api_headers() -> dict[str, str]:
     return headers
 
 
-# Keep module-level constant for backward compatibility
-GH_API_HEADERS = gh_api_headers()
-
 API_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 60
 MAX_REDIRECTS = 5

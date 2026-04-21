@@ -30,8 +30,8 @@ from pyscv.download_artifacts import (
 )
 from pyscv.net import (
     API_TIMEOUT,
-    GH_API_HEADERS,
     atomic_download,
+    gh_api_headers,
     resolve_url,
     safe_filename,
 )
@@ -153,7 +153,7 @@ def fetch_gh_attestation(
     url = resolve_url(
         f"https://api.github.com/repos/{config.repo_slug}/attestations/sha256:{digest}"
     )
-    resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False, headers=GH_API_HEADERS)
+    resp = httpx.get(url, timeout=API_TIMEOUT, follow_redirects=False, headers=gh_api_headers())
     if resp.status_code == 404:
         return None
     resp.raise_for_status()
@@ -289,6 +289,7 @@ def download_pypi_proofs(
     source_name: str,
     base_url: str,
     *,
+    use_testpypi: bool = False,
     force: bool = False,
     dry_run: bool = False,
     verbose: bool = False,
@@ -305,9 +306,8 @@ def download_pypi_proofs(
     if not dry_run:
         pypi_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get file list from the same index we're fetching proofs from.
-    # Override config's pypi_base_url to match the explicit base_url.
-    pypi_config = config.model_copy(update={"use_testpypi": base_url == "https://test.pypi.org"})
+    # Fetch file list from the same index we're fetching proofs from
+    pypi_config = config.model_copy(update={"use_testpypi": use_testpypi})
     try:
         files = fetch_pypi_release_files(pypi_config, version)
     except (httpx.HTTPError, ValueError) as exc:
@@ -466,6 +466,7 @@ def download_proofs(
                 version,
                 "pypi",
                 "https://pypi.org",
+                use_testpypi=False,
                 force=force,
                 dry_run=dry_run,
                 verbose=verbose,
@@ -480,6 +481,7 @@ def download_proofs(
                 version,
                 "testpypi",
                 "https://test.pypi.org",
+                use_testpypi=True,
                 force=force,
                 dry_run=dry_run,
                 verbose=verbose,
