@@ -12,8 +12,13 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - `download_artifacts.py` — focused artifact downloader with `--source gh|pypi`,
   `--ext`, `--force`, `--dry-run`, `--verbose` options (#120).
+- `download_proofs.py` — proof downloader with GitHub attestations, PyPI
+  provenance, and cosign bundle extraction (#121).
+- `pyscv.net` — shared networking primitives (URL validation, redirect
+  resolution, atomic download).
 - `[tool.pyscv]` section in pyproject.toml for supply-chain verification
   trust anchors.
+- pyscv package included in coverage reports.
 - Research document analyzing multi-platform supply-chain verification
   support (GitLab, Bitbucket, Codeberg/Gitea, SourceHut, GCP Cloud Build).
 
