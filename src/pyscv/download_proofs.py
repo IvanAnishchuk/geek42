@@ -34,7 +34,6 @@ from pyscv.net import (
     atomic_download,
     resolve_url,
     safe_filename,
-    validate_url,
 )
 
 console = Console()
@@ -194,7 +193,7 @@ def fetch_gh_attestations(
         att_file = gh_dir / f"{name}.gh-attestation.json"
         bundle_file = gh_dir / f"{name}.gh-attestation-bundle.json"
 
-        if att_file.exists() and not force:
+        if att_file.exists() and bundle_file.exists() and not force:
             if verbose:
                 console.print(f"  [dim]skip {name} attestation (exists)[/]")
             continue
@@ -252,8 +251,7 @@ def fetch_pypi_provenance(
     Raises on other HTTP errors.
     """
     url = f"{base_url}/integrity/{config.package_name}/{version}/{filename}/provenance"
-    validate_url(url)
-    resolved = resolve_url(url)
+    resolved = resolve_url(url)  # resolve_url validates internally
     resp = httpx.get(resolved, timeout=API_TIMEOUT, follow_redirects=False)
     if resp.status_code == 404:
         return None
@@ -307,9 +305,11 @@ def download_pypi_proofs(
     if not dry_run:
         pypi_dir.mkdir(parents=True, exist_ok=True)
 
-    # Get file list from PyPI to download artifact copies
+    # Get file list from the same index we're fetching proofs from.
+    # Override config's pypi_base_url to match the explicit base_url.
+    pypi_config = config.model_copy(update={"use_testpypi": base_url == "https://test.pypi.org"})
     try:
-        files = fetch_pypi_release_files(config, version)
+        files = fetch_pypi_release_files(pypi_config, version)
     except (httpx.HTTPError, ValueError) as exc:
         console.print(f"[red]ERROR: failed to fetch file list from {source_name}: {exc}[/]")
         return 1
@@ -341,9 +341,11 @@ def download_pypi_proofs(
         elif verbose:
             console.print(f"  [dim]skip {filename} (exists)[/]")
 
-        # Fetch provenance
+        # Fetch provenance and extract derived files
         prov_file = pypi_dir / f"{filename}.provenance.json"
-        if prov_file.exists() and not force:
+        att_file = pypi_dir / f"{filename}.publish.attestation"
+        cosign_file = pypi_dir / f"{filename}.cosign-bundle.json"
+        if prov_file.exists() and att_file.exists() and cosign_file.exists() and not force:
             if verbose:
                 console.print(f"  [dim]skip {filename} provenance (exists)[/]")
             continue
@@ -370,29 +372,31 @@ def download_pypi_proofs(
         # Extract attestations from provenance
         bundles = prov.get("attestation_bundles", [])
         if not bundles:
-            continue
+            console.print(f"  [red]FAIL[/] {filename} — no attestation bundles in provenance")
+            return 1
 
-        for bundle_data in bundles:
-            attestations = bundle_data.get("attestations", [])
-            if not attestations:
-                continue
-            att = attestations[0]
+        # Process first bundle only — PyPI currently returns one bundle per artifact.
+        # If this changes, we'll need indexed filenames.
+        bundle_data = bundles[0]
+        attestations = bundle_data.get("attestations", [])
+        if not attestations:
+            console.print(f"  [red]FAIL[/] {filename} — empty attestations in bundle")
+            return 1
+        att = attestations[0]
 
-            # Extract individual PEP 740 attestation
-            att_file = pypi_dir / f"{filename}.publish.attestation"
-            att_file.write_text(json.dumps(att))
-            console.print(f"  [green]OK[/] {filename} .publish.attestation")
+        # Extract individual PEP 740 attestation
+        att_file.write_text(json.dumps(att))
+        console.print(f"  [green]OK[/] {filename} .publish.attestation")
 
-            # Restructure into cosign-compatible bundle
-            try:
-                cosign_bundle = _extract_cosign_bundle(att)
-            except KeyError as exc:
-                console.print(f"  [yellow]skip[/] {filename} cosign bundle — missing key: {exc}")
-                continue
+        # Restructure into cosign-compatible bundle
+        try:
+            cosign_bundle = _extract_cosign_bundle(att)
+        except KeyError as exc:
+            console.print(f"  [red]FAIL[/] {filename} cosign bundle — missing key: {exc}")
+            return 1
 
-            cosign_file = pypi_dir / f"{filename}.cosign-bundle.json"
-            cosign_file.write_text(json.dumps(cosign_bundle, indent=2))
-            console.print(f"  [green]OK[/] {filename} cosign bundle")
+        cosign_file.write_text(json.dumps(cosign_bundle, indent=2))
+        console.print(f"  [green]OK[/] {filename} cosign bundle")
 
     return 0
 

@@ -9,6 +9,7 @@ import pytest
 
 from pyscv.net import (
     atomic_download,
+    gh_api_headers,
     resolve_url,
     safe_filename,
     validate_url,
@@ -188,3 +189,28 @@ def test_atomic_download_rejects_unexpected_redirect(tmp_path, monkeypatch, no_r
     with pytest.raises(ValueError, match="Unexpected redirect"):
         atomic_download("https://github.com/f.whl", dest)
     assert not dest.exists()
+
+
+# -- gh_api_headers --------------------------------------------------------
+
+
+def test_gh_api_headers_without_token(monkeypatch):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    headers = gh_api_headers()
+    assert "Authorization" not in headers
+    assert headers["Accept"] == "application/vnd.github+json"
+
+
+def test_gh_api_headers_with_github_token(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_test123")
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    headers = gh_api_headers()
+    assert headers["Authorization"] == "Bearer ghp_test123"
+
+
+def test_gh_api_headers_with_gh_token(monkeypatch):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("GH_TOKEN", "ghp_fallback")
+    headers = gh_api_headers()
+    assert headers["Authorization"] == "Bearer ghp_fallback"

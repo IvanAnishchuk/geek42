@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path, PurePosixPath
 from urllib.parse import urljoin, urlparse
@@ -21,10 +22,21 @@ ALLOWED_HOSTS = frozenset(
     }
 )
 
-GH_API_HEADERS = {
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-}
+
+def gh_api_headers() -> dict[str, str]:
+    """Build GitHub API headers, including auth token from environment if available."""
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+# Keep module-level constant for backward compatibility
+GH_API_HEADERS = gh_api_headers()
 
 API_TIMEOUT = 30
 DOWNLOAD_TIMEOUT = 60
@@ -55,10 +67,15 @@ def resolve_url(url: str, timeout: float = API_TIMEOUT) -> str:
     """Validate URL, follow redirect chain (each hop validated), return final URL."""
     validate_url(url)
     start_url = url
-    for _ in range(MAX_REDIRECTS):
+    redirects_followed = 0
+    while True:
         resp = httpx.head(url, follow_redirects=False, timeout=timeout)
         if not resp.is_redirect:
             return url
+        redirects_followed += 1
+        if redirects_followed > MAX_REDIRECTS:
+            msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {start_url}"
+            raise ValueError(msg)
         location = resp.headers.get("location")
         if not location:
             msg = f"Redirect {resp.status_code} from {url} missing Location header"
@@ -67,8 +84,6 @@ def resolve_url(url: str, timeout: float = API_TIMEOUT) -> str:
         # absolute → returned as-is, relative → resolved against current url
         url = urljoin(url, location)
         validate_url(url)
-    msg = f"Too many redirects (>{MAX_REDIRECTS}) starting from {start_url}"
-    raise ValueError(msg)
 
 
 def atomic_download(url: str, dest: Path) -> None:

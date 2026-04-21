@@ -359,8 +359,11 @@ def test_gh_attestations_dry_run(config):
 def test_gh_attestations_skip_existing(config, monkeypatch):
     filenames = _make_gh_dir_with_artifacts(config)
     gh_dir = config.proofs_dir / "1.0.0" / "github"
+    # Both att_file AND bundle_file must exist to skip
     (gh_dir / "testpkg-1.0.0.whl.gh-attestation.json").write_text("[]")
+    (gh_dir / "testpkg-1.0.0.whl.gh-attestation-bundle.json").write_text("{}")
     (gh_dir / "testpkg-1.0.0.tar.gz.gh-attestation.json").write_text("[]")
+    (gh_dir / "testpkg-1.0.0.tar.gz.gh-attestation-bundle.json").write_text("{}")
 
     call_count = {"n": 0}
 
@@ -378,7 +381,9 @@ def test_gh_attestations_skip_existing_verbose(config, monkeypatch):
     filenames = _make_gh_dir_with_artifacts(config)
     gh_dir = config.proofs_dir / "1.0.0" / "github"
     (gh_dir / "testpkg-1.0.0.whl.gh-attestation.json").write_text("[]")
+    (gh_dir / "testpkg-1.0.0.whl.gh-attestation-bundle.json").write_text("{}")
     (gh_dir / "testpkg-1.0.0.tar.gz.gh-attestation.json").write_text("[]")
+    (gh_dir / "testpkg-1.0.0.tar.gz.gh-attestation-bundle.json").write_text("{}")
     code = fetch_gh_attestations(config, "1.0.0", filenames, verbose=True)
     assert code == 0
 
@@ -542,13 +547,15 @@ def test_pypi_proofs_no_provenance(config, no_network_pypi, fake_download, monke
     assert code == 0
 
 
-def test_pypi_proofs_empty_bundles(config, no_network_pypi, fake_download, monkeypatch, no_resolve):
+def test_pypi_proofs_empty_bundles_fails(
+    config, no_network_pypi, fake_download, monkeypatch, no_resolve
+):
     monkeypatch.setattr(
         "pyscv.download_proofs.fetch_pypi_provenance",
         lambda *_a, **_kw: _make_provenance(with_bundles=False),
     )
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
-    assert code == 0
+    assert code == 1
 
 
 def test_pypi_proofs_dry_run(config, no_network_pypi, monkeypatch, no_resolve):
@@ -572,9 +579,11 @@ def test_pypi_proofs_skip_existing_provenance(
 ):
     pypi_dir = config.proofs_dir / "1.0.0" / "pypi"
     pypi_dir.mkdir(parents=True)
-    # Create existing provenance files so they get skipped
-    (pypi_dir / "testpkg-1.0.0.whl.provenance.json").write_text("{}")
-    (pypi_dir / "testpkg-1.0.0.tar.gz.provenance.json").write_text("{}")
+    # All three derived files must exist to skip
+    for name in ["testpkg-1.0.0.whl", "testpkg-1.0.0.tar.gz"]:
+        (pypi_dir / f"{name}.provenance.json").write_text("{}")
+        (pypi_dir / f"{name}.publish.attestation").write_text("{}")
+        (pypi_dir / f"{name}.cosign-bundle.json").write_text("{}")
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org", verbose=True)
     assert code == 0
 
@@ -613,8 +622,10 @@ def test_pypi_proofs_skip_existing_provenance_non_verbose(
 ):
     pypi_dir = config.proofs_dir / "1.0.0" / "pypi"
     pypi_dir.mkdir(parents=True)
-    (pypi_dir / "testpkg-1.0.0.whl.provenance.json").write_text("{}")
-    (pypi_dir / "testpkg-1.0.0.tar.gz.provenance.json").write_text("{}")
+    for name in ["testpkg-1.0.0.whl", "testpkg-1.0.0.tar.gz"]:
+        (pypi_dir / f"{name}.provenance.json").write_text("{}")
+        (pypi_dir / f"{name}.publish.attestation").write_text("{}")
+        (pypi_dir / f"{name}.cosign-bundle.json").write_text("{}")
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
     assert code == 0
 
@@ -640,7 +651,7 @@ def test_pypi_proofs_cosign_bundle_missing_key(
         lambda *_a, **_kw: bad_prov,
     )
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
-    assert code == 0  # graceful skip, not crash
+    assert code == 1  # malformed attestation is a hard failure
 
 
 def test_pypi_proofs_empty_attestations_list(
@@ -652,7 +663,7 @@ def test_pypi_proofs_empty_attestations_list(
         lambda *_a, **_kw: prov,
     )
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
-    assert code == 0
+    assert code == 1  # empty attestations is a hard failure
 
 
 def test_pypi_proofs_artifact_download_error(config, no_network_pypi, monkeypatch, no_resolve):
