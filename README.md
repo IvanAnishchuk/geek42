@@ -4,7 +4,8 @@
 [![PyPI](https://img.shields.io/pypi/v/geek42)](https://pypi.org/project/geek42/)
 [![Python](https://img.shields.io/pypi/pyversions/geek42)](https://pypi.org/project/geek42/)
 [![Downloads](https://img.shields.io/pypi/dm/geek42)](https://pypi.org/project/geek42/)
-[![CI](https://github.com/IvanAnishchuk/geek42/actions/workflows/ci.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/ci.yml)
+[![Test](https://github.com/IvanAnishchuk/geek42/actions/workflows/test.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/test.yml)
+[![Lint](https://github.com/IvanAnishchuk/geek42/actions/workflows/lint.yml/badge.svg)](https://github.com/IvanAnishchuk/geek42/actions/workflows/lint.yml)
 [![Coverage](https://raw.githubusercontent.com/IvanAnishchuk/geek42/python-coverage-comment-action-data/badge.svg)](https://github.com/IvanAnishchuk/geek42/tree/python-coverage-comment-action-data)
 [![Release](https://img.shields.io/github/v/release/IvanAnishchuk/geek42)](https://github.com/IvanAnishchuk/geek42/releases/latest)
 
