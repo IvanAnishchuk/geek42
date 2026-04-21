@@ -227,8 +227,8 @@ def fetch_gh_attestations(
             bundle = attestations[0]["bundle"]
             bundle_json = json.dumps(bundle)
         except (KeyError, IndexError, TypeError) as exc:
-            console.print(f"  [yellow]skip[/] {name} bundle extraction — {exc}")
-            continue
+            console.print(f"  [red]FAIL[/] {name} bundle extraction — {exc}")
+            return 1
 
         bundle_file.write_text(bundle_json)
         console.print(f"  [green]OK[/] {name} attestation bundle")
@@ -297,10 +297,10 @@ def download_pypi_proofs(
     """Download PyPI provenance and extract all proof formats.
 
     For each dist file:
-    1. Fetch provenance → {file}.provenance.json
-    2. Extract PEP 740 attestation → {file}.publish.attestation
-    3. Restructure into cosign bundle → {file}.cosign-bundle.json
-    4. Download artifact copy from PyPI for integrity checking
+    1. Download artifact copy from PyPI for integrity checking
+    2. Fetch provenance → {file}.provenance.json
+    3. Extract PEP 740 attestation → {file}.publish.attestation
+    4. Restructure into cosign bundle → {file}.cosign-bundle.json
     """
     pypi_dir = proofs_source_dir(config, version, source_name)
     if not dry_run:
@@ -363,8 +363,8 @@ def download_pypi_proofs(
             return 1
 
         if prov is None:
-            console.print(f"  [yellow]skip[/] {filename} — no provenance")
-            continue
+            console.print(f"  [red]FAIL[/] {filename} — no provenance available")
+            return 1
 
         prov_file.write_text(json.dumps(prov, indent=2))
         console.print(f"  [green]OK[/] {filename} provenance")
@@ -377,6 +377,11 @@ def download_pypi_proofs(
 
         # Process first bundle only — PyPI currently returns one bundle per artifact.
         # If this changes, we'll need indexed filenames.
+        if len(bundles) > 1:
+            console.print(
+                f"  [yellow]WARNING[/] {filename} — {len(bundles)} bundles found, "
+                "processing first only"
+            )
         bundle_data = bundles[0]
         attestations = bundle_data.get("attestations", [])
         if not attestations:

@@ -345,7 +345,7 @@ def test_gh_attestations_missing_bundle_key(config, monkeypatch):
         lambda *_a, **_kw: [{"no_bundle": True}],
     )
     code = fetch_gh_attestations(config, "1.0.0", filenames)
-    assert code == 0  # missing key: skip bundle extraction
+    assert code == 1  # missing bundle key is a hard failure
 
 
 def test_gh_attestations_dry_run(config):
@@ -425,7 +425,10 @@ def test_pypi_proofs_skips_non_dist_files(config, monkeypatch, fake_download, no
             PypiFileInfo(filename="metadata.json", url="https://files.pythonhosted.org/meta"),
         ],
     )
-    monkeypatch.setattr("pyscv.download_proofs.fetch_pypi_provenance", lambda *_a, **_kw: None)
+    monkeypatch.setattr(
+        "pyscv.download_proofs.fetch_pypi_provenance",
+        lambda *_a, **_kw: _make_provenance(),
+    )
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
     assert code == 0
     # Only the whl should be downloaded, not metadata.json
@@ -538,13 +541,33 @@ def test_pypi_proofs_full_pipeline(config, no_network_pypi, fake_download, monke
     assert (pypi_dir / "testpkg-1.0.0.whl.cosign-bundle.json").exists()
 
 
-def test_pypi_proofs_no_provenance(config, no_network_pypi, fake_download, monkeypatch, no_resolve):
+def test_pypi_proofs_warns_on_multiple_bundles(
+    config, no_network_pypi, fake_download, monkeypatch, no_resolve, capsys
+):
+    """Multiple bundles triggers a warning but still succeeds (first bundle used)."""
+    multi_bundle_prov = {
+        "attestation_bundles": [
+            _make_provenance()["attestation_bundles"][0],
+            _make_provenance()["attestation_bundles"][0],
+        ]
+    }
+    monkeypatch.setattr(
+        "pyscv.download_proofs.fetch_pypi_provenance",
+        lambda *_a, **_kw: multi_bundle_prov,
+    )
+    code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
+    assert code == 0
+
+
+def test_pypi_proofs_no_provenance_fails(
+    config, no_network_pypi, fake_download, monkeypatch, no_resolve
+):
     monkeypatch.setattr(
         "pyscv.download_proofs.fetch_pypi_provenance",
         lambda *_a, **_kw: None,
     )
     code = download_pypi_proofs(config, "1.0.0", "pypi", "https://pypi.org")
-    assert code == 0
+    assert code == 1
 
 
 def test_pypi_proofs_empty_bundles_fails(
@@ -721,7 +744,7 @@ def test_download_proofs_github_only(config, monkeypatch, no_network_gh, fake_do
 def test_download_proofs_pypi_only(config, monkeypatch, no_network_pypi, fake_download, no_resolve):
     monkeypatch.setattr(
         "pyscv.download_proofs.fetch_pypi_provenance",
-        lambda *_a, **_kw: None,
+        lambda *_a, **_kw: _make_provenance(),
     )
     code = download_proofs(config, "1.0.0", ProofSource.pypi)
     assert code == 0
@@ -732,7 +755,7 @@ def test_download_proofs_testpypi_only(
 ):
     monkeypatch.setattr(
         "pyscv.download_proofs.fetch_pypi_provenance",
-        lambda *_a, **_kw: None,
+        lambda *_a, **_kw: _make_provenance(),
     )
     code = download_proofs(config, "1.0.0", ProofSource.testpypi)
     assert code == 0
@@ -792,7 +815,10 @@ def test_download_proofs_all_sources(
         "pyscv.download_proofs.fetch_gh_attestation",
         lambda *_a, **_kw: [{"bundle": {"key": "val"}}],
     )
-    monkeypatch.setattr("pyscv.download_proofs.fetch_pypi_provenance", lambda *_a, **_kw: None)
+    monkeypatch.setattr(
+        "pyscv.download_proofs.fetch_pypi_provenance",
+        lambda *_a, **_kw: _make_provenance(),
+    )
     code = download_proofs(config, "1.0.0", ProofSource.all)
     assert code == 0
 
