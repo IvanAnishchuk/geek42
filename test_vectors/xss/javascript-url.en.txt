@@ -1,0 +1,8 @@
+Title: XSS JavaScript URL
+Author: Dev <dev@gentoo.org>
+Posted: 2026-01-01
+Revision: 1
+News-Item-Format: 2.0
+
+Click this: [click](javascript:alert(1))
+And this: <a href="javascript:void(0)">link</a>

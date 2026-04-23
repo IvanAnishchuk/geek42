@@ -53,7 +53,8 @@ def _render_index(items: list[NewsItem], news_dir: str) -> str:
     ]
     for item in items:
         author = item.authors[0].split("<")[0].strip() if item.authors else ""
-        link = f"[{item.title}]({news_dir}/{item.id}.md)"
+        safe_title = item.title.replace("|", "\\|")
+        link = f"[{safe_title}]({news_dir}/{item.id}.md)"
         lines.append(f"| {item.posted} | {link} | {author} |")
     lines += ["", _INDEX_END]
     return "\n".join(lines)

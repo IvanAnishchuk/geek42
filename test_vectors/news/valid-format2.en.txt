@@ -1,0 +1,19 @@
+Title: FlexiBLAS Migration
+Author: Sam James <sam@gentoo.org>
+Author: Ada Lovelace <ada@example.org>
+Posted: 2025-11-30
+Revision: 2
+News-Item-Format: 2.0
+Display-If-Installed: app-eselect/eselect-blas
+Display-If-Installed: sci-libs/flexiblas
+Display-If-Keyword: amd64
+Display-If-Profile: default/linux/amd64/23.0
+
+This is about the FlexiBLAS migration.
+
+Users should update their systems. More info at
+https://wiki.gentoo.org/wiki/FlexiBLAS
+
+Steps:
+1. Sync your repo
+2. Update world

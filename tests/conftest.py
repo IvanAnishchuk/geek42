@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import subprocess
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from geek42.models import NewsSource, SiteConfig
+from geek42.models import NewsItem, NewsSource, SiteConfig
 
 SAMPLE_NEWS_FORMAT2 = """\
 Title: FlexiBLAS Migration
@@ -44,6 +46,32 @@ It has a Content-Type header.
 """
 
 
+@pytest.fixture(autouse=True)
+def _isolate_git_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent tests from using the user's global git config or signing keys."""
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+    monkeypatch.setenv("GIT_AUTHOR_NAME", "Test")
+    monkeypatch.setenv("GIT_AUTHOR_EMAIL", "test@test.invalid")
+    monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")
+    monkeypatch.setenv("GIT_COMMITTER_EMAIL", "test@test.invalid")
+    monkeypatch.delenv("GPG_AGENT_INFO", raising=False)
+    monkeypatch.delenv("SSH_AUTH_SOCK", raising=False)
+
+
+def make_item(**kwargs: Any) -> NewsItem:
+    """Create a NewsItem with sensible defaults. Override any field via kwargs."""
+    defaults: dict[str, Any] = {
+        "id": "2025-01-01-test",
+        "title": "Test Item",
+        "authors": ["Dev <dev@gentoo.org>"],
+        "posted": date(2025, 1, 1),
+        "body": "Test body content.",
+    }
+    defaults.update(kwargs)
+    return NewsItem(**defaults)
+
+
 @pytest.fixture
 def news_repo(tmp_path: Path) -> Path:
     """Create a mock GLEP 42 news repo with sample items in metadata/news/."""
@@ -70,10 +98,7 @@ def news_repo(tmp_path: Path) -> Path:
 @pytest.fixture
 def git_news_repo(news_repo: Path) -> Path:
     """Like news_repo but initialized as a git repository."""
-    import os
-
-    env = {**os.environ, "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "test@test"}
-    subprocess.run(["git", "init", str(news_repo)], check=True, capture_output=True, env=env)
+    subprocess.run(["git", "init", str(news_repo)], check=True, capture_output=True)
     subprocess.run(
         [
             "git",
@@ -82,7 +107,7 @@ def git_news_repo(news_repo: Path) -> Path:
             "-c",
             "user.name=Test",
             "-c",
-            "user.email=test@test",
+            "user.email=test@test.invalid",
             "commit",
             "--allow-empty",
             "-m",
@@ -91,11 +116,8 @@ def git_news_repo(news_repo: Path) -> Path:
         ],
         check=True,
         capture_output=True,
-        env=env,
     )
-    subprocess.run(
-        ["git", "-C", str(news_repo), "add", "-A"], check=True, capture_output=True, env=env
-    )
+    subprocess.run(["git", "-C", str(news_repo), "add", "-A"], check=True, capture_output=True)
     subprocess.run(
         [
             "git",
@@ -104,7 +126,7 @@ def git_news_repo(news_repo: Path) -> Path:
             "-c",
             "user.name=Test",
             "-c",
-            "user.email=test@test",
+            "user.email=test@test.invalid",
             "commit",
             "-m",
             "add news",
@@ -112,7 +134,6 @@ def git_news_repo(news_repo: Path) -> Path:
         ],
         check=True,
         capture_output=True,
-        env=env,
     )
     return news_repo
 

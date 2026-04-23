@@ -1,0 +1,9 @@
+Title: Old Format News
+Author: Old Dev <old@gentoo.org>
+Content-Type: text/plain
+Posted: 2017-03-02
+Revision: 1
+News-Item-Format: 1.0
+
+This is an older format 1.0 news item.
+It has a Content-Type header.

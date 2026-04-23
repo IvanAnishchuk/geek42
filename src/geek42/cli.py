@@ -8,6 +8,7 @@ import tomllib
 from pathlib import Path
 from typing import Annotated
 
+import structlog
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -25,6 +26,8 @@ from .errors import (
 from .models import NewsItem, NewsSource, SiteConfig
 from .site import build_site, collect_items, pull_source
 
+log = structlog.stdlib.get_logger()
+
 app = typer.Typer(
     name="geek42",
     help="GLEP 42 news to static blog converter.",
@@ -32,6 +35,18 @@ app = typer.Typer(
 )
 console = Console()
 err_console = Console(stderr=True)
+
+
+@app.callback()
+def _global_options(
+    json: Annotated[bool, typer.Option("--json", help="Emit JSON log lines.")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Verbose output.")] = False,
+) -> None:
+    """Global options applied before every sub-command."""
+    from .logging import configure_logging
+
+    configure_logging(json=json, verbose=verbose)
+
 
 ConfigOption = Annotated[Path, typer.Option("--config", "-c", help="Config file path.")]
 DirectoryOption = Annotated[
@@ -167,6 +182,7 @@ def build(
     console.print("[bold]Building site...[/]")
     count = build_site(cfg, items)
     console.print(f"[green]Done.[/] {count} posts -> {cfg.output_dir}/")
+    log.info("build_complete", count=count, output_dir=str(cfg.output_dir))
 
 
 @app.command("list")

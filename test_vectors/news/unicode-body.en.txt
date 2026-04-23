@@ -1,0 +1,12 @@
+Title: Unicode Support
+Author: Dev <dev@gentoo.org>
+Posted: 2026-01-15
+Revision: 1
+News-Item-Format: 2.0
+
+Voici les modifications importantes du systeme.
+
+Umlauts: Anderungen, Ubersicht, Offentlichkeit
+CJK: Unicode test
+Emoji: not typical in GLEP 42 but should not crash
+Accented: cafe, resume, naive

@@ -2,24 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
-from typing import Any
 
-from geek42.models import NewsItem
 from geek42.renderer import body_to_html, news_to_markdown, write_markdown
 
-
-def _make_item(**kwargs: Any) -> NewsItem:
-    defaults: dict[str, Any] = {
-        "id": "2025-01-01-test",
-        "title": "Test Item",
-        "authors": ["Dev <dev@gentoo.org>"],
-        "posted": date(2025, 1, 1),
-        "body": "Test body content.",
-    }
-    defaults.update(kwargs)
-    return NewsItem(**defaults)
+from .conftest import make_item as _make_item
 
 
 def test_news_to_markdown_basic() -> None:
