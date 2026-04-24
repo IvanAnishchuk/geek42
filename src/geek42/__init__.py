@@ -14,6 +14,7 @@ Example::
 
 from __future__ import annotations
 
+from .advisory import glsa_filename, news_to_glsa_xml
 from .blog import compile_news
 from .errors import (
     ComposeError,
@@ -37,7 +38,14 @@ from .feeds import generate_atom, generate_rss
 from .linter import Diagnostic, Severity, lint_news_file, lint_repo
 from .manifest import generate_manifest, verify_manifest
 from .models import NewsItem, NewsSource, SiteConfig
-from .parser import NEWS_SUBDIR, parse_news_file, resolve_news_root, scan_repo
+from .parser import (
+    NEWS_SUBDIR,
+    parse_markdown_file,
+    parse_news_file,
+    resolve_news_root,
+    scan_markdown_dir,
+    scan_repo,
+)
 from .renderer import body_to_html, news_to_markdown, write_markdown
 from .scaffold import scaffold
 from .tracker import ReadTracker
@@ -71,15 +79,19 @@ __all__ = [
     "__version__",
     "body_to_html",
     "generate_atom",
+    "generate_manifest",
     "generate_rss",
+    "glsa_filename",
     "lint_news_file",
     "lint_repo",
-    "generate_manifest",
     "NEWS_SUBDIR",
+    "news_to_glsa_xml",
     "news_to_markdown",
+    "parse_markdown_file",
     "parse_news_file",
     "resolve_news_root",
     "scaffold",
+    "scan_markdown_dir",
     "scan_repo",
     "verify_manifest",
     "write_markdown",

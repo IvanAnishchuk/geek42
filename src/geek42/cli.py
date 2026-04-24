@@ -419,23 +419,29 @@ def _resolve_source(cfg: SiteConfig, name: str | None = None) -> NewsSource:
 
 @app.command("compile-blog")
 def compile_blog(
-    path: Annotated[Path, typer.Argument(help="Root of a GLEP 42 news repository.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help="Root of a news repository.")] = Path("."),
     news_dir: Annotated[
-        str, typer.Option("--news-dir", "-d", help="Output directory for Markdown files.")
-    ] = "news",
+        str | None,
+        typer.Option("--news-dir", "-d", help="Output directory for compiled Markdown."),
+    ] = None,
     readme: Annotated[str, typer.Option("--readme", help="README file to update.")] = "README.md",
     language: Annotated[str, typer.Option("--language", "-l", help="Preferred language.")] = "en",
+    config: ConfigOption = Path("geek42.toml"),
 ) -> None:
-    """Compile news items into Markdown files and update the README index.
+    """Compile news, posts, and advisories into Markdown and update the README.
 
     Designed to run as a pre-commit hook so the repo doubles as a blog.
+    Sources: metadata/news/ (.txt), metadata/posts/ (.md), metadata/glsa/ (.md).
     """
     from .blog import compile_news
 
+    cfg = _load_config(config, None)
     root = path.resolve()
-    count = compile_news(root, news_dir=news_dir, readme=readme, language=language)
+    out = news_dir if news_dir is not None else cfg.news_dir
+    count = compile_news(root, news_dir=out, readme=readme, language=language)
+    dest = out or "repo root"
     if count:
-        console.print(f"[green]Compiled[/] {count} news item(s) -> {news_dir}/")
+        console.print(f"[green]Compiled[/] {count} item(s) -> {dest}")
     else:
         console.print("[yellow]No news items found.[/]")
 
@@ -635,14 +641,23 @@ def commit(
         raise typer.Exit(0)
 
     # Compile blog so the pre-commit hook is a no-op
-    compile_news(root, language=cfg.language)
+    compile_news(root, news_dir=cfg.news_dir, language=cfg.language)
 
     # Regenerate Manifest checksums
     generate_manifest(root)
 
     # Stage news items, compiled output, and Manifest
-    for p in (str(NEWS_SUBDIR), "news", "README.md", "Manifest"):
-        if (root / p).exists():
+    stage_paths = [
+        str(NEWS_SUBDIR),
+        "metadata/posts",
+        "metadata/glsa",
+        cfg.news_dir or ".",
+        "README.md",
+        "Manifest",
+    ]
+    for p in stage_paths:
+        target = root / p
+        if target.exists():
             _git(["add", p], root, capture_output=True, check=False)
 
     if message is None:

@@ -1,8 +1,9 @@
-"""Parse GLEP 42 news item files."""
+"""Parse GLEP 42 news item files and Markdown with YAML frontmatter."""
 
 from __future__ import annotations
 
 import contextlib
+import json
 import re
 from datetime import date
 from pathlib import Path
@@ -119,4 +120,155 @@ def scan_repo(repo_path: Path, source: str = "", language: str = "en") -> list[N
         if news_file.exists():
             with contextlib.suppress(ParseError, OSError):
                 items.append(parse_news_file(news_file, source=source))
+    return items
+
+
+# ---------------------------------------------------------------------------
+# Markdown with YAML frontmatter
+# ---------------------------------------------------------------------------
+
+_FENCE = "---"
+
+
+def _yaml_unquote(value: str) -> str:
+    """Unquote a YAML string value.
+
+    Handles JSON-quoted strings (produced by :func:`renderer._yaml_str`)
+    and bare values.
+    """
+    stripped = value.strip()
+    if stripped.startswith('"') and stripped.endswith('"'):
+        return json.loads(stripped)
+    return stripped
+
+
+def parse_markdown_file(path: Path, source: str = "") -> NewsItem:
+    """Parse a Markdown file with YAML frontmatter into a :class:`NewsItem`.
+
+    The frontmatter format matches the output of
+    :func:`renderer.news_to_markdown`.
+
+    :param path: Path to a ``.md`` file.
+    :param source: Logical source name stored on the returned item.
+    :raises ParseError: If the file cannot be parsed.
+    """
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+
+    # Find frontmatter fences
+    if not lines or lines[0].strip() != _FENCE:
+        raise ParseError(path, "missing opening frontmatter fence")
+
+    end_fence = None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == _FENCE:
+            end_fence = i
+            break
+    if end_fence is None:
+        raise ParseError(path, "missing closing frontmatter fence")
+
+    # Parse frontmatter lines into a dict
+    fm: dict[str, str | list[str]] = {}
+    current_key = ""
+    for line in lines[1:end_fence]:
+        if line.startswith("  - "):
+            # List item continuation
+            current_val = fm.get(current_key)
+            if current_key and isinstance(current_val, list):
+                current_val.append(_yaml_unquote(line[4:]))
+            continue
+        m = re.match(r"^([a-z_]+)\s*:\s*(.*)", line)
+        if m:
+            key, value = m.group(1), m.group(2).strip()
+            current_key = key
+            if not value:
+                # Start of a list
+                fm[key] = []
+            else:
+                fm[key] = _yaml_unquote(value)
+
+    body = "\n".join(lines[end_fence + 1 :]).strip()
+
+    # Extract fields with defaults
+    title = str(fm.get("title", ""))
+    if not title:
+        raise MissingHeaderError(path, "title")
+
+    posted_raw = str(fm.get("date", ""))
+    if not posted_raw:
+        raise MissingHeaderError(path, "date")
+    try:
+        posted = date.fromisoformat(posted_raw)
+    except ValueError as exc:
+        raise InvalidHeaderValueError(path, "date", posted_raw) from exc
+
+    revision = 1
+    rev_raw = fm.get("revision")
+    if rev_raw is not None:
+        try:
+            revision = int(str(rev_raw))
+        except (ValueError, TypeError) as exc:
+            raise InvalidHeaderValueError(path, "revision", str(rev_raw)) from exc
+
+    # Authors: stored as comma-separated string in frontmatter
+    authors_raw = fm.get("authors", "")
+    if isinstance(authors_raw, str) and authors_raw:
+        authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
+    elif isinstance(authors_raw, list):
+        authors = authors_raw
+    else:
+        authors = []
+
+    packages = fm.get("packages", [])
+    if isinstance(packages, str):
+        packages = [packages]
+    keywords = fm.get("keywords", [])
+    if isinstance(keywords, str):
+        keywords = [keywords]
+
+    # Advisory fields
+    advisory_cves = fm.get("advisory_cves", [])
+    if isinstance(advisory_cves, str):
+        advisory_cves = [advisory_cves]
+    advisory_affected = fm.get("advisory_affected", [])
+    if isinstance(advisory_affected, str):
+        advisory_affected = [advisory_affected]
+
+    return NewsItem(
+        id=path.stem,
+        title=title,
+        authors=authors,
+        posted=posted,
+        revision=revision,
+        body=body,
+        source=source or str(fm.get("source", "")),
+        display_if_installed=packages,
+        display_if_keyword=keywords,
+        item_type=str(fm.get("item_type", "news")),
+        advisory_severity=str(fm.get("advisory_severity", "")),
+        advisory_cves=advisory_cves,
+        advisory_affected=advisory_affected,
+        advisory_fixed=str(fm.get("advisory_fixed", "")),
+    )
+
+
+def scan_markdown_dir(dir_path: Path, source: str = "", item_type: str = "blog") -> list[NewsItem]:
+    """Scan a directory for Markdown files with YAML frontmatter.
+
+    :param dir_path: Directory to scan.
+    :param source: Logical source name for all items.
+    :param item_type: Default ``item_type`` if not set in frontmatter.
+    :returns: Sorted list of parsed items.
+    """
+    if not dir_path.is_dir():
+        return []
+
+    items: list[NewsItem] = []
+    for md_file in sorted(dir_path.glob("*.md")):
+        with contextlib.suppress(ParseError, OSError):
+            item = parse_markdown_file(md_file, source=source)
+            # Apply default item_type if not explicitly set in frontmatter
+            if item.item_type == "news" and item_type != "news":
+                item = item.model_copy(update={"item_type": item_type})
+            items.append(item)
     return items

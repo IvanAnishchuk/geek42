@@ -10,6 +10,31 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ### Added
 
+- **Unified Markdown feed**: `compile-blog` now scans three content sources
+  under `metadata/` — GLEP 42 news (`.txt`), blog posts (`metadata/posts/`),
+  and security advisories (`metadata/glsa/`) — and compiles them into a
+  unified Markdown feed. Output defaults to `news/` subdirectory; set
+  `news_dir = ""` in `geek42.toml` to compile to repo root for direct
+  GitHub browsability.
+- **Advisory support**: New `item_type` field on `NewsItem` discriminates
+  `"news"`, `"advisory"`, and `"blog"` content. Advisory items carry
+  `advisory_severity`, `advisory_cves`, `advisory_affected`, and
+  `advisory_fixed` metadata, all stored as YAML frontmatter in Markdown
+  and as custom headers in GLEP 42 (backward-compatible — unknown headers
+  are ignored by `eselect news`).
+- **GLSA XML generation**: Advisory items automatically compile to
+  GLSA-compatible XML in `metadata/glsa/`, consumable by `glsa-check`
+  and other Gentoo host tools. Pre-commit ensures XML stays in sync
+  with advisory sources.
+- **Markdown parser**: New `parse_markdown_file()` and `scan_markdown_dir()`
+  functions parse Markdown with YAML frontmatter back into `NewsItem`
+  objects, enabling round-trip editing and CLI reading from compiled feeds.
+- **`news_dir` config option**: `SiteConfig.news_dir` controls where
+  compiled Markdown is written (default `"news"`, empty string for repo root).
+- New `advisory.py` module with `news_to_glsa_xml()` and `glsa_filename()`.
+- 24 new tests (248 -> 272) covering Markdown parsing, three-source
+  compilation, GLSA XML generation, and stale artifact cleanup.
+
 - Research document analyzing multi-platform supply-chain verification
   support (GitLab, Bitbucket, Codeberg/Gitea, SourceHut, GCP Cloud Build).
 - Structured JSON logging via `structlog`. New global CLI flags:

@@ -42,6 +42,18 @@ def news_to_markdown(item: NewsItem) -> str:
     if item.display_if_keyword:
         lines.append("keywords:")
         lines.extend(f"  - {_yaml_str(kw)}" for kw in item.display_if_keyword)
+    if item.item_type != "news":
+        lines.append(f"item_type: {_yaml_str(item.item_type)}")
+    if item.advisory_severity:
+        lines.append(f"advisory_severity: {_yaml_str(item.advisory_severity)}")
+    if item.advisory_cves:
+        lines.append("advisory_cves:")
+        lines.extend(f"  - {_yaml_str(cve)}" for cve in item.advisory_cves)
+    if item.advisory_affected:
+        lines.append("advisory_affected:")
+        lines.extend(f"  - {_yaml_str(v)}" for v in item.advisory_affected)
+    if item.advisory_fixed:
+        lines.append(f"advisory_fixed: {_yaml_str(item.advisory_fixed)}")
     lines += ["---", "", item.body, ""]
     return "\n".join(lines)
 
