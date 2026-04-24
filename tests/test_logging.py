@@ -10,6 +10,18 @@ from geek42.logging import configure_logging
 
 
 class TestConfigureLogging:
+    def setup_method(self) -> None:
+        """Save root logger state before each test."""
+        root = logging.getLogger()
+        self._orig_level = root.level
+        self._orig_handlers = root.handlers[:]
+
+    def teardown_method(self) -> None:
+        """Restore root logger state after each test."""
+        root = logging.getLogger()
+        root.handlers = self._orig_handlers
+        root.setLevel(self._orig_level)
+
     def test_default_level_is_info(self) -> None:
         configure_logging()
         root = logging.getLogger()
@@ -21,7 +33,7 @@ class TestConfigureLogging:
         assert root.level == logging.DEBUG
 
     def test_json_mode_produces_json(self) -> None:
-        configure_logging(json=True)
+        configure_logging(json_output=True)
         logger = structlog.stdlib.get_logger("test")
         logger.info("test_event", key="value")
 
@@ -31,7 +43,7 @@ class TestConfigureLogging:
         assert isinstance(root.handlers[0], logging.StreamHandler)
 
     def test_human_mode_produces_readable_output(self) -> None:
-        configure_logging(json=False)
+        configure_logging(json_output=False)
         # Should not raise
         logger = structlog.stdlib.get_logger("test")
         logger.info("hello", count=42)

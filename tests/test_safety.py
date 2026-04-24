@@ -6,6 +6,8 @@ the HTML structure of the generated site.
 
 from __future__ import annotations
 
+from bs4 import BeautifulSoup
+
 from geek42.blog import _render_index
 from geek42.feeds import generate_rss
 from geek42.models import SiteConfig
@@ -53,9 +55,10 @@ class TestBodyToHtmlSafety:
         assert "<p>" in html
 
     def test_safe_urls_autolinked(self) -> None:
-        html = body_to_html("Visit https://gentoo.org for more info.")
-        assert "https://gentoo.org" in html
-        assert "<a" in html
+        html = body_to_html("Visit https://gentoo.org/news for more info.")
+        soup = BeautifulSoup(html, "html.parser")
+        link = soup.find("a", href="https://gentoo.org/news")
+        assert link is not None, "URL should be auto-linked as an <a> element"
 
     def test_empty_body(self) -> None:
         html = body_to_html("")
@@ -72,9 +75,9 @@ class TestBodyToHtmlSafety:
 class TestUrlAutoLinker:
     def test_url_with_quote_injection(self) -> None:
         html = body_to_html('Check https://x.com"onclick="alert(1) for info')
-        # The onclick should be in the URL text, not as an actual HTML attribute
-        # that could execute. nh3 ensures quotes are properly escaped.
-        assert 'onclick="alert' not in html or "&quot;" in html
+        soup = BeautifulSoup(html, "html.parser")
+        # No element should have an onclick attribute
+        assert soup.find(attrs={"onclick": True}) is None, "onclick must not appear as an attribute"
 
     def test_url_with_angle_bracket_injection(self) -> None:
         html = body_to_html("Check https://x.com><script>alert(1)</script> end")
@@ -91,11 +94,11 @@ class TestMarkdownTableInjection:
         # The pipe should be escaped so it doesn't break the table
         assert "\\|" in index
 
-    def test_link_in_title_safe(self) -> None:
+    def test_link_in_title_escaped(self) -> None:
         items = [make_item(title="[click](https://evil.com)")]
         index = _render_index(items, "news")
-        # Should appear as literal text in the table cell, not a nested link
-        assert "[click]" in index
+        # Brackets must be escaped so they render as literal text, not a link
+        assert "\\[click\\]" in index
 
 
 # -- Feed XML escaping --

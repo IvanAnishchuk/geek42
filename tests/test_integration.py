@@ -132,8 +132,9 @@ class TestTrackerIntegration:
         """Test the list -> read -> read-new flow."""
         # Write a config so data_dir is in tmp_path
         cfg = tmp_path / "geek42.toml"
+        data_dir = (tmp_path / "data").as_posix()
         cfg.write_text(
-            f'title = "T"\nauthor = "A"\ndata_dir = "{tmp_path / "data"}"\n'
+            f'title = "T"\nauthor = "A"\ndata_dir = "{data_dir}"\n'
             f'[[sources]]\nname = "local"\nurl = "."\n'
         )
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from datetime import date
 from pathlib import Path
@@ -49,8 +50,8 @@ It has a Content-Type header.
 @pytest.fixture(autouse=True)
 def _isolate_git_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Prevent tests from using the user's global git config or signing keys."""
-    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
-    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", os.devnull)
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Test")
     monkeypatch.setenv("GIT_AUTHOR_EMAIL", "test@test.invalid")
     monkeypatch.setenv("GIT_COMMITTER_NAME", "Test")

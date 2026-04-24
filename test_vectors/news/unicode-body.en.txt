@@ -4,9 +4,9 @@ Posted: 2026-01-15
 Revision: 1
 News-Item-Format: 2.0
 
-Voici les modifications importantes du systeme.
+Voici les modifications importantes du système.
 
-Umlauts: Anderungen, Ubersicht, Offentlichkeit
-CJK: Unicode test
-Emoji: not typical in GLEP 42 but should not crash
-Accented: cafe, resume, naive
+Umlauts: Änderungen, Übersicht, Öffentlichkeit
+CJK: 测试テスト한국어
+Emoji: not typical in GLEP 42 but should not crash ☕
+Accented: café, résumé, naïve

@@ -22,7 +22,7 @@ def test_main_module_exists() -> None:
     assert spec is not None
 
 
-def test_console_script(script_runner) -> None:  # noqa: ANN001
+def test_console_script(script_runner) -> None:  # noqa: ANN001 — pytest-console-scripts fixture, no public type stub
     """Verify the installed ``geek42`` entry point works."""
     result = script_runner.run(["geek42", "--help"])
     assert result.success

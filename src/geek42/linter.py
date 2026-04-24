@@ -50,7 +50,7 @@ def _diag(
     return Diagnostic(file=name, line=line, severity=sev, code=code, message=msg)
 
 
-def lint_news_file(path: Path) -> list[Diagnostic]:  # noqa: C901
+def lint_news_file(path: Path) -> list[Diagnostic]:  # noqa: C901 — validation with many independent checks is inherently complex
     """Lint a single GLEP 42 news file. Returns a list of diagnostics."""
     diags: list[Diagnostic] = []
     name = str(path)

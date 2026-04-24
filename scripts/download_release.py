@@ -185,7 +185,7 @@ def fetch_pypi_provenance(
         return None
     try:
         req = urllib.request.Request(url)  # noqa: S310 — URL validated above
-        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 — URL validated above
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         if exc.code == 404:

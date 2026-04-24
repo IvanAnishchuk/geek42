@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import tempfile
 from datetime import date
@@ -65,7 +66,10 @@ def test_valid_news_file_roundtrips(
     with tempfile.NamedTemporaryFile(mode="w", suffix=".en.txt", delete=False) as f:
         f.write(content)
         f.flush()
-        item = parse_news_file(Path(f.name))
+        try:
+            item = parse_news_file(Path(f.name))
+        finally:
+            os.unlink(f.name)
 
     assert item.title == title
     assert item.posted == posted

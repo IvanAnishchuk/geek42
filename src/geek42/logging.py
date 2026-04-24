@@ -19,10 +19,10 @@ import sys
 import structlog
 
 
-def configure_logging(*, json: bool = False, verbose: bool = False) -> None:
+def configure_logging(*, json_output: bool = False, verbose: bool = False) -> None:
     """Configure structlog for CLI output.
 
-    :param json: Emit JSON lines instead of human-readable output.
+    :param json_output: Emit JSON lines instead of human-readable output.
     :param verbose: Set log level to DEBUG (default is INFO).
     """
     level = logging.DEBUG if verbose else logging.INFO
@@ -34,7 +34,7 @@ def configure_logging(*, json: bool = False, verbose: bool = False) -> None:
         structlog.processors.StackInfoRenderer(),
     ]
 
-    if json:
+    if json_output:
         renderer: structlog.types.Processor = structlog.processors.JSONRenderer()
     else:
         renderer = structlog.dev.ConsoleRenderer(colors=sys.stderr.isatty())

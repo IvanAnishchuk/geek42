@@ -39,13 +39,15 @@ err_console = Console(stderr=True)
 
 @app.callback()
 def _global_options(
-    json: Annotated[bool, typer.Option("--json", help="Emit JSON log lines.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit JSON log lines.")] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Verbose output.")] = False,
 ) -> None:
     """Global options applied before every sub-command."""
+    if not json_output and not verbose:
+        return  # skip logging setup for default options (e.g. --help)
     from .logging import configure_logging
 
-    configure_logging(json=json, verbose=verbose)
+    configure_logging(json_output=json_output, verbose=verbose)
 
 
 ConfigOption = Annotated[Path, typer.Option("--config", "-c", help="Config file path.")]
