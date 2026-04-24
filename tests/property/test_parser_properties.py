@@ -8,6 +8,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+from bs4 import BeautifulSoup
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -21,7 +22,10 @@ _valid_date = st.dates(min_value=date(2000, 1, 1), max_value=date(2099, 12, 31))
 
 _valid_title = (
     st.text(
-        alphabet=st.characters(whitelist_categories=("L", "N", "P", "Z"), max_codepoint=0x7E),
+        alphabet=st.characters(
+            whitelist_categories=("L", "N", "P", "Zs"),
+            max_codepoint=0x7E,
+        ),
         min_size=1,
         max_size=50,
     )
@@ -88,9 +92,10 @@ def test_body_to_html_never_raises(body: str) -> None:
 @given(body=st.text(min_size=0, max_size=500))
 @settings(deadline=2000, max_examples=100)
 def test_body_to_html_never_contains_script(body: str) -> None:
-    """body_to_html output must never contain <script> tags."""
+    """body_to_html output must never contain <script> elements in parsed DOM."""
     result = body_to_html(body)
-    assert "<script" not in result.lower()
+    soup = BeautifulSoup(result, "html.parser")
+    assert soup.find("script") is None
 
 
 @given(title=st.text(min_size=1, max_size=100).filter(lambda t: t.strip()))

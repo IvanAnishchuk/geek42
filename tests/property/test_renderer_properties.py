@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from bs4 import BeautifulSoup
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -60,10 +61,13 @@ def test_body_to_html_returns_string(body: str) -> None:
 @given(body=st.text(min_size=0, max_size=500))
 @settings(deadline=2000, max_examples=100)
 def test_body_to_html_no_dangerous_elements(body: str) -> None:
-    """Sanitized output must not contain dangerous HTML elements."""
+    """Sanitized output must not contain dangerous HTML elements or attributes."""
     result = body_to_html(body)
-    lower = result.lower()
-    assert "<script" not in lower
-    assert "onerror=" not in lower
-    assert "onload=" not in lower
-    assert "<iframe" not in lower
+    soup = BeautifulSoup(result, "html.parser")
+    # No <script> or <iframe> elements in the parsed DOM
+    assert soup.find("script") is None
+    assert soup.find("iframe") is None
+    # No event-handler attributes on any element
+    for tag in soup.find_all(True):
+        for attr in tag.attrs:
+            assert not attr.startswith("on"), f"event handler {attr} found on <{tag.name}>"
