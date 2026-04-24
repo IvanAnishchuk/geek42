@@ -35,6 +35,7 @@ from .errors import (
     SystemDependencyError,
 )
 from .feeds import generate_atom, generate_rss
+from .github import GhNotFoundError, PublishError
 from .linter import Diagnostic, Severity, lint_news_file, lint_repo
 from .manifest import generate_manifest, verify_manifest
 from .models import NewsItem, NewsSource, SiteConfig
@@ -60,6 +61,7 @@ __all__ = [
     "EmptyTitleError",
     "GematoNotFoundError",
     "Geek42Error",
+    "GhNotFoundError",
     "GitNotFoundError",
     "InvalidHeaderValueError",
     "ItemNotFoundError",
@@ -69,6 +71,7 @@ __all__ = [
     "NewsSource",
     "NoSourcesConfiguredError",
     "ParseError",
+    "PublishError",
     "ReadTracker",
     "Severity",
     "SiteConfig",

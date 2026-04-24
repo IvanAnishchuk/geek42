@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 
 from geek42.errors import InvalidHeaderValueError, MissingHeaderError, ParseError
-from geek42.parser import parse_markdown_file, parse_news_file, scan_markdown_dir, scan_repo
+from geek42.parser import (
+    parse_markdown_file,
+    parse_news_file,
+    scan_markdown_dir,
+    scan_repo,
+    update_markdown_frontmatter,
+    update_news_header,
+)
 
 from .conftest import SAMPLE_NEWS_FORMAT1, SAMPLE_NEWS_FORMAT2
 
@@ -283,3 +290,62 @@ def test_scan_markdown_dir_preserves_explicit_type(tmp_path: Path) -> None:
     items = scan_markdown_dir(tmp_path, item_type="blog")
     assert len(items) == 1
     assert items[0].item_type == "advisory"
+
+
+# -- Header write-back --
+
+
+def test_update_news_header_adds_new(tmp_path: Path) -> None:
+    item_dir = tmp_path / "2026-01-01-test"
+    item_dir.mkdir()
+    f = item_dir / "2026-01-01-test.en.txt"
+    f.write_text("Title: Test\nAuthor: A <a@b>\nPosted: 2026-01-01\n\nBody.\n")
+
+    update_news_header(f, "Issue-URL", "https://github.com/x/y/issues/1")
+
+    text = f.read_text()
+    assert "Issue-URL: https://github.com/x/y/issues/1" in text
+    # Should be before the blank line
+    lines = text.split("\n")
+    blank_idx = next(i for i, ln in enumerate(lines) if ln.strip() == "")
+    issue_idx = next(i for i, ln in enumerate(lines) if "Issue-URL" in ln)
+    assert issue_idx < blank_idx
+
+
+def test_update_news_header_replaces_existing(tmp_path: Path) -> None:
+    item_dir = tmp_path / "2026-01-01-test"
+    item_dir.mkdir()
+    f = item_dir / "2026-01-01-test.en.txt"
+    f.write_text("Title: Test\nIssue-URL: old\nPosted: 2026-01-01\n\nBody.\n")
+
+    update_news_header(f, "Issue-URL", "new-url")
+
+    text = f.read_text()
+    assert "Issue-URL: new-url" in text
+    assert "old" not in text
+
+
+def test_update_markdown_frontmatter_adds_new(tmp_path: Path) -> None:
+    f = tmp_path / "test.md"
+    f.write_text('---\ntitle: "Test"\ndate: 2026-01-01\n---\n\nBody.\n')
+
+    update_markdown_frontmatter(f, "issue_url", "https://github.com/x/y/issues/1")
+
+    text = f.read_text()
+    assert 'issue_url: "https://github.com/x/y/issues/1"' in text
+    # Should be within frontmatter (before closing ---)
+    lines = text.split("\n")
+    fences = [i for i, ln in enumerate(lines) if ln.strip() == "---"]
+    issue_idx = next(i for i, ln in enumerate(lines) if "issue_url" in ln)
+    assert fences[0] < issue_idx < fences[1]
+
+
+def test_update_markdown_frontmatter_replaces_existing(tmp_path: Path) -> None:
+    f = tmp_path / "test.md"
+    f.write_text('---\ntitle: "Test"\nissue_url: "old"\n---\n\nBody.\n')
+
+    update_markdown_frontmatter(f, "issue_url", "new-url")
+
+    text = f.read_text()
+    assert 'issue_url: "new-url"' in text
+    assert "old" not in text
