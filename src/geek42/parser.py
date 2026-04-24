@@ -265,10 +265,11 @@ def scan_markdown_dir(dir_path: Path, source: str = "", item_type: str = "blog")
 
     items: list[NewsItem] = []
     for md_file in sorted(dir_path.glob("*.md")):
-        with contextlib.suppress(ParseError, OSError):
+        with contextlib.suppress(ParseError, OSError, json.JSONDecodeError):
             item = parse_markdown_file(md_file, source=source)
             # Apply default item_type if not explicitly set in frontmatter
             if item.item_type == "news" and item_type != "news":
                 item = item.model_copy(update={"item_type": item_type})
             items.append(item)
+    items.sort(key=lambda x: (x.posted, x.id))
     return items

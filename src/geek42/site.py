@@ -48,19 +48,26 @@ def pull_source(source: NewsSource, data_dir: Path, *, root_dir: Path | None = N
     return repo_dir
 
 
-def _scan_all_sources(repo_dir: Path, source: str, language: str) -> list[NewsItem]:
+def _scan_all_sources(
+    repo_dir: Path, source: str, language: str, news_dir: str = "news"
+) -> list[NewsItem]:
     """Scan all content sources in a repository.
 
-    Prefers the compiled Markdown feed (``news_dir`` or repo root) when
-    ``.md`` files with YAML frontmatter are present.  Falls back to
-    scanning raw ``.txt`` news items plus ``metadata/posts/`` and
-    ``metadata/glsa/`` source directories.
+    Prefers the compiled Markdown feed when ``.md`` files with YAML
+    frontmatter are present.  Checks the configured *news_dir* first,
+    then falls back to scanning raw source directories.
     """
-    # Try compiled feed first: check for date-prefixed .md files at root
-    # or in a news/ subdirectory.  Use item_type="news" so compiled items
-    # keep their original type from frontmatter (advisory/blog) and items
-    # without an explicit type stay as "news".
-    for feed_dir in (repo_dir, repo_dir / "news"):
+    # Try compiled feed in the configured output location
+    feed_candidates: list[Path] = []
+    if news_dir:
+        feed_candidates.append(repo_dir / news_dir)
+    else:
+        feed_candidates.append(repo_dir)
+    # Also check "news" as a common default if not already covered
+    if news_dir != "news":
+        feed_candidates.append(repo_dir / "news")
+
+    for feed_dir in feed_candidates:
         feed_items = scan_markdown_dir(feed_dir, source=source, item_type="news")
         if feed_items:
             return feed_items
@@ -101,7 +108,14 @@ def collect_items(
                         continue
         if not repo_dir.is_dir():
             continue
-        all_items.extend(_scan_all_sources(repo_dir, source=source.name, language=config.language))
+        all_items.extend(
+            _scan_all_sources(
+                repo_dir,
+                source=source.name,
+                language=config.language,
+                news_dir=config.news_dir,
+            )
+        )
     all_items.sort(key=lambda x: (x.posted, x.id), reverse=True)
     return all_items
 

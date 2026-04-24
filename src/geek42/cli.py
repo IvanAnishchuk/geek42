@@ -435,8 +435,8 @@ def compile_blog(
     """
     from .blog import compile_news
 
-    cfg = _load_config(config, None)
     root = path.resolve()
+    cfg = _load_config(config, root)
     out = news_dir if news_dir is not None else cfg.news_dir
     count = compile_news(root, news_dir=out, readme=readme, language=language)
     dest = out or "repo root"
@@ -630,7 +630,7 @@ def commit(
     """
     from .blog import compile_news
     from .manifest import generate_manifest
-    from .parser import NEWS_SUBDIR
+    from .parser import _ID_RE, NEWS_SUBDIR
 
     cfg = _load_config(config, directory)
     root = (directory or Path(".")).resolve()
@@ -651,10 +651,16 @@ def commit(
         str(NEWS_SUBDIR),
         "metadata/posts",
         "metadata/glsa",
-        cfg.news_dir or ".",
         "README.md",
         "Manifest",
     ]
+    if cfg.news_dir:
+        stage_paths.append(cfg.news_dir)
+    else:
+        # When compiling to repo root, stage only the generated .md files
+        for item_md in root.glob("*.md"):
+            if _ID_RE.match(item_md.stem):
+                stage_paths.append(item_md.name)
     for p in stage_paths:
         target = root / p
         if target.exists():
@@ -668,7 +674,7 @@ def commit(
         console.print(f"[green]Committed:[/] {message}")
     else:
         # Pre-commit may have modified files — re-stage and retry once
-        for p in (str(NEWS_SUBDIR), "news", "README.md"):
+        for p in stage_paths:
             if (root / p).exists():
                 _git(["add", p], root, capture_output=True, check=False)
         result = _git(["commit", "-m", message], root, capture_output=True, check=False)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from datetime import date
 
 from geek42.advisory import glsa_filename, news_to_glsa_xml
@@ -30,9 +31,13 @@ def test_glsa_xml_basic() -> None:
     assert "<severity>High</severity>" in xml
     assert "<name>dev-python/geek42</name>" in xml
     assert "<announced>2026-05-01</announced>" in xml
-    assert "CVE-2026-12345" in xml
-    assert "nvd.nist.gov" in xml
-    assert "0.5.0" in xml
+    root = ET.fromstring(xml)
+    uri = root.find(".//references/uri")
+    assert uri is not None
+    assert uri.text == "CVE-2026-12345"
+    assert uri.get("link") == "https://nvd.nist.gov/vuln/detail/CVE-2026-12345"
+    assert root.find(".//resolution/code") is not None
+    assert "0.5.0" in (root.findtext(".//resolution/p") or "")
 
 
 def test_glsa_xml_severity_mapping() -> None:
