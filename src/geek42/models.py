@@ -56,6 +56,26 @@ class NewsItem(BaseModel):
         default="",
         description="Logical name of the source repo (set by scan_repo).",
     )
+    item_type: str = Field(
+        default="news",
+        description="Content type: 'news', 'advisory', or 'blog'.",
+    )
+    advisory_severity: str = Field(
+        default="",
+        description="Severity level for advisory items (e.g. critical, high, medium, low).",
+    )
+    advisory_cves: list[str] = Field(
+        default_factory=list,
+        description="CVE identifiers for advisory items.",
+    )
+    advisory_affected: list[str] = Field(
+        default_factory=list,
+        description="Affected version ranges for advisory items.",
+    )
+    advisory_fixed: str = Field(
+        default="",
+        description="Version that fixes the advisory issue.",
+    )
 
 
 class NewsSource(BaseModel):
@@ -110,6 +130,10 @@ class SiteConfig(BaseModel):
     language: str = Field(
         default="en",
         description="Preferred language for selecting translated news items.",
+    )
+    news_dir: str = Field(
+        default="news",
+        description="Compiled Markdown output directory (empty string = repo root).",
     )
     signing_key: str = Field(
         default="",

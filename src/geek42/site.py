@@ -11,7 +11,7 @@ import jinja2
 from .errors import GitNotFoundError
 from .feeds import generate_atom, generate_rss
 from .models import NewsItem, NewsSource, SiteConfig
-from .parser import scan_repo
+from .parser import scan_markdown_dir, scan_repo
 from .renderer import body_to_html, write_markdown
 
 # Resolve git to an absolute path once at import time. This avoids S607
@@ -48,14 +48,50 @@ def pull_source(source: NewsSource, data_dir: Path, *, root_dir: Path | None = N
     return repo_dir
 
 
+def _scan_all_sources(
+    repo_dir: Path, source: str, language: str, news_dir: str = "news"
+) -> list[NewsItem]:
+    """Scan all content sources in a repository.
+
+    Prefers the compiled Markdown feed when ``.md`` files with YAML
+    frontmatter are present.  Checks the configured *news_dir* first,
+    then falls back to scanning raw source directories.
+    """
+    # Try compiled feed in the configured output location
+    feed_candidates: list[Path] = []
+    if news_dir:
+        feed_candidates.append(repo_dir / news_dir)
+    else:
+        feed_candidates.append(repo_dir)
+    # Also check "news" as a common default if not already covered
+    if news_dir != "news":
+        feed_candidates.append(repo_dir / "news")
+
+    for feed_dir in feed_candidates:
+        feed_items = scan_markdown_dir(feed_dir, source=source, item_type="news")
+        if feed_items:
+            return feed_items
+
+    # Fall back to raw sources
+    items: list[NewsItem] = []
+    items.extend(scan_repo(repo_dir, source=source, language=language))
+    items.extend(
+        scan_markdown_dir(repo_dir / "metadata" / "posts", source=source, item_type="blog")
+    )
+    items.extend(
+        scan_markdown_dir(repo_dir / "metadata" / "glsa", source=source, item_type="advisory")
+    )
+    return items
+
+
 def collect_items(
     config: SiteConfig, *, pull: bool = False, root_dir: Path | None = None
 ) -> list[NewsItem]:
     """Collect news items from all configured sources, sorted newest first.
 
-    If ``pull`` is true, each source is cloned/updated before scanning;
-    sources that fail to pull but have a cached clone are still scanned
-    from the cache. Sources with no cache are silently skipped.
+    For each source, prefers the compiled Markdown feed when available,
+    falling back to raw source scanning.  If ``pull`` is true, each
+    remote source is cloned/updated before scanning.
     """
     _root = (root_dir or Path(".")).resolve()
     all_items: list[NewsItem] = []
@@ -72,8 +108,14 @@ def collect_items(
                         continue
         if not repo_dir.is_dir():
             continue
-        items = scan_repo(repo_dir, source=source.name, language=config.language)
-        all_items.extend(items)
+        all_items.extend(
+            _scan_all_sources(
+                repo_dir,
+                source=source.name,
+                language=config.language,
+                news_dir=config.news_dir,
+            )
+        )
     all_items.sort(key=lambda x: (x.posted, x.id), reverse=True)
     return all_items
 

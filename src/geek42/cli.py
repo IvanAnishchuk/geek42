@@ -419,23 +419,29 @@ def _resolve_source(cfg: SiteConfig, name: str | None = None) -> NewsSource:
 
 @app.command("compile-blog")
 def compile_blog(
-    path: Annotated[Path, typer.Argument(help="Root of a GLEP 42 news repository.")] = Path("."),
+    path: Annotated[Path, typer.Argument(help="Root of a news repository.")] = Path("."),
     news_dir: Annotated[
-        str, typer.Option("--news-dir", "-d", help="Output directory for Markdown files.")
-    ] = "news",
+        str | None,
+        typer.Option("--news-dir", "-d", help="Output directory for compiled Markdown."),
+    ] = None,
     readme: Annotated[str, typer.Option("--readme", help="README file to update.")] = "README.md",
     language: Annotated[str, typer.Option("--language", "-l", help="Preferred language.")] = "en",
+    config: ConfigOption = Path("geek42.toml"),
 ) -> None:
-    """Compile news items into Markdown files and update the README index.
+    """Compile news, posts, and advisories into Markdown and update the README.
 
     Designed to run as a pre-commit hook so the repo doubles as a blog.
+    Sources: metadata/news/ (.txt), metadata/posts/ (.md), metadata/glsa/ (.md).
     """
     from .blog import compile_news
 
     root = path.resolve()
-    count = compile_news(root, news_dir=news_dir, readme=readme, language=language)
+    cfg = _load_config(config, root)
+    out = news_dir if news_dir is not None else cfg.news_dir
+    count = compile_news(root, news_dir=out, readme=readme, language=language)
+    dest = out or "repo root"
     if count:
-        console.print(f"[green]Compiled[/] {count} news item(s) -> {news_dir}/")
+        console.print(f"[green]Compiled[/] {count} item(s) -> {dest}")
     else:
         console.print("[yellow]No news items found.[/]")
 
@@ -624,7 +630,7 @@ def commit(
     """
     from .blog import compile_news
     from .manifest import generate_manifest
-    from .parser import NEWS_SUBDIR
+    from .parser import _ID_RE, NEWS_SUBDIR
 
     cfg = _load_config(config, directory)
     root = (directory or Path(".")).resolve()
@@ -635,14 +641,29 @@ def commit(
         raise typer.Exit(0)
 
     # Compile blog so the pre-commit hook is a no-op
-    compile_news(root, language=cfg.language)
+    compile_news(root, news_dir=cfg.news_dir, language=cfg.language)
 
     # Regenerate Manifest checksums
     generate_manifest(root)
 
     # Stage news items, compiled output, and Manifest
-    for p in (str(NEWS_SUBDIR), "news", "README.md", "Manifest"):
-        if (root / p).exists():
+    stage_paths = [
+        str(NEWS_SUBDIR),
+        "metadata/posts",
+        "metadata/glsa",
+        "README.md",
+        "Manifest",
+    ]
+    if cfg.news_dir:
+        stage_paths.append(cfg.news_dir)
+    else:
+        # When compiling to repo root, stage only the generated .md files
+        for item_md in root.glob("*.md"):
+            if _ID_RE.match(item_md.stem):
+                stage_paths.append(item_md.name)
+    for p in stage_paths:
+        target = root / p
+        if target.exists():
             _git(["add", p], root, capture_output=True, check=False)
 
     if message is None:
@@ -653,7 +674,7 @@ def commit(
         console.print(f"[green]Committed:[/] {message}")
     else:
         # Pre-commit may have modified files — re-stage and retry once
-        for p in (str(NEWS_SUBDIR), "news", "README.md"):
+        for p in stage_paths:
             if (root / p).exists():
                 _git(["add", p], root, capture_output=True, check=False)
         result = _git(["commit", "-m", message], root, capture_output=True, check=False)
