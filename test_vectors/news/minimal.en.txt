@@ -1,0 +1,7 @@
+Title: Minimal
+Author: Dev <dev@gentoo.org>
+Posted: 2026-01-01
+Revision: 1
+News-Item-Format: 2.0
+
+Body.

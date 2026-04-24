@@ -27,6 +27,8 @@ dependencies = [
     "rich>=13.0",
     "markdown>=3.5",
     "gemato>=20",
+    "structlog>=24.0",
+    "nh3>=0.2",
 ]
 
 [project.urls]
@@ -47,6 +49,11 @@ dev = [
     "ty",
     "pytest>=8.0",
     "pytest-cov>=6.0",
+    "pytest-console-scripts>=1.4",
+    "pytest-xdist>=3",
+    "hypothesis>=6.100",
+    "beautifulsoup4>=4.12",
+    "mutmut>=3.5",
     "pip-audit>=2.7",
     "pre-commit>=4.0",
     "pypi-attestations>=0.0.18",
@@ -100,6 +107,7 @@ ignore = [
     "S607",  # partial git path in test setup
     "S314",  # xml.etree is fine for parsing our own generated test output
     "BLE001", # broad Exception in test fixtures
+    "T20",   # print is useful in test debugging
 ]
 
 [tool.pytest.ini_options]
@@ -111,10 +119,18 @@ addopts = [
     "--cov-report=xml:.reports/test/coverage.xml",
     "--junitxml=.reports/test/test-results.xml",
     "-ra",
+    "-W", "error::ResourceWarning",
+    "--strict-markers",
+    "--strict-config",
 ]
 junit_family = "xunit2"
 junit_logging = "all"
 junit_log_passing_tests = false
+markers = [
+    "slow: marks tests that do I/O or subprocess work",
+    "requires_gemato: tests requiring gemato binary",
+    "requires_gh: tests requiring gh CLI",
+]
 
 [tool.coverage.run]
 source_pkgs = ["geek42"]
@@ -122,11 +138,23 @@ branch = true
 relative_files = true
 
 [tool.coverage.report]
-fail_under = 75
+fail_under = 88
 show_missing = true
 exclude_lines = [
     "if __name__",
     "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "^\\s*\\.\\.\\.\\s*$",
+]
+
+[tool.mutmut]
+paths_to_mutate = ["src/geek42/"]
+tests_dir = ["tests/"]
+also_copy = ["test_vectors/"]
+pytest_add_cli_args = [
+    "--no-cov",
+    "--override-ini=addopts=",
+    "-W", "default::ResourceWarning",
 ]
 
 [tool.ty.environment]

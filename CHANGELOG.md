@@ -12,6 +12,32 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 - Research document analyzing multi-platform supply-chain verification
   support (GitLab, Bitbucket, Codeberg/Gitea, SourceHut, GCP Cloud Build).
+- Structured JSON logging via `structlog`. New global CLI flags:
+  `--json` (emit JSON log lines) and `--verbose`/`-v` (debug output).
+- `nh3` HTML sanitizer for safe HTML output. `body_to_html()` now strips
+  dangerous elements (`<script>`, event handlers, `javascript:` URLs)
+  while preserving Markdown-generated HTML.
+- Comprehensive test suite expansion (158 -> 248 tests, 79% -> 94% coverage):
+  - CLI command tests for all 15 commands (compile-blog, lint, sign,
+    verify, commit, push, deploy-status now covered).
+  - CLI helper function tests (`_detect_news_changes`, `_news_commit_message`,
+    `_git`).
+  - Entry point and console-scripts verification.
+  - HTML/Markdown safety tests with XSS vector validation.
+  - Property-based tests with Hypothesis for parser, renderer, and slug
+    generation.
+  - Parametrized test vectors for valid and malicious GLEP 42 news files.
+  - Full-cycle integration tests (init -> compile -> build -> verify).
+  - Read/unread tracker integration tests.
+  - Structured logging tests.
+- New dev dependencies: `hypothesis`, `pytest-console-scripts`,
+  `pytest-xdist`, `beautifulsoup4`, `mutmut`.
+- Git isolation fixture (autouse) prevents tests from using user's
+  global git config or signing keys.
+- Test markers: `slow`, `requires_gemato`, `requires_gh`.
+- `--strict-markers` and `--strict-config` pytest enforcement.
+- `-W error::ResourceWarning` catches unclosed files/sockets in tests.
+- `[tool.mutmut]` configuration for mutation testing.
 
 ### Removed
 
@@ -29,9 +55,16 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
   (`coverage-comment.yml`) triggered by test completion.
 - Coverage PR comments now include branch/conditional coverage metrics.
 - Enable inline annotations on lines with missing coverage in PRs.
+- Coverage floor raised from 75% to 88%.
 
 ### Fixed
 
+- **Security:** Fix XSS vulnerability in `body_to_html()` — user-authored
+  `<script>` tags in news body text were passed through to the HTML site
+  via `{{ body_html | safe }}` in the Jinja2 template. Now sanitized
+  with `nh3.clean()`.
+- Fix Markdown table injection in blog index — pipe characters in news
+  titles are now escaped in `_render_index()`.
 - Fix `download_release.py` crash when `dist/` contains subdirectories (#118).
 
 ## [0.4.2a10] - 2026-04-16

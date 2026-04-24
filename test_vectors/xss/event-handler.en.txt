@@ -1,0 +1,9 @@
+Title: XSS Event Handler
+Author: Dev <dev@gentoo.org>
+Posted: 2026-01-01
+Revision: 1
+News-Item-Format: 2.0
+
+Normal text.
+<img src=x onerror=alert(1)>
+More text.

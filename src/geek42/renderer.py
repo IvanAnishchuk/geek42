@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import markdown as md
+import nh3
 
 from .models import NewsItem
 
@@ -46,9 +47,15 @@ def news_to_markdown(item: NewsItem) -> str:
 
 
 def body_to_html(body: str) -> str:
-    """Convert plain-text body to HTML with auto-linked URLs."""
+    """Convert plain-text body to sanitized HTML with auto-linked URLs.
+
+    The output is safe for embedding via Jinja2's ``| safe`` filter.
+    ``nh3`` strips dangerous elements (``<script>``, event handlers,
+    ``javascript:`` URLs) while preserving Markdown-generated HTML.
+    """
     text = _URL_RE.sub(r"<\1>", body)
-    return md.markdown(text, extensions=["smarty"])
+    raw = md.markdown(text, extensions=["smarty"])
+    return nh3.clean(raw)
 
 
 def write_markdown(item: NewsItem, output_dir: Path) -> Path:

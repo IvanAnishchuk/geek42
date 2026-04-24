@@ -42,6 +42,11 @@ _INDEX_RE = re.compile(
 )
 
 
+def _escape_md_table(text: str) -> str:
+    """Escape characters that break Markdown table cells or link syntax."""
+    return text.replace("\\", "\\\\").replace("|", "\\|").replace("[", "\\[").replace("]", "\\]")
+
+
 def _render_index(items: list[NewsItem], news_dir: str) -> str:
     """Build the Markdown index block (including sentinel comments)."""
     lines = [
@@ -53,8 +58,10 @@ def _render_index(items: list[NewsItem], news_dir: str) -> str:
     ]
     for item in items:
         author = item.authors[0].split("<")[0].strip() if item.authors else ""
-        link = f"[{item.title}]({news_dir}/{item.id}.md)"
-        lines.append(f"| {item.posted} | {link} | {author} |")
+        safe_title = _escape_md_table(item.title)
+        safe_author = _escape_md_table(author)
+        link = f"[{safe_title}]({news_dir}/{item.id}.md)"
+        lines.append(f"| {item.posted} | {link} | {safe_author} |")
     lines += ["", _INDEX_END]
     return "\n".join(lines)
 

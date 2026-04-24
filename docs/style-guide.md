@@ -62,6 +62,9 @@ Conventions not enforced by ruff:
 - Subprocess calls: resolve executables via `shutil.which()` to
   absolute paths (S607 compliance). Annotate with `# noqa: S603`
   when args are controlled.
+- All `# noqa` comments must include a justification after the code,
+  e.g. `# noqa: S603 — args are list literals, no shell`. Bare
+  `# noqa: CODE` without explanation is not acceptable.
 
 ## News item style (GLEP 42)
 
