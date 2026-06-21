@@ -1,0 +1,47 @@
+header:
+  schema-version: 1.0.0
+  expiry-date: '2027-05-11T07:09:28Z'
+  last-updated: '2026-05-11T07:09:28Z'
+  last-reviewed: '2026-05-11T07:09:28Z'
+  commit-hash: 98dad05ee8176b70c531e01b7b2cfefa7af0f5e3
+  changelog: CHANGELOG.md
+project-lifecycle:
+  status: active
+  bug-fixes-only: false
+contribution-policy:
+  accepts-pull-requests: true
+  accepts-automated-pull-requests: true
+  contributing-policy: CONTRIBUTING.md
+documentation:
+  README: README.md
+security-artifacts:
+  security-policy: SECURITY.md
+  signing:
+    enabled: true
+    tool: Sigstore
+security-testing:
+- tool-type: sast
+  tool-name: CodeQL
+  tool-url: https://codeql.github.com/
+  integration:
+    ci: true
+    before-release: false
+- tool-type: scorecard
+  tool-name: OpenSSF Scorecard
+  tool-url: https://securityscorecards.dev/
+  integration:
+    ci: true
+    before-release: false
+vulnerability-reporting:
+  accepts-vulnerability-reports: true
+  security-policy: SECURITY.md
+dependencies:
+  third-party-packages: true
+  dependencies-lists:
+  - requirements.txt
+  - pyproject.toml
+  automated-dependency-management:
+    enabled: true
+  sbom:
+  - sbom-type: build
+    sbom-format: spdx

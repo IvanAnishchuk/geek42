@@ -10,6 +10,10 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ### Added
 
+- **OpenSSF governance**: added a `SECURITY-INSIGHTS.yml` manifest (OpenSSF
+  Security Insights v1) and a `.github/BRANCH_PROTECTION.md` setup guide, and
+  pulled in `ossguard` as a dev tool for bootstrapping/scanning against OpenSSF
+  best practices.
 - **Unified Markdown feed**: `compile-blog` now scans three content sources
   under `metadata/` — GLEP 42 news (`.txt`), blog posts (`metadata/posts/`),
   and security advisories (`metadata/glsa/`) — and compiles them into a
