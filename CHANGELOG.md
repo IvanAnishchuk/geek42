@@ -10,6 +10,12 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 
 ### Added
 
+- **`publish` command**: `geek42 publish <id>` opens (or updates) a GitHub
+  issue for a news item; with `--release` it also cuts a `news/{id}` tag and
+  GitHub Release. The resulting issue/release URLs are written back to the
+  source `.txt` as `Issue-URL`/`Release-Tag` headers and surface as "Discuss
+  on GitHub"/"Release" links in the post footer. New `github.py` wraps `gh`
+  over subprocess; requires `github_repo` set in `geek42.toml`.
 - **Unified Markdown feed**: `compile-blog` now scans three content sources
   under `metadata/` — GLEP 42 news (`.txt`), blog posts (`metadata/posts/`),
   and security advisories (`metadata/glsa/`) — and compiles them into a
