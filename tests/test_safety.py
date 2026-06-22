@@ -77,7 +77,7 @@ class TestUrlAutoLinker:
         html = body_to_html('Check https://x.com"onclick="alert(1) for info')
         soup = BeautifulSoup(html, "html.parser")
         # No element should have an onclick attribute
-        assert soup.find(attrs={"onclick": True}) is None, "onclick must not appear as an attribute"
+        assert soup.find(onclick=True) is None, "onclick must not appear as an attribute"
 
     def test_url_with_angle_bracket_injection(self) -> None:
         html = body_to_html("Check https://x.com><script>alert(1)</script> end")
