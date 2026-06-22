@@ -26,7 +26,7 @@ uv run pre-commit install --hook-type pre-push
 
 | Script | Command | Purpose |
 |--------|---------|---------|
-| Regenerate requirements | `uv run python scripts/regen_requirements.py` | Rewrites `requirements.txt` + `requirements-dev.txt` from `uv.lock` (hash-pinned, committed) |
+| Export requirements | `uv run python scripts/regen_requirements.py --stdout` | Exports prod requirements from `uv.lock` on demand (also `--output-dir DIR` for both files). Never committed — `uv.lock` is the source of truth |
 | Supply-chain audit | `uv run python scripts/audit.py` | Runs the same checks as the CI `audit` job locally |
 
 ### Pre-commit hooks
@@ -39,8 +39,8 @@ Once installed, the hooks run automatically on `git commit` and
   - `ruff format`
   - `ty check` (type checking)
   - `uv lock` (sync lockfile with pyproject.toml)
-  - `regen-requirements` (auto-regenerates `requirements*.txt` when
-    `pyproject.toml` or `uv.lock` changes)
+  - `regen-badges` (regenerates badge JSON when `pyproject.toml` or
+    `uv.lock` changes)
   - `gitleaks` (secret detection)
   - Whitespace, EOF, mixed line endings
   - YAML/TOML/JSON validity

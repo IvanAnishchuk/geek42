@@ -43,13 +43,6 @@ jobs:
         run: uv run python scripts/audit.py
         continue-on-error: true
 
-      - name: Copy committed requirements into reports dir
-        if: always()
-        run: |
-          mkdir -p "${REPORTS_DIR}/audit"
-          cp requirements.txt "${REPORTS_DIR}/audit/requirements.txt" 2>/dev/null || echo "WARNING: requirements.txt not found"
-          cp requirements-dev.txt "${REPORTS_DIR}/audit/requirements-dev.txt" 2>/dev/null || echo "WARNING: requirements-dev.txt not found"
-
       - name: Write audit summary
         if: always()
         run: |
@@ -66,10 +59,6 @@ jobs:
             if [ -f "${REPORTS_DIR}/audit/sbom.cdx.json" ]; then
               components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom.cdx.json")
               echo "| SBOM (prod) components | $components |"
-            fi
-            if [ -f "${REPORTS_DIR}/audit/sbom-dev.cdx.json" ]; then
-              components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom-dev.cdx.json")
-              echo "| SBOM (prod + dev) components | $components |"
             fi
             echo ""
             if [ -s "${REPORTS_DIR}/audit/pip-audit.log" ]; then
@@ -98,8 +87,6 @@ jobs:
           name: dependency-audit
           path: |
             .reports/audit/
-            requirements.txt
-            requirements-dev.txt
           retention-days: 90  # SBOM retained for compliance window
 
       - name: Fail if audit script reported errors

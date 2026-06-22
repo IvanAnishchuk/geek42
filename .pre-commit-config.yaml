@@ -65,12 +65,13 @@ repos:
         types: [python]
 
   # --------------------------------------------------------------
-  # uv lockfile is always in sync with pyproject.toml; requirements
-  # files and badges are auto-regenerated when pyproject.toml or
-  # uv.lock changes.
+  # uv lockfile is always in sync with pyproject.toml; badge JSON
+  # is auto-regenerated when pyproject.toml or uv.lock changes.
+  # requirements*.txt are NOT committed -- uv.lock is the single
+  # source of truth and scripts/audit.py exports them ephemerally.
   # --------------------------------------------------------------
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.7
+    rev: 0.11.23
     hooks:
       - id: uv-lock
 
@@ -82,14 +83,6 @@ repos:
         language: system
         files: ^(pyproject\.toml|src/geek42/__init__\.py)$
         pass_filenames: false
-
-      - id: regen-requirements
-        name: regenerate requirements.txt and requirements-dev.txt
-        entry: uv run python scripts/regen_requirements.py
-        language: system
-        files: ^(pyproject\.toml|uv\.lock)$
-        pass_filenames: false
-        require_serial: true
 
       - id: regen-badges
         name: regenerate badge JSON files

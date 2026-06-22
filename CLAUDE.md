@@ -74,9 +74,12 @@ Version must be updated in ALL of these files simultaneously:
 After updating `pyproject.toml`, always run:
 ```bash
 uv lock
-uv run python scripts/regen_requirements.py
 uv run python scripts/gen_ebuild.py          # generates versioned ebuild from -9999 template
 ```
+`uv.lock` is the single source of truth for dependencies — `requirements*.txt`
+are no longer committed. `scripts/audit.py` exports them ephemerally for
+pip-audit/SBOM; `scripts/regen_requirements.py --stdout`/`--output-dir` writes
+them only to git-ignored locations when a build or release artifact needs them.
 
 ### PEP 440 version format
 
@@ -108,7 +111,7 @@ uv run python scripts/gen_ebuild.py          # generates versioned ebuild from -
 1. Create `release/{version}` branch from main
 2. Bump version in ALL files listed above
 3. Update `CHANGELOG.md`
-4. Run `uv lock` + `uv run python scripts/regen_requirements.py`
+4. Run `uv lock` (regenerates the lockfile; no requirements files to commit)
 5. Commit, push, create PR
 6. Wait for CI, address review comments, merge (`--admin` OK for owner's own PRs)
 7. Create signed tag: `git tag -s v{version} -m "Release v{version}"`
@@ -159,7 +162,8 @@ This applies to all reviewers: Copilot, Gemini Code Assist, CodeRabbit, and huma
 - All `# noqa` comments must document why the suppression is necessary
 - Prefer narrow exception types over broad `Exception` catches
 - Validate external inputs (URLs, version strings) before use
-- `uv.lock` and `requirements*.txt` are always committed
+- `uv.lock` is always committed; `requirements*.txt` are never committed
+  (exported on demand from `uv.lock` — see Version management)
 - Run `uv run pre-commit run --all-files` before pushing
 - After `sed` or other non-interactive bulk edits, always review
   `git diff` before committing to verify no unintended changes

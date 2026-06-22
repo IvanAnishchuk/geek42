@@ -77,6 +77,12 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - `scripts/download_artifacts.py` and `scripts/download_proofs.py`
   (moved to pyscv repo).
 - `httpx` removed from production dependencies (only used by pyscv).
+- Committed `requirements.txt` / `requirements-dev.txt` — `uv.lock` is now the
+  single source of truth and requirements are exported on demand, never
+  committed.
+- `dependabot-regen.yml` workflow — it pushed regenerated requirements back to
+  Dependabot PR branches with `GITHUB_TOKEN`, which never re-triggers CI, so
+  security-relevant bumps could land unaudited.
 
 ### Changed
 
@@ -87,6 +93,12 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - Coverage PR comments now include branch/conditional coverage metrics.
 - Enable inline annotations on lines with missing coverage in PRs.
 - Coverage floor raised from 75% to 88%.
+- **Dependency hygiene:** `scripts/audit.py` now exports requirements
+  ephemerally into a tempdir for `pip-audit` / SBOM instead of reading
+  committed files, and `scripts/regen_requirements.py` gained `--stdout` and
+  `--output-dir` modes that target git-ignored locations only.
+- Upgraded all locked dependencies to current releases (`uv lock --upgrade`),
+  including `rich` 14 → 15, `structlog` 25 → 26, and `typer` 0.24 → 0.26.
 
 ### Fixed
 
@@ -97,6 +109,18 @@ for alpha, `0.4.2b1` for beta, `0.4.2c1` for release candidate).
 - Fix Markdown table injection in blog index — pipe characters in news
   titles are now escaped in `_render_index()`.
 - Fix `download_release.py` crash when `dist/` contains subdirectories (#118).
+- Release SBOM (`release.yml`) now exports **prod-only** requirements — the
+  `--no-dev` flag was missing, so the published CycloneDX SBOM previously
+  included development dependencies.
+
+### Security
+
+- Cleared known vulnerabilities in dev/transitive dependencies by upgrading:
+  `cryptography` 46.0.7 → 48.0.1 (GHSA-537c-gmf6-5ccf), `msgpack` 1.1.2 → 1.2.1
+  (GHSA-6v7p-g79w-8964, unpacker DoS), `pyjwt` 2.12.1 → 2.13.0 (JWKS-fetch DoS),
+  `urllib3` 2.6.3 → 2.7.0, and `pip` 26.0.1 → 26.1.2 (CVE-2026-3219,
+  CVE-2026-6357). `pip-audit --strict` now reports no known vulnerabilities in
+  prod or dev.
 
 ## [0.4.2a10] - 2026-04-16
 
