@@ -89,6 +89,67 @@ def parse_news_file(path: Path, source: str = "") -> NewsItem:
     )
 
 
+def update_news_header(path: Path, key: str, value: str) -> None:
+    """Add or update a header in a GLEP 42 ``.txt`` file.
+
+    Inserts the header before the blank line separating headers from
+    body.  If the header already exists, its value is replaced.
+    """
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+    new_line = f"{key}: {value}"
+
+    # Check if header already exists and replace it
+    for i, line in enumerate(lines):
+        m = _HEADER_RE.match(line)
+        if m and m.group(1) == key:
+            lines[i] = new_line
+            path.write_text("\n".join(lines), encoding="utf-8")
+            return
+
+    # Insert before the first blank line (header/body separator)
+    for i, line in enumerate(lines):
+        if line.strip() == "":
+            lines.insert(i, new_line)
+            path.write_text("\n".join(lines), encoding="utf-8")
+            return
+
+    # No blank line found — append to end of headers
+    lines.append(new_line)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def update_markdown_frontmatter(path: Path, key: str, value: str) -> None:
+    """Add or update a field in Markdown YAML frontmatter."""
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+
+    if not lines or lines[0].strip() != "---":
+        return
+
+    # Find closing fence
+    end_fence = None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end_fence = i
+            break
+    if end_fence is None:
+        return
+
+    new_line = f'{key}: "{value}"'
+
+    # Check if key already exists in frontmatter and replace
+    for i in range(1, end_fence):
+        if re.match(rf"^{re.escape(key)}\s*:", lines[i]):
+            lines[i] = new_line
+            path.write_text("\n".join(lines), encoding="utf-8")
+            return
+
+    # Insert before closing fence
+    lines.insert(end_fence, new_line)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def resolve_news_root(repo_path: Path) -> Path:
     """Return the directory containing news item directories.
 

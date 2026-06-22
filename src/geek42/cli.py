@@ -686,6 +686,70 @@ def commit(
 
 
 @app.command()
+def publish(
+    item_id: Annotated[str, typer.Argument(help="News item ID (or substring).")],
+    release: Annotated[
+        bool, typer.Option("--release", help="Also create a GitHub release.")
+    ] = False,
+    config: ConfigOption = Path("geek42.toml"),
+    directory: DirectoryOption = None,
+) -> None:
+    """Create a GitHub issue (and optionally a release) for a news item."""
+    from .github import create_issue, create_release, find_issue, update_issue
+
+    cfg = _load_config(config, directory)
+    if not cfg.github_repo:
+        err_console.print("[red]Set github_repo in geek42.toml first.[/]")
+        raise typer.Exit(1)
+
+    root = (directory or Path(".")).resolve()
+    items = collect_items(cfg, pull=False, root_dir=root)
+    matches = [i for i in items if item_id in i.id]
+    if not matches:
+        raise ItemNotFoundError(item_id)
+    item = matches[0]
+
+    # Find or create issue
+    existing = find_issue(cfg.github_repo, item.id, root)
+    if existing:
+        console.print(f"Issue #{existing} already exists — updating.")
+        update_issue(cfg.github_repo, existing, item, root)
+        issue_url = f"https://github.com/{cfg.github_repo}/issues/{existing}"
+    else:
+        issue_url = create_issue(cfg.github_repo, item, root, base_url=cfg.base_url)
+        console.print(f"[green]Created issue:[/] {issue_url}")
+
+    # Write Issue-URL back to source file
+    _write_back_header(root, item, "Issue-URL", "issue_url", issue_url)
+
+    # Optionally create release
+    if release:
+        release_tag = f"news/{item.id}"
+        release_url = create_release(cfg.github_repo, item, root)
+        console.print(f"[green]Created release:[/] {release_url}")
+        _write_back_header(root, item, "Release-Tag", "release_tag", release_tag)
+
+
+def _write_back_header(root: Path, item: NewsItem, header: str, fm_key: str, value: str) -> None:
+    """Write a header/field back to the source file (GLEP 42 .txt or .md)."""
+    from .parser import NEWS_SUBDIR, update_markdown_frontmatter, update_news_header
+
+    # Try GLEP 42 .txt source
+    txt_dir = root / NEWS_SUBDIR / item.id
+    if txt_dir.is_dir():
+        for txt in txt_dir.glob(f"{item.id}.*.txt"):
+            update_news_header(txt, header, value)
+            return
+
+    # Try advisory/post .md source
+    for subdir in ("metadata/glsa", "metadata/posts"):
+        md_path = root / subdir / f"{item.id}.md"
+        if md_path.exists():
+            update_markdown_frontmatter(md_path, fm_key, value)
+            return
+
+
+@app.command()
 def push(
     directory: DirectoryOption = None,
 ) -> None:

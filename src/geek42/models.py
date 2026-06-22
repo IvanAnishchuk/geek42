@@ -115,6 +115,10 @@ class SiteConfig(BaseModel):
         default="",
         description="Default author shown in the Atom feed.",
     )
+    github_repo: str = Field(
+        default="",
+        description="GitHub owner/repo for issue and release integration.",
+    )
     sources: list[NewsSource] = Field(
         default_factory=lambda: [NewsSource(name="local", url=".")],
         description='News sources. Use url="." for the current repo (default).',

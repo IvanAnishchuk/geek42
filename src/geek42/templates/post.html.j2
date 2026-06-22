@@ -77,6 +77,14 @@
             <a href="{{ root }}/">&larr; All news</a>
             &middot;
             <a href="{{ root }}/markdown/{{ item.id }}.md" download>Markdown</a>
+            {% if item.issue_url %}
+            &middot;
+            <a href="{{ item.issue_url }}">Discuss on GitHub</a>
+            {% endif %}
+            {% if item.release_tag and config.github_repo %}
+            &middot;
+            <a href="https://github.com/{{ config.github_repo }}/releases/tag/{{ item.release_tag }}">Release</a>
+            {% endif %}
         </nav>
     </footer>
 
