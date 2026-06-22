@@ -60,10 +60,6 @@ jobs:
               components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom.cdx.json")
               echo "| SBOM (prod) components | $components |"
             fi
-            if [ -f "${REPORTS_DIR}/audit/sbom-dev.cdx.json" ]; then
-              components=$(jq '.components | length' "${REPORTS_DIR}/audit/sbom-dev.cdx.json")
-              echo "| SBOM (prod + dev) components | $components |"
-            fi
             echo ""
             if [ -s "${REPORTS_DIR}/audit/pip-audit.log" ]; then
               echo "<details><summary>pip-audit (prod) output</summary>"
