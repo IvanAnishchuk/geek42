@@ -48,7 +48,7 @@ def fail(msg: str) -> None:
 
 
 def run_capture(cmd: list[str]) -> tuple[int, str]:
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # noqa: S603 - fixed argv list, no shell, no user input
         cmd,
         capture_output=True,
         text=True,

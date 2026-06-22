@@ -31,10 +31,12 @@ def export(*, include_dev: bool) -> str:
     cmd = ["uv", "export", "--format", "requirements-txt", "--no-emit-project"]
     if not include_dev:
         cmd.append("--no-dev")
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT, check=False)  # noqa: S603
+    result = subprocess.run(  # noqa: S603 - fixed argv list, no shell, no user input
+        cmd, capture_output=True, text=True, cwd=REPO_ROOT, check=False
+    )
     if result.returncode != 0:
-        logger.error(result.stderr)
-        sys.exit(result.returncode)
+        msg = f"uv export failed ({result.returncode}): {result.stderr.strip()}"
+        raise RuntimeError(msg)
     return result.stdout
 
 
